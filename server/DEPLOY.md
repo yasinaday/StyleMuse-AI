@@ -1,4 +1,6 @@
-# StyleMuse API – VPS pilot
+# Historical StyleMuse API pilot notes
+
+SUPERSEDED: these notes describe the earlier API, not the current deployment. See ACCEPTANCE.md for current endpoints, Docker/HTTPS deployment, tests and disabled production gate.
 
 1. Use a separate directory/container from SciVora; do not restart existing services.
 2. Choose and verify a Replicate model with a compatible image/prompt input schema and an output that actually segments garments. SAM 2 alone does not classify garments. The generic adapter is not production-ready until this validation.

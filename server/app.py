@@ -1,83 +1,243 @@
-import base64
+"""Private StyleMuse API; disabled unless explicitly configured."""
 import os
 import secrets
+from dataclasses import dataclass
+import base64
+import hashlib
+import json
 import time
-from collections import defaultdict, deque
 from io import BytesIO
+from PIL import Image, ImageOps
+from math import sqrt
+from pydantic import BaseModel, Field, ConfigDict
+from store import Store, units
 
-import httpx
-from fastapi import FastAPI, Header, HTTPException, Request
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
-from PIL import Image, UnidentifiedImageError
+class GenerateRequest(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    job_id: str = Field(min_length=1,max_length=128)
+    item_ids: list[str] = Field(min_length=1,max_length=20)
+    confirmed: bool = Field(default=False, strict=True)
+    max_total_usd: float = Field(default=0,ge=0,allow_inf_nan=False)
 
-REPLICATE_TOKEN = os.getenv("REPLICATE_API_TOKEN", "")
-ACCESS_TOKEN = os.getenv("STYLEMUSE_ACCESS_TOKEN", "")
-MODEL = os.getenv("REPLICATE_MODEL", "")
-ORIGIN = os.getenv("STYLEMUSE_ORIGIN", "https://yasinaday.github.io")
-MAX_BYTES = 6 * 1024 * 1024
-MAX_CALLS = int(os.getenv("STYLEMUSE_HOURLY_LIMIT", "15"))
-requests_by_client = defaultdict(deque)
+class DetectRequest(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    image: str
+    request_id: str = Field(min_length=1, max_length=128, pattern=r'^[a-zA-Z0-9_-]+$')
+    confirmed: bool = Field(default=False, strict=True)
+    max_total_usd: float = Field(default=0, ge=0, allow_inf_nan=False)
 
-app = FastAPI(title="StyleMuse private image analysis API", docs_url=None, redoc_url=None)
-app.add_middleware(CORSMiddleware, allow_origins=[ORIGIN], allow_methods=["POST", "GET"], allow_headers=["Authorization", "Content-Type"])
-
-class AnalyzeRequest(BaseModel):
-    image: str = Field(min_length=50, max_length=9_000_000)
-    prompt: str = Field(default="shirt, trousers, dress, shoes, handbag", max_length=300)
-
-def authenticate(authorization):
-    if not ACCESS_TOKEN or not REPLICATE_TOKEN or not MODEL:
-        raise HTTPException(503, "Sunucu henüz yapılandırılmadı")
-    if not authorization or not authorization.startswith("Bearer ") or not secrets.compare_digest(authorization[7:], ACCESS_TOKEN):
-        raise HTTPException(401, "Yetkisiz istek")
-
-def validate_image(data_uri):
-    if not (data_uri.startswith("data:image/jpeg;base64,") or data_uri.startswith("data:image/png;base64,")):
-        raise HTTPException(422, "Yalnızca JPEG ve PNG kabul edilir")
+def normalize(uri, s, *, preserve_alpha=False, upload=False):
     try:
-        raw = base64.b64decode(data_uri.split(",", 1)[1], validate=True)
-        if len(raw) > MAX_BYTES:
-            raise HTTPException(413, "Fotoğraf 6 MB sınırını aşıyor")
+        if not isinstance(uri, str) or not uri.startswith(('data:image/png;base64,', 'data:image/jpeg;base64,')):
+            raise ValueError()
+        if len(uri) > s.max_image_bytes*4//3+100:
+            raise ValueError()
+        raw = base64.b64decode(uri.split(',', 1)[1], validate=True)
+        if len(raw) > s.max_image_bytes:
+            raise ValueError()
         with Image.open(BytesIO(raw)) as im:
-            if im.format not in ("JPEG", "PNG") or im.width * im.height > 16_000_000:
-                raise HTTPException(422, "Desteklenmeyen görüntü")
-            im.verify()
-    except (ValueError, UnidentifiedImageError, OSError):
-        raise HTTPException(422, "Geçersiz fotoğraf")
-    return data_uri
+            if im.format not in ('PNG', 'JPEG') or im.width*im.height > s.max_pixels:
+                raise ValueError()
+            im.load()
+            if upload:
+                # Normalize once before hashing, storing, or detecting: masks and
+                # later generation references share this exact coordinate space.
+                im = ImageOps.exif_transpose(im)
+                limit = 1_048_576
+                if im.width * im.height > limit:
+                    scale = sqrt(limit / (im.width * im.height))
+                    size = (max(1, min(limit, int(im.width * scale))),
+                            max(1, min(limit, int(im.height * scale))))
+                    im = im.resize(size, Image.Resampling.LANCZOS)
+            b = BytesIO()
+            im.convert('RGBA' if preserve_alpha else 'RGB').save(b, 'PNG')
+        if len(b.getvalue()) > s.max_image_bytes:
+            raise ValueError()
+        return 'data:image/png;base64,'+base64.b64encode(b.getvalue()).decode()
+    except Exception:
+        raise HTTPException(422, 'invalid_image') from None
+from fastapi import FastAPI, Header, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.exceptions import RequestValidationError
+from starlette.responses import JSONResponse
 
-@app.get("/health")
-def health():
-    return {"status": "ok", "configured": bool(REPLICATE_TOKEN and ACCESS_TOKEN and MODEL)}
+class BoundedBody:
+    def __init__(self, app, limit):
+        self.app, self.limit = app, limit
+    async def __call__(self, scope, receive, send):
+        if scope['type'] != 'http':
+            return await self.app(scope,receive,send)
+        chunks = []
+        total = 0
+        while True:
+            message = await receive()
+            if message['type'] == 'http.disconnect':
+                return
+            chunk = message.get('body', b'')
+            total += len(chunk)
+            if total > self.limit:
+                return await JSONResponse({'error':'request_too_large'},status_code=413)(scope,receive,send)
+            chunks.append(chunk)
+            if not message.get('more_body',False):
+                break
+        async def replay():
+            return {'type':'http.request','body':b''.join(chunks),'more_body':False}
+        await self.app(scope,replay,send)
 
-@app.post("/v1/analyze")
-async def analyze(payload: AnalyzeRequest, request: Request, authorization: str | None = Header(default=None)):
-    authenticate(authorization)
-    image = validate_image(payload.image)
-    client_id = request.client.host if request.client else "unknown"
-    bucket = requests_by_client[client_id]
-    now = time.monotonic()
-    while bucket and now - bucket[0] > 3600:
-        bucket.popleft()
-    if len(bucket) >= MAX_CALLS:
-        raise HTTPException(429, "Saatlik test limiti doldu")
-    bucket.append(now)
-    owner, sep, name = MODEL.partition("/")
-    if not sep or not owner or not name:
-        raise HTTPException(503, "Model tanımı geçersiz")
-    # Input schema differs by Replicate model; verify model contract before enabling paid calls.
-    async with httpx.AsyncClient(timeout=45) as client_http:
+def public_result(jid, items):
+    return {'job_id':jid, 'items':[{k:i[k] for k in ('id','preview','category')} for i in items]}
+
+@dataclass
+class Settings:
+    access_token: str = ''
+    origin: str = 'https://yasinaday.github.io'
+    enabled: bool = False
+    lifetime_budget_usd: float = 0
+    detect_reservation_usd: float = .05
+    generation_reservation_usd: float = .1
+    db_path: str = '/var/lib/stylemuse/state.sqlite'
+    storage_dir: str = '/var/lib/stylemuse/images'
+    max_storage_bytes: int = 134217728
+    session_ttl_seconds: int = 86400
+    max_request_bytes: int = 9000000
+    max_image_bytes: int = 6291456
+    max_pixels: int = 16000000
+
+    @classmethod
+    def from_env(cls):
+        import math
+        from dataclasses import fields
+        settings = cls()
+        for field in fields(cls):
+            value = os.environ.get('STYLEMUSE_' + field.name.upper())
+            if value is None:
+                continue
+            try:
+                if field.type is bool:
+                    if value not in ('true', 'false'):
+                        raise ValueError()
+                    value = value == 'true'
+                else:
+                    value = field.type(value)
+                if field.type in (int, float):
+                    if not math.isfinite(value) or value < 0 or (field.name != 'lifetime_budget_usd' and value == 0):
+                        raise ValueError()
+            except (ValueError, OverflowError):
+                raise ValueError('Invalid STYLEMUSE_' + field.name.upper()) from None
+            setattr(settings, field.name, value)
+        return settings
+
+def create_app(settings=None, provider=None):
+    s = Settings(**settings) if isinstance(settings, dict) else (settings or Settings())
+    store = Store(s)
+    app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
+    app.add_middleware(BoundedBody, limit=s.max_request_bytes)
+    @app.exception_handler(RequestValidationError)
+    async def validation_error(request, exc):
+        return JSONResponse({'error':'invalid_request'},status_code=422)
+    @app.exception_handler(HTTPException)
+    async def known_error(request, exc):
+        return JSONResponse({'error':exc.detail},status_code=exc.status_code)
+    @app.exception_handler(Exception)
+    async def internal_error(request, exc):
+        return JSONResponse({'error':'internal_error'},status_code=500)
+    app.add_middleware(CORSMiddleware, allow_origins=[s.origin], allow_methods=['GET', 'POST'], allow_headers=['Authorization', 'Content-Type'])
+    def owner(authorization):
+        if not s.access_token or not secrets.compare_digest((authorization or '').encode(), ('Bearer '+s.access_token).encode()):
+            raise HTTPException(401, 'unauthorized')
+        return hashlib.sha256(s.access_token.encode()).hexdigest()
+    @app.get('/api/health')
+    @app.post('/api/health')
+    def health(authorization: str | None = Header(None)):
+        owner(authorization)
+        return {'status':'ok', 'enabled':s.enabled, **store.costs()}
+    @app.post('/api/detect')
+    def detect(payload: DetectRequest, authorization: str | None = Header(None)):
+        who = owner(authorization)
+        if not s.enabled or provider is None:
+            raise HTTPException(503, 'inference_disabled')
+        if not payload.confirmed or units(payload.max_total_usd) < units(s.detect_reservation_usd):
+            raise HTTPException(403, 'cost_confirmation_required')
+        original = normalize(payload.image, s, upload=True)
+        digest = hashlib.sha256(original.encode()).hexdigest()
+        jid = secrets.token_urlsafe(24)
+        with store.tx() as db:
+            row = db.execute('SELECT * FROM jobs WHERE owner=? AND request_id=?', (who,payload.request_id)).fetchone()
+            if row:
+                if row['hash'] != digest or row['state'] != 'done' or row['expires'] < time.time():
+                    raise HTTPException(409, 'request_already_claimed')
+                result = json.loads(row['result'])
+                return public_result(row['id'], result)
+            store.capacity(db,len(original))
+            store.reserve(db, units(s.detect_reservation_usd))
+            db.execute('INSERT INTO jobs VALUES(?,?,?,?,?,?,?,?)', (jid,who,payload.request_id,digest,'claimed',original,None,time.time()+s.session_ttl_seconds))
         try:
-            result = await client_http.post(
-                f"https://api.replicate.com/v1/models/{owner}/{name}/predictions",
-                headers={"Authorization": f"Bearer {REPLICATE_TOKEN}", "Content-Type": "application/json", "Prefer": "wait=25"},
-                json={"input": {"image": image, "prompt": payload.prompt}},
-            )
-            result.raise_for_status()
-        except httpx.HTTPStatusError as exc:
-            raise HTTPException(502, f"Model isteği başarısız (HTTP {exc.response.status_code})")
-        except httpx.HTTPError:
-            raise HTTPException(502, "Yapay zekâ servisine ulaşılamadı")
-    data = result.json()
-    return {"id": data.get("id"), "status": data.get("status"), "output": data.get("output"), "message": "Model çıktısı doğrulanmadan otomatik dolaba kaydedilmez."}
+            items = provider.detect(original)
+            if not isinstance(items,list) or not 1 <= len(items) <= 20:
+                raise ValueError()
+            result = []
+            for item in items:
+                if not isinstance(item.get('category'),str) or not 1 <= len(item['category']) <= 100 or not isinstance(item.get('prompt'),str) or len(item['prompt']) > 4000:
+                    raise ValueError()
+                result.append(dict(id=secrets.token_urlsafe(24), category=item['category'], preview=normalize(item['preview'],s,preserve_alpha=True), prompt=item['prompt']))
+            with store.tx() as db:
+                store.capacity(db,len(json.dumps(result)))
+                db.execute('UPDATE jobs SET state=?,result=? WHERE id=?', ('done',json.dumps(result),jid))
+            return public_result(jid,result)
+        except Exception:
+            raise HTTPException(502, 'provider_failed_no_retry') from None
+        finally:
+            store.release()
+    @app.post('/api/generate')
+    def generate(payload: GenerateRequest, authorization: str | None = Header(None)):
+        who = owner(authorization)
+        if not s.enabled or provider is None:
+            raise HTTPException(503, 'inference_disabled')
+        if not payload.confirmed or len(set(payload.item_ids)) != len(payload.item_ids):
+            raise HTTPException(403, 'cost_confirmation_required')
+        with store.tx() as db:
+            job = db.execute('SELECT * FROM jobs WHERE id=? AND owner=?', (payload.job_id,who)).fetchone()
+            if not job or job['state'] != 'done' or job['expires'] < time.time():
+                raise HTTPException(404,'job_not_found')
+            available = {i['id']:i for i in json.loads(job['result'])}
+            if any(i not in available for i in payload.item_ids):
+                raise HTTPException(404,'item_not_found')
+            old = {r['item']:r for r in db.execute('SELECT * FROM claims WHERE job=?',(payload.job_id,))}
+            if any(i in old and old[i]['state'] != 'done' for i in payload.item_ids):
+                raise HTTPException(409,'generation_already_claimed')
+            pending = [i for i in payload.item_ids if i not in old]
+            cost = units(s.generation_reservation_usd)*len(pending)
+            if units(payload.max_total_usd) < cost:
+                raise HTTPException(403,'cost_confirmation_required')
+            if pending:
+                store.capacity(db,len(pending)*(s.max_image_bytes*4//3+100))
+                store.reserve(db,cost)
+                for i in pending:
+                    db.execute('INSERT INTO claims VALUES(?,?,?,NULL)',(payload.job_id,i,'claimed'))
+        if not pending:
+            return {'items':[{'id':i,'image':old[i]['image']} for i in payload.item_ids]}
+        try:
+            for i in pending:
+                result = normalize(provider.generate(job['original'],available[i]),s)
+                with store.tx() as db:
+                    db.execute('UPDATE claims SET state=?,image=? WHERE job=? AND item=?',('done',result,payload.job_id,i))
+            with store.tx() as db:
+                results = {r['item']:r['image'] for r in db.execute('SELECT * FROM claims WHERE job=?',(payload.job_id,))}
+            return {'items':[{'id':i,'image':results[i]} for i in payload.item_ids]}
+        except Exception:
+            raise HTTPException(502,'provider_failed_no_retry') from None
+        finally:
+            store.release()
+    return app
+
+def create_app_from_env():
+    """Construct locally; configuration is not permission to submit inference."""
+    settings = Settings.from_env()
+    provider = None
+    if settings.enabled and settings.access_token and settings.lifetime_budget_usd > 0:
+        from providers import RealProviders
+        provider = RealProviders.from_env()
+    return create_app(settings, provider)
+
+
+app = create_app_from_env()

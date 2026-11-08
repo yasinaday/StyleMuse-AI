@@ -5,3 +5,12 @@ build/
 .idea/
 *.iml
 android/local.properties
+__pycache__/
+.pytest_cache/
+*.pyc
+.env
+.env.*
+secrets/
+runtime/
+*.sqlite
+*.sqlite3

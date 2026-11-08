@@ -1,0 +1,22 @@
+services:
+  api:
+    build: .
+    image: stylemuse-api:local
+    container_name: stylemuse-api
+    restart: unless-stopped
+    user: "10001:10001"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    cpus: 0.75
+    mem_limit: 512m
+    pids_limit: 64
+    ports: ["127.0.0.1:18920:8080"]
+    env_file: ["/opt/stylemuse-ai/secrets/runtime.env"]
+    volumes: ["/opt/stylemuse-ai/runtime/data:/data"]
+    tmpfs: ["/tmp:rw,noexec,nosuid,size=64m,uid=10001,gid=10001"]
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "2"

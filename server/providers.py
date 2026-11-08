@@ -1,0 +1,298 @@
+"""Real provider adapters. Construction is inert; methods can incur charges.
+
+Call only behind the backend's explicit approval/budget/one-shot claim gate.
+No submission retry, including ambiguous connection errors. Offline tests are
+transport contract tests, not evidence of real inference quality or billing.
+"""
+import base64
+import io
+import json
+import time
+from pathlib import Path
+from urllib.parse import urlsplit
+
+import httpx
+from PIL import Image, ImageChops
+
+
+class ProviderError(RuntimeError):
+    """Sanitized provider failure (never contains tokens or response bodies)."""
+
+
+CATEGORIES = ('jacket', 'top', 'trousers', 'skirt', 'dress', 'jumpsuit', 'bag', 'shoes', 'hat', 'scarf', 'belt', 'sunglasses', 'jewelry')
+ALIASES = {'leather jacket': 'jacket', 'burgundy handbag': 'bag', 'pink sneakers': 'shoes'}
+
+
+def png_uri(image):
+    out = io.BytesIO()
+    image.save(out, 'PNG')
+    return 'data:image/png;base64,' + base64.b64encode(out.getvalue()).decode('ascii')
+
+
+def tryoff_prompt(category):
+    if category not in CATEGORIES:
+        raise ProviderError('Unknown garment category')
+    return ('TRYOFF extract only the ' + category + ' from the reference image over a white background, '
+            'product photography style. NO HUMAN VISIBLE. Preserve the original color, material, texture, '
+            'cut, construction, hardware and visible details. Show the complete item without cropping; '
+            'conservatively reconstruct occluded areas. Do not invent branding or decoration. '
+            'Remove person, skin, hair and all unrelated clothing and accessories. No text.')
+
+
+def extract_items(photo, results):
+    """Full-image binary/probability masks; singleton axes only. Shoes stay separate.
+
+    Dedup only near-identical silhouettes (IoU >= .85) across categories; do not
+    collapse overlapping jacket/top or independent left/right shoes by category.
+    """
+    kept = []
+    for result in results:
+        category = result.get('input', {}).get('text', '')
+        category = ALIASES.get(category, category)
+        if category not in CATEGORIES:
+            raise ProviderError('Unknown detector category')
+        masks, scores = result.get('masks', []), result.get('scores', [])
+        if not isinstance(masks, list) or len(masks) != len(scores) or len(masks) > 64:
+            raise ProviderError('Malformed mask instances')
+        for raw, score in zip(masks, scores):
+            if not isinstance(score, (int, float)) or not 0 <= score <= 1:
+                raise ProviderError('Invalid confidence')
+            if score < .5:
+                continue
+            while isinstance(raw, list) and len(raw) == 1 and isinstance(raw[0], list) and raw[0] and isinstance(raw[0][0], list):
+                raw = raw[0]
+            if not isinstance(raw, list) or len(raw) != photo.height or any(not isinstance(row, list) or len(row) != photo.width for row in raw):
+                raise ProviderError('Mask dimensions do not match original')
+            pixels = bytearray()
+            for row in raw:
+                for value in row:
+                    if not isinstance(value, (int, float)) or not 0 <= value <= 1:
+                        raise ProviderError('Invalid mask value')
+                    pixels.append(255 if value >= .5 else 0)
+            mask = Image.frombytes('L', photo.size, bytes(pixels))
+            box = mask.getbbox()
+            if box is None:
+                continue
+            area = mask.histogram()[255]
+            duplicate = False
+            for _, other, other_area in kept:
+                overlap = ImageChops.multiply(mask, other).histogram()[255]
+                if overlap / (area + other_area - overlap) >= .85:
+                    duplicate = True
+                    break
+            if duplicate:
+                continue
+            cut = photo.convert('RGBA')
+            cut.putalpha(mask)
+            cut = cut.crop(box)
+            # A full rectangular opaque mask is not a transparent garment cutout.
+            if cut.getchannel('A').getextrema() != (0, 255):
+                raise ProviderError('Mask does not produce a transparent cutout')
+            item = {'category': category, 'preview': png_uri(cut), 'prompt': tryoff_prompt(category)}
+            kept.append((item, mask, area))
+    return [item for item, _, _ in kept]
+
+
+SAM_VERSION = '1bf97763d5dfd3a1584adca913a8ef4b43c684fca97e04e39e4c50a3a5e09650'
+SAM_SCHEMA_URL = 'https://api.replicate.com/v1/models/vufinder/sam3/versions/' + SAM_VERSION
+FAL_MODEL = 'fal-ai/flux-2-klein/9b/base/edit/lora'
+LORA = 'https://huggingface.co/fal/virtual-tryoff-lora/resolve/main/virtual-tryoff-lora_comfy.safetensors'
+
+
+def original_image(value):
+    try:
+        if isinstance(value, str):
+            if not value.startswith(('data:image/png;base64,', 'data:image/jpeg;base64,')):
+                raise ValueError()
+            value = base64.b64decode(value.split(',', 1)[1], validate=True)
+        if not isinstance(value, bytes) or len(value) > 20 * 1024 * 1024:
+            raise ValueError()
+        image = Image.open(io.BytesIO(value))
+        if image.width * image.height > 1_048_576 or image.format not in ('PNG', 'JPEG'):
+            raise ValueError()
+        image.load()
+        return image.convert('RGB')
+    except Exception:
+        raise ProviderError('Invalid original image') from None
+
+
+class RealProviders:
+    @classmethod
+    def from_env(cls, **kwargs):
+        """Read environment only. Does not read secret files or contact providers."""
+        import os
+        return cls(os.environ.get('REPLICATE_API_TOKEN', ''), os.environ.get('FAL_KEY', ''), **kwargs)
+
+    def _emit(self, provider, job_id, state):
+        if self.event_callback is None:
+            return
+        import math
+        metrics = {k: v for k, v in (state.get('metrics') or {}).items()
+                   if k in ('predict_time', 'total_time', 'inference_time')
+                   and isinstance(v, (int, float)) and math.isfinite(v) and v >= 0}
+        status = state.get('status')
+        if status not in ('starting', 'processing', 'succeeded', 'failed', 'canceled',
+                          'IN_QUEUE', 'IN_PROGRESS', 'COMPLETED'):
+            status = 'submitted'
+        try:
+            self.event_callback({'provider': provider, 'id': job_id, 'status': status, 'metrics': metrics})
+        except Exception:
+            # An observer failure must never cause a paid submission retry.
+            pass
+
+    def __init__(self, replicate_token, fal_key, *, transport=None, sleep=time.sleep,
+                 clock=time.monotonic, deadline_seconds=120, max_polls=60, event_callback=None):
+        self.event_callback = event_callback
+        self.replicate_token, self.fal_key = replicate_token, fal_key
+        self.http = SafeHTTP(transport=transport)
+        self.sleep, self.clock = sleep, clock
+        if not 0 < deadline_seconds <= 900 or not 0 < max_polls <= 300:
+            raise ValueError('Invalid lifecycle bounds')
+        self.deadline_seconds, self.max_polls = deadline_seconds, max_polls
+
+    def _json(self, method, url, token=None, body=None, headers=None):
+        try:
+            value = json.loads(self.http.request(method, url, token=token, body=body, headers=headers))
+            if not isinstance(value, dict):
+                raise ValueError()
+            return value
+        except ProviderError:
+            raise
+        except Exception:
+            raise ProviderError('Invalid provider JSON') from None
+
+    def detect(self, image):
+        photo = original_image(image)
+        if not self.replicate_token:
+            raise ProviderError('Replicate not configured')
+        schema = self._json('GET', SAM_SCHEMA_URL, self.replicate_token)
+        try:
+            inputs = schema['openapi_schema']['components']['schemas']['Input']
+            props = inputs['properties']
+            expected = {'image': 'string', 'prompts': 'array', 'confidence_threshold': 'number',
+                        'visualize': 'boolean', 'offset_masks': 'boolean', 'split_output': 'boolean',
+                        'concat_input': 'boolean', 'backbone_output': 'boolean'}
+            valid = (schema['id'] == SAM_VERSION and set(inputs['required']) == {'image', 'prompts'}
+                     and all(props[k]['type'] == v for k, v in expected.items())
+                     and props['prompts']['items']['type'] == 'string'
+                     and props['offset_masks']['default'] is False)
+            if not valid:
+                raise ValueError()
+        except Exception:
+            raise ProviderError('Pinned SAM schema mismatch; no submission') from None
+        body = {'version': SAM_VERSION, 'input': {'image': png_uri(photo),
+                'prompts': [json.dumps({'text': c}) for c in CATEGORIES],
+                'confidence_threshold': .5, 'visualize': False, 'offset_masks': False,
+                'split_output': True, 'concat_input': True, 'backbone_output': False}}
+        job = self._json('POST', 'https://api.replicate.com/v1/predictions', self.replicate_token,
+                         body, {'Cancel-After': '40s'})
+        job_id = job.get('id')
+        if not isinstance(job_id, str) or not job_id.isalnum() or len(job_id) > 100:
+            raise ProviderError('Invalid prediction identifier')
+        self._emit('replicate', job_id, job)
+        url = 'https://api.replicate.com/v1/predictions/' + job_id
+        state = self._poll(url, self.replicate_token, 'succeeded', ('starting', 'processing'), 'POST', url + '/cancel')
+        links = (state.get('output') or {}).get('results')
+        if not isinstance(links, list) or len(links) > len(CATEGORIES):
+            raise ProviderError('Invalid SAM output')
+        return extract_items(photo, [self._json('GET', link) for link in links])
+
+    def _poll(self, url, token, success, pending, cancel_method, cancel_url):
+        deadline = self.clock() + self.deadline_seconds
+        try:
+            for _ in range(self.max_polls):
+                if self.clock() >= deadline:
+                    raise ProviderError('Provider deadline exceeded')
+                state = self._json('GET', url, token)
+                self._emit('replicate' if urlsplit(url).hostname == 'api.replicate.com' else 'fal',
+                           url.rstrip('/').split('/')[-2 if url.endswith('/status') else -1], state)
+                if state.get('status') == success:
+                    return state
+                if state.get('status') not in pending:
+                    raise ProviderError('Provider job did not succeed')
+                self.sleep(min(2, max(0, deadline - self.clock())))
+            raise ProviderError('Provider poll bound exceeded')
+        except BaseException:
+            # Cancellation is best effort, never a refund or a resubmission.
+            try:
+                self.http.request(cancel_method, cancel_url, token=token, timeout=10)
+            except Exception:
+                pass
+            raise
+
+    def generate(self, original, item):
+        original_image(original)
+        if not isinstance(original, str) or not self.fal_key:
+            raise ProviderError('Original data URI and configured fal key required')
+        prompt = tryoff_prompt(item.get('category'))
+        body = {'prompt': prompt, 'image_urls': [original], 'loras': [{'path': LORA, 'scale': 1.0}],
+                'image_size': {'width': 768, 'height': 1024}, 'num_images': 1,
+                'num_inference_steps': 28, 'guidance_scale': 5, 'seed': 42,
+                'acceleration': 'none', 'enable_safety_checker': True, 'output_format': 'png', 'sync_mode': False}
+        job = self._json('POST', 'https://queue.fal.run/' + FAL_MODEL, self.fal_key, body)
+        request_id = job.get('request_id')
+        if not isinstance(request_id, str) or not request_id.replace('-', '').isalnum() or len(request_id) > 100:
+            raise ProviderError('Invalid fal request identifier')
+        # fal queue lifecycle is scoped to the base endpoint, not subpath.
+        base = 'https://queue.fal.run/fal-ai/flux-2-klein/requests/' + request_id
+        if job.get('status_url') != base + '/status' or job.get('response_url') != base:
+            raise ProviderError('Untrusted fal lifecycle URL')
+        self._poll(base + '/status', self.fal_key, 'COMPLETED', ('IN_QUEUE', 'IN_PROGRESS'), 'PUT', base + '/cancel')
+        result = self._json('GET', base, self.fal_key)
+        images = result.get('images')
+        if not isinstance(images, list) or len(images) != 1 or any(result.get('has_nsfw_concepts', [])):
+            raise ProviderError('Invalid or unsafe fal output')
+        raw = self.http.request('GET', images[0]['url'])
+        try:
+            image = Image.open(io.BytesIO(raw))
+            if image.format != 'PNG' or image.size != (768, 1024):
+                raise ValueError()
+            image.load()
+        except Exception:
+            raise ProviderError('Invalid generated PNG') from None
+        return 'data:image/png;base64,' + base64.b64encode(raw).decode('ascii')
+
+    def close(self):
+        self.http.close()
+
+
+class SafeHTTP:
+    API = {'api.replicate.com': 'Bearer ', 'queue.fal.run': 'Key '}
+    DOWNLOAD = {'replicate.delivery', 'v3.fal.media', 'v3b.fal.media', 'v3.fal.media', 'fal.media'}
+
+    def __init__(self, transport=None, max_bytes=64 * 1024 * 1024):
+        self.max_bytes = max_bytes
+        self.client = httpx.Client(transport=transport, follow_redirects=False,
+                                   verify=True, trust_env=False, timeout=30)
+
+    def request(self, method, url, token=None, body=None, headers=None, timeout=30):
+        try:
+            u = urlsplit(url)
+            host = u.hostname
+            if (u.scheme != 'https' or host not in self.API.keys() | self.DOWNLOAD
+                    or u.username or u.password or u.port not in (None, 443) or u.fragment):
+                raise ProviderError('Untrusted provider URL')
+            h = dict(headers or {})
+            if token:
+                if host not in self.API:
+                    raise ProviderError('Credentials forbidden on download host')
+                h['Authorization'] = self.API[host] + token
+            with self.client.stream(method, url, headers=h, json=body,
+                                    timeout=timeout, follow_redirects=False) as r:
+                if not 200 <= r.status_code < 300:
+                    raise ProviderError('Provider HTTP failure')
+                if int(r.headers.get('content-length', '0')) > self.max_bytes:
+                    raise ProviderError('Provider response too large')
+                data = bytearray()
+                for chunk in r.iter_bytes():
+                    data.extend(chunk)
+                    if len(data) > self.max_bytes:
+                        raise ProviderError('Provider response too large')
+                return bytes(data)
+        except ProviderError:
+            raise
+        except Exception:
+            raise ProviderError('Provider transport failed; not retried') from None
+
+    def close(self):
+        self.client.close()

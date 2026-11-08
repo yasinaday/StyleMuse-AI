@@ -1,0 +1,5 @@
+Backend adapter contract (synchronous; backend offloads endpoints to worker threads):
+provider.detect(image: str) -> list[dict]: each dict category (trusted detector category, nonempty str), preview (PNG/JPEG data URI), prompt (str). Input is a normalized PNG data URI.
+provider.generate(original: str, item: dict) -> str: PNG/JPEG data URI. original is normalized PNG data URI; item contains category, prompt, preview, id.
+Raise on any failure; backend never retries claimed operations and retains full reservation on ambiguous failure. No provider supplied means fail closed. No external calls during tests.
+create_app(settings=None, provider=None); Settings fields: access_token, origin, enabled(default False), lifetime_budget_usd(default 0), detect_reservation_usd(default .05), generation_reservation_usd(default .1), db_path, storage_dir, max_storage_bytes, session_ttl_seconds, max_request_bytes, max_image_bytes, max_pixels. Also accepts dict settings. Detect payload image, request_id, confirmed:true, max_total_usd. Generate payload job_id,item_ids,confirmed:true,max_total_usd. Bearer authentication required.
