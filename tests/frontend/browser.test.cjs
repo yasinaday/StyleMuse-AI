@@ -21,28 +21,28 @@ for(const width of [375,1280]) test(`offline real DOM ${width}px: confirmations,
  await page.route('**/*',async route=>{
  const url=route.request().url();
  if(url.startsWith(origin))return route.continue();
- if(url.startsWith('https://fixture.invalid/api/')){
- const payload=route.request().postDataJSON();requests.push({url,payload});
+ if(url.includes('/api/')){
+ const payload=route.request().postDataJSON();if(url.endsWith('/session')||url.endsWith('/health'))return route.fulfill({json:{status:'ok',enabled:true}});requests.push({url,payload});
  const body=url.endsWith('/detect')?{job_id:'job',items:[{id:'top',category:'Üst giyim',preview:previewImage},{id:'bag',category:'Çanta',preview:previewImage}]}:{items:[{id:'bag',image}]};
  return route.fulfill({json:body});
  }
  return route.abort();
  });
  await page.goto(origin);
- await page.evaluate(()=>tab('profile'));
- await page.locator('#sm-api-setting').fill('https://fixture.invalid');
- await page.locator('#sm-access-setting').fill('fixture-session-token');
- await page.getByRole('button',{name:'Bağlantıyı kaydet',exact:true}).click();
- assert.equal(await page.locator('#sm-access-setting').inputValue(),'');
+ assert.equal(await page.locator('#sm-access-setting').count(),0);
  assert.equal(await page.evaluate(()=>JSON.stringify(localStorage).includes('fixture-session-token')),false);
  assert.equal(html.includes('fixture-session-token'),false);
  assert.doesNotMatch(html,/(?:FAL_KEY|FAL_API_KEY)\s*[:=]\s*['"][^'"]+['"]/);
  await page.evaluate(()=>tab('closet'));
  await page.locator('#smart-photo').setInputFiles({name:'outfit.jpg',mimeType:'image/jpeg',buffer:fs.readFileSync(fixtureRoot+'/test-photo.jpg')});
+ await page.waitForFunction(()=>document.querySelector('#ai-upload-preview')?.naturalWidth>0);
+ assert.equal(requests.length,0);assert.equal(dialogs.length,0);
+ await page.locator('#ai-analyze').click();
  await page.waitForFunction(()=>document.querySelector('#ai-status')?.textContent.includes('iptal'));
  assert.equal(requests.length,0);assert.match(dialogs[0],/0,05 USD/);
  accept=true;
  await page.locator('#smart-photo').setInputFiles({name:'outfit.jpg',mimeType:'image/jpeg',buffer:fs.readFileSync(fixtureRoot+'/test-photo.jpg')});
+ await page.waitForFunction(()=>!aiBusy);await page.locator('#ai-analyze').click();
  await page.waitForFunction(()=>typeof aiBusy!=='undefined'&&!aiBusy&&aiParts.length===2);
  const boxes=page.locator('#ai-cards input[type=checkbox]');
  assert.equal(await boxes.nth(1).isEnabled(),true,'detection completion must re-enable selection');

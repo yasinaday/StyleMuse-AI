@@ -48,8 +48,8 @@ def test_failure_reservation_never_retried_and_ceiling_cannot_increase(tmp_path)
     assert p.detect_calls == 1
     restarted = TestClient(api.create_app(dict(settings,lifetime_budget_usd=100),p))
     restarted.headers['Authorization']='Bearer secret'
-    assert restarted.get('/api/health').json()['lifetime_budget_usd'] == .05
-    assert restarted.get('/api/health').json()['reserved_usd'] == .05
+    assert restarted.post('/api/health').json()['lifetime_budget_usd'] == .05
+    assert restarted.post('/api/health').json()['reserved_usd'] == .05
     assert restarted.post('/api/detect',json=dict(image=image(),request_id='new',confirmed=True,max_total_usd=1)).status_code == 402
 
 
@@ -121,7 +121,7 @@ def test_detection_idempotent_durable_budget(tmp_path):
     again = TestClient(api.create_app(settings, p))
     again.headers['Authorization'] = 'Bearer secret'
     assert detect(again).json() == r.json()
-    assert again.get('/api/health').json()['reserved_usd'] == .05
+    assert again.post('/api/health').json()['reserved_usd'] == .05
 
 
 def test_environment_constructor_is_inert_and_defaults_closed(tmp_path, monkeypatch):
@@ -136,7 +136,7 @@ def test_environment_constructor_is_inert_and_defaults_closed(tmp_path, monkeypa
     assert settings.origin == 'https://local.example'
     client = TestClient(api.create_app_from_env())
     client.headers['Authorization'] = 'Bearer local-test-token'
-    assert client.get('/api/health').json() == {'status': 'ok', 'enabled': False,
+    assert client.post('/api/health').json() == {'status': 'ok', 'enabled': False,
         'reserved_usd': 0, 'lifetime_budget_usd': 0}
     assert detect(client).status_code == 503
 
@@ -188,8 +188,8 @@ def test_detection_preserves_transparent_mask_preview(tmp_path):
 
 def test_health_auth_and_default_disabled(tmp_path):
     c, p, _ = setup(tmp_path)
-    assert c.get('/api/health', headers={'Authorization': 'Bearer wrong'}).status_code == 401
-    assert c.get('/api/health').json()['enabled'] is False
+    assert c.post('/api/health', headers={'Authorization': 'Bearer wrong'}).status_code == 401
+    assert c.post('/api/health').json()['enabled'] is False
     assert c.post('/api/health').status_code == 200
     assert detect(c).status_code == 503
     assert p.detect_calls == 0

@@ -56,7 +56,8 @@ def normalize(uri, s, *, preserve_alpha=False, upload=False):
         return 'data:image/png;base64,'+base64.b64encode(b.getvalue()).decode()
     except Exception:
         raise HTTPException(422, 'invalid_image') from None
-from fastapi import FastAPI, Header, HTTPException
+from fastapi import FastAPI, Header, HTTPException, Request
+from threading import Lock
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
 from starlette.responses import JSONResponse
@@ -99,6 +100,7 @@ class Settings:
     storage_dir: str = '/var/lib/stylemuse/images'
     max_storage_bytes: int = 134217728
     session_ttl_seconds: int = 86400
+    max_sessions: int = 1024
     max_request_bytes: int = 9000000
     max_image_bytes: int = 6291456
     max_pixels: int = 16000000
@@ -129,6 +131,16 @@ class Settings:
 
 def create_app(settings=None, provider=None):
     s = Settings(**settings) if isinstance(settings, dict) else (settings or Settings())
+    from urllib.parse import urlsplit
+    origin = urlsplit(s.origin)
+    if (origin.scheme not in ('http', 'https') or not origin.hostname
+            or origin.username is not None or origin.password is not None
+            or origin.path or origin.query or origin.fragment or '*' in s.origin
+            or s.origin != f'{origin.scheme}://{origin.netloc}'):
+        raise ValueError('STYLEMUSE_ORIGIN must be one exact HTTP(S) origin')
+    if any(type(value) is not int or value <= 0
+           for value in (s.max_sessions, s.session_ttl_seconds)):
+        raise ValueError('Session capacity and TTL must be positive finite integers')
     store = Store(s)
     app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
     app.add_middleware(BoundedBody, limit=s.max_request_bytes)
@@ -141,19 +153,66 @@ def create_app(settings=None, provider=None):
     @app.exception_handler(Exception)
     async def internal_error(request, exc):
         return JSONResponse({'error':'internal_error'},status_code=500)
-    app.add_middleware(CORSMiddleware, allow_origins=[s.origin], allow_methods=['GET', 'POST'], allow_headers=['Authorization', 'Content-Type'])
-    def owner(authorization):
-        if not s.access_token or not secrets.compare_digest((authorization or '').encode(), ('Bearer '+s.access_token).encode()):
-            raise HTTPException(401, 'unauthorized')
-        return hashlib.sha256(s.access_token.encode()).hexdigest()
+    app.add_middleware(CORSMiddleware, allow_origins=[s.origin], allow_credentials=True, allow_methods=['GET', 'POST'], allow_headers=['Authorization', 'Content-Type'])
+    # Opaque tokens remain server-side and are never an inference capability.
+    sessions = {}
+    session_lock = Lock()
+    cookie_name = '__Host-stylemuse_session'
+
+    def exact_origin(request):
+        if request.headers.getlist('origin') != [s.origin] or s.origin in ('', '*', 'null'):
+            raise HTTPException(403, 'origin_not_allowed')
+
+    @app.post('/api/session')
+    def session(request: Request):
+        exact_origin(request)
+        with session_lock:
+            now = time.monotonic()
+            for expired in [key for key, entry in sessions.items() if entry[1] <= now]:
+                del sessions[expired]
+            token = request.cookies.get(cookie_name, '')
+            if token not in sessions:
+                if len(sessions) >= s.max_sessions:
+                    raise HTTPException(429, 'session_capacity_reached')
+                token = secrets.token_urlsafe(32)
+                sessions[token] = (secrets.token_urlsafe(32), now + s.session_ttl_seconds)
+            remaining = max(1, int(sessions[token][1] - now))
+        response = JSONResponse({'status': 'ok', 'enabled': s.enabled})
+        cookie_options = dict(key=cookie_name, value=token, max_age=remaining,
+                              secure=True, httponly=True, samesite='none', path='/')
+        try:
+            response.set_cookie(**cookie_options, partitioned=True)
+        except (TypeError, ValueError):
+            # Older Starlette/Python versions cannot emit Partitioned.
+            response.set_cookie(**cookie_options)
+            # CHIPS is a wire attribute; emit safely even on older Python.
+            response.headers['set-cookie'] += '; Partitioned'
+        response.headers['Cache-Control'] = 'no-store'
+        return response
+
+    def owner(authorization, request, *, paid=False):
+        if s.access_token and secrets.compare_digest((authorization or '').encode(), ('Bearer '+s.access_token).encode()):
+            return hashlib.sha256(s.access_token.encode()).hexdigest()
+        token = request.cookies.get(cookie_name, '')
+        with session_lock:
+            entry = sessions.get(token)
+            if entry and entry[1] > time.monotonic():
+                exact_origin(request)
+                if paid:
+                    raise HTTPException(403, 'paid_inference_not_authorized')
+                return entry[0]
+        raise HTTPException(401, 'unauthorized')
     @app.get('/api/health')
+    def public_health():
+        return {'status': 'ok', 'enabled': s.enabled}
+
     @app.post('/api/health')
-    def health(authorization: str | None = Header(None)):
-        owner(authorization)
+    def health(request: Request, authorization: str | None = Header(None)):
+        owner(authorization, request)
         return {'status':'ok', 'enabled':s.enabled, **store.costs()}
     @app.post('/api/detect')
-    def detect(payload: DetectRequest, authorization: str | None = Header(None)):
-        who = owner(authorization)
+    def detect(payload: DetectRequest, request: Request, authorization: str | None = Header(None)):
+        who = owner(authorization, request, paid=True)
         if not s.enabled or provider is None:
             raise HTTPException(503, 'inference_disabled')
         if not payload.confirmed or units(payload.max_total_usd) < units(s.detect_reservation_usd):
@@ -189,8 +248,8 @@ def create_app(settings=None, provider=None):
         finally:
             store.release()
     @app.post('/api/generate')
-    def generate(payload: GenerateRequest, authorization: str | None = Header(None)):
-        who = owner(authorization)
+    def generate(payload: GenerateRequest, request: Request, authorization: str | None = Header(None)):
+        who = owner(authorization, request, paid=True)
         if not s.enabled or provider is None:
             raise HTTPException(503, 'inference_disabled')
         if not payload.confirmed or len(set(payload.item_ids)) != len(payload.item_ids):
