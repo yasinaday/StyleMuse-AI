@@ -1,15 +1,15 @@
 # StyleMuse acceptance — 2026-11-08
 
-Docker/HTTPS preview is deployed; production inference remains DISABLED. Real provider API transport succeeded but visual quality acceptance failed. GitHub publication is blocked by missing account credentials; Pages still serves the earlier commit.
+Docker/HTTPS preview is deployed; production inference remains DISABLED. Real provider API transport previously succeeded but visual quality acceptance failed. GitHub Pages now serves the secure-session connection repair. See CONNECTION-ACCEPTANCE.md for the current free verification results; historical paid-quality observations below are not new inference runs.
 
 Preview: https://stylemuse-api.129.121.148.187.sslip.io/
 Authenticated endpoints: /api/health, /api/detect, /api/generate.
 
 ## Isolation and limits
 
-Compose binds only 127.0.0.1:18920, UID 10001, read-only root filesystem, no capabilities, CPU/memory/PID limits and independent data mount. Secrets are outside Git at /opt/stylemuse-ai/secrets/runtime.env (0600). Caddy preserves existing SciVora routes and adds StyleMuse routes and static preview. Authentication is mandatory; CORS permits the GitHub Pages origin. This remains a private shared-token pilot, not a public multi-user identity service.
+Compose binds only 127.0.0.1:18920, UID 10001, read-only root filesystem, no capabilities, CPU/memory/PID limits and independent data mount. Secrets are outside Git at /opt/stylemuse-ai/secrets/runtime.env (0600). Existing Caddy/SciVora routes are unchanged by this repair. GET /api/health is public and minimal; POST health requires a server-side cookie session or the private server bearer. Credentialed CORS permits exactly the GitHub Pages origin. Anonymous sessions are isolated browser sessions, not verified user identities, and cannot authorize paid inference, even when inference is otherwise enabled.
 
-JPEG/PNG inputs retain the 16MP upload acceptance bound, then EXIF-correct and proportionately resize to <=1,048,576 pixels before hashing/storage/detection. Masks align with that same normalized reference. Generation uses the stored reference; output is 768x1024. App access token is session-only; provider credentials never reach the browser.
+JPEG/PNG inputs retain the 16MP upload acceptance bound, then EXIF-correct and proportionately resize to <=1,048,576 pixels before hashing/storage/detection. Masks align with that same normalized reference. Generation uses the stored reference; output is 768x1024. The browser receives only an opaque HttpOnly/Secure/SameSite=None/Partitioned session cookie, not the private access token or provider credentials. Sessions have fixed TTL/capacity, require exact Origin validation, and are recreated after API process restart.
 
 Runtime variables: STYLEMUSE_ACCESS_TOKEN, REPLICATE_API_TOKEN, FAL_KEY, STYLEMUSE_ENABLED (false by default), STYLEMUSE_LIFETIME_BUDGET_USD (zero by default), STYLEMUSE_DB_PATH, STYLEMUSE_STORAGE_DIR, STYLEMUSE_ORIGIN. The approved $0.50 is a total test ceiling, not a recurring budget. Durable reservations and claims survive restart; never reset them for retries.
 
@@ -32,4 +32,4 @@ Run python -m pytest -q from server/ with pytest and pytest-subtests installed. 
 
 Run node --test tests/frontend/integration.test.cjs tests/frontend/browser.test.cjs after installing frontend dependencies and Chromium; set CHROMIUM_PATH as needed.
 
-Further paid quality experiments need renewed explicit approval, not automatic retries. Production must remain disabled until quality and final publication acceptance pass. GitHub push needs user authorization through gh; never paste provider keys or GitHub tokens in chat.
+Further paid quality experiments need renewed explicit approval, not automatic retries. Production must remain disabled until quality and final publication acceptance pass. GitHub publication of the free connection repair is verified in CONNECTION-ACCEPTANCE.md. Never paste provider keys or GitHub tokens in chat.
