@@ -59,7 +59,7 @@ async function generateAiParts(){
  const chosen=aiParts.filter(x=>x.selected&&!x.generated);
  if(!chosen.length)return alert('Üretilecek ürünleri seç.');
  if(!aiJobId)return alert('AI tespiti çalışmadı. Bu kırpmalar ücretli üretime gönderilemez.');
- if(!confirm(chosen.length+' ürün için ücretli üretim başlatılsın mı? Tahmini üst sınır ürün başına $0,10; toplam 
+ if(!confirm('Seçilen '+chosen.length+' ürün için ücretli üretim başlatılsın mı? Ürün başına tahmini en fazla 0,10 USD.'))return;
  const button=document.getElementById('ai-generate');button.disabled=true;
  try{
  const result=await aiPost('/api/generate',{job_id:aiJobId,item_ids:chosen.map(x=>x.id),confirmed:true,max_total_usd:Number((chosen.length*.1).toFixed(2))});
