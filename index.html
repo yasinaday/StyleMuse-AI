@@ -50,7 +50,7 @@ async function analyzeClothes(){
  if(aiParts.some(x=>!x.image?.startsWith('data:image/')))throw Error('Geçersiz görsel');
  showAiParts();
  aiStatus(aiParts.length+' ürün tespit edildi.');
- }catch(e){aiStatus(e.message+' Elle kırpma seçeneği kullanılabilir.');if(multiSource){await showGuidedParts();aiParts.forEach(x=>x.selected=false);}}
+ }catch(e){aiStatus(e.message+' Elle kırpma seçeneği kullanılabilir.');if(multiSource){if(confirm('AI sunucusu kullanılamıyor. Elle kırpma ekranı açılsın mı?'))openMultiCrop();}}
 }
 async function generateAiParts(){
  const chosen=aiParts.filter(x=>x.selected&&!x.generated);
