@@ -1,0 +1,42 @@
+✔ settings immediately change destination; empty token clears session (8.023725ms)
+✔ detection refuses unconfirmed paid upload and clears stale job (1.126107ms)
+✔ confirmed detect uses reservation and UUID; rejects unsafe response without retaining job (2.069905ms)
+✔ generation fails closed on malformed items; no overlapping request or close race (1.503497ms)
+✔ review distinguishes completed items, escapes errors, disables controls while busy (0.754818ms)
+✔ health disabled is pending approval with costs; transport displays safe detail without retry (1.476043ms)
+✔ new upload clears stale job before file read; blocks overlapping uploads; no fake guidance (0.982126ms)
+✔ saving while busy is prohibited; explicit save stores only selected completed safe items (1.012552ms)
+✖ quality decision required before saving (2.201195ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 8
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 68.843526
+
+✖ failing tests:
+
+test at tests/frontend/integration.test.cjs:23:1
+✖ quality decision required before saving (2.201195ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + '[{"image":"data:image/png;base64,YQ==","category":"Çanta","id":1794173242542}]'
+  - null
+  
+      at TestContext.<anonymous> (/opt/stylemuse-ai-integration/tests/frontend/integration.test.cjs:23:248)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '[{"image":"data:image/png;base64,YQ==","category":"Çanta","id":1794173242542}]',
+    expected: null,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

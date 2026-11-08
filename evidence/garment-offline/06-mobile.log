@@ -1,0 +1,45 @@
+✖ mobile real DOM: confirmations, selected-only generation, explicit save, session-only credential (31135.915071ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 31378.117797
+
+✖ failing tests:
+
+test at tests/frontend/browser.test.cjs:8:1
+✖ mobile real DOM: confirmations, selected-only generation, explicit save, session-only credential (31135.915071ms)
+  locator.click: Timeout 30000ms exceeded.
+  Call log:
+  [2m  - waiting for getByRole('button', { name: '✓ Seçilen üretilmiş ürünleri kaydet', exact: true })[22m
+  [2m    - locator resolved to <button onclick="saveAiParts()">✓ Seçilen üretilmiş ürünleri kaydet</button>[22m
+  [2m  - attempting click action[22m
+  [2m    2 × waiting for element to be visible, enabled and stable[22m
+  [2m      - element is visible, enabled and stable[22m
+  [2m      - scrolling into view if needed[22m
+  [2m      - done scrolling[22m
+  [2m      - <img id="ai-original" alt="Yüklediğin kombin fotoğrafı" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII="/> from <div class="ai-stage">…</div> subtree intercepts pointer events[22m
+  [2m    - retrying click action[22m
+  [2m    - waiting 20ms[22m
+  [2m    2 × waiting for element to be visible, enabled and stable[22m
+  [2m      - element is visible, enabled and stable[22m
+  [2m      - scrolling into view if needed[22m
+  [2m      - done scrolling[22m
+  [2m      - <img id="ai-original" alt="Yüklediğin kombin fotoğrafı" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII="/> from <div class="ai-stage">…</div> subtree intercepts pointer events[22m
+  [2m    - retrying click action[22m
+  [2m      - waiting 100ms[22m
+  [2m    58 × waiting for element to be visible, enabled and stable[22m
+  [2m       - element is visible, enabled and stable[22m
+  [2m       - scrolling into view if needed[22m
+  [2m       - done scrolling[22m
+  [2m       - <img id="ai-original" alt="Yüklediğin kombin fotoğrafı" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII="/> from <div class="ai-stage">…</div> subtree intercepts pointer events[22m
+  [2m     - retrying click action[22m
+  [2m       - waiting 500ms[22m
+  
+      at TestContext.<anonymous> (/opt/stylemuse-ai-integration/tests/frontend/browser.test.cjs:62:89) {
+    name: 'TimeoutError',
+    log: [ "  - waiting for getByRole('button', { name: '✓ Seçilen üretilmiş ürünleri kaydet', exact: true })", '    - locator resolved to <button onclick="saveAiParts()">✓ Seçilen üretilmiş ürünleri kaydet</button>', '  - attempting click action', '    2 × waiting for element to be visible, enabled and stable', '      - element is visible, enabled and stable', '      - scrolling into view if needed', '      - done scrolling', '      - <img id="ai-original" alt="Yüklediğin kombin fotoğrafı" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII="/> from <div class="ai-stage">…</div> subtree intercepts pointer events', '    - retrying click action', '    - waiting 20ms', '    2 × waiting for element to be visible, enabled and stable', '      - element is visible, enabled and stable', '      - scrolling into view if needed', '      - done scrolling', '      - <img id="ai-original" alt="Yüklediğin kombin fotoğrafı" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII="/> from <div class="ai-stage">…</div> subtree intercepts pointer events', '    - retrying click action', '      - waiting 100ms', '    58 × waiting for element to be visible, enabled and stable', '       - element is visible, enabled and stable', '       - scrolling into view if needed', '       - done scrolling', '       - <img id="ai-original" alt="Yüklediğin kombin fotoğrafı" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII="/> from <div class="ai-stage">…</div> subtree intercepts pointer events', '     - retrying click action', '       - waiting 500ms' ]
+  }

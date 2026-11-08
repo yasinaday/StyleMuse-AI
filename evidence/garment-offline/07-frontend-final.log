@@ -1,0 +1,39 @@
+/opt/stylemuse-ai-integration/tests/frontend/browser.test.cjs:8
+const image='data:image/png;base64,'+fs.readFileSync(fixturePath).toString('base64');base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=';
+                                                                                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+SyntaxError: Invalid left-hand side in assignment
+    at wrapSafe (node:internal/modules/cjs/loader:1900:18)
+    at Module._compile (node:internal/modules/cjs/loader:1942:20)
+    at Object..js (node:internal/modules/cjs/loader:2108:10)
+    at Module.load (node:internal/modules/cjs/loader:1690:32)
+    at Module._load (node:internal/modules/cjs/loader:1480:12)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:261:19)
+    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:171:5)
+    at node:internal/main/run_main_module:33:47
+
+Node.js v26.11.0
+✖ tests/frontend/browser.test.cjs (33.176759ms)
+✔ settings immediately change destination; empty token clears session (5.465591ms)
+✔ detection refuses unconfirmed paid upload and clears stale job (0.897536ms)
+✔ confirmed detect uses reservation and UUID; rejects unsafe response without retaining job (1.779309ms)
+✔ generation fails closed on malformed items; no overlapping request or close race (1.23242ms)
+✔ review distinguishes completed items, escapes errors, disables controls while busy (0.616185ms)
+✔ health disabled is pending approval with costs; transport displays safe detail without retry (1.069229ms)
+✔ new upload clears stale job before file read; blocks overlapping uploads; no fake guidance (0.767127ms)
+✔ saving while busy is prohibited; explicit save stores only selected completed safe items (0.697299ms)
+✔ quality decision required before saving (0.833689ms)
+ℹ tests 10
+ℹ suites 0
+ℹ pass 9
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 91.569689
+
+✖ failing tests:
+
+test at tests/frontend/browser.test.cjs:1:1
+✖ tests/frontend/browser.test.cjs (33.176759ms)
+  'test failed'

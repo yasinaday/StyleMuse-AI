@@ -1,0 +1,21 @@
+................................                                       [100%]
+=============================== warnings summary ===============================
+../stylemuse-ai/integration-venv/lib/python3.14/site-packages/starlette/testclient.py:37
+  /opt/stylemuse-ai/integration-venv/lib/python3.14/site-packages/starlette/testclient.py:37: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = typing.Callable[[], typing.ContextManager[anyio.abc.BlockingPortal]]
+
+../stylemuse-ai/integration-venv/lib/python3.14/site-packages/fastapi/routing.py:233: 4 warnings
+server/test_api.py: 56 warnings
+server/test_image_normalization.py: 12 warnings
+  /opt/stylemuse-ai/integration-venv/lib/python3.14/site-packages/fastapi/routing.py:233: DeprecationWarning: 'asyncio.iscoroutinefunction' is deprecated and slated for removal in Python 3.16; use inspect.iscoroutinefunction() instead
+    is_coroutine = asyncio.iscoroutinefunction(dependant.call)
+
+server/test_garment_integrity.py::IntegrityTests::test_layer_overlap_preserves_original_pixels_and_both_shoes
+server/test_garment_integrity.py::IntegrityTests::test_layer_overlap_preserves_original_pixels_and_both_shoes
+server/test_garment_integrity.py::IntegrityTests::test_layer_overlap_preserves_original_pixels_and_both_shoes
+server/test_garment_integrity.py::IntegrityTests::test_layer_overlap_preserves_original_pixels_and_both_shoes
+  /opt/stylemuse-ai-integration/server/test_garment_integrity.py:50: DeprecationWarning: Image.Image.getdata is deprecated and will be removed in Pillow 14 (2027-10-15). Use get_flattened_data instead.
+    for r,g,b,a in image.getdata():
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+32 passed, 77 warnings, 2 subtests passed in 3.28s

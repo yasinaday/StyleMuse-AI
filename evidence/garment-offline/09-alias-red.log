@@ -1,0 +1,35 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+____________ IntegrityTests.test_pants_alias_has_canonical_category ____________
+
+self = <test_garment_integrity.IntegrityTests testMethod=test_pants_alias_has_canonical_category>
+
+    def test_pants_alias_has_canonical_category(self):
+        points={(1,1),(1,2),(2,2)}
+>       self.assertEqual(extract_items(Image.new('RGB',(12,16)),[result('pants',points)])[0]['category'],'trousers')
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+server/test_garment_integrity.py:22: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+photo = <PIL.Image.Image image mode=RGB size=12x16 at 0x7136C394C690>
+results = [{'input': {'text': 'pants'}, 'scores': [0.9], 'masks': [[[0, 0, 0, 0, 0, 0, ...], [0, 1, 0, 0, 0, 0, ...], [0, 1, 1, 0, 0, 0, ...], [0, 0, 0, 0, 0, 0, ...], [0, 0, 0, 0, 0, 0, ...], [0, 0, 0, 0, 0, 0, ...], ...]]}]
+
+    def extract_items(photo, results):
+        """Full-image binary/probability masks; singleton axes only. Shoes stay separate.
+    
+        Dedup only near-identical silhouettes (IoU >= .85) across categories; do not
+        collapse overlapping jacket/top or independent left/right shoes by category.
+        """
+        candidates = []
+        for result in results:
+            category = result.get('input', {}).get('text', '')
+            category = ALIASES.get(category, category)
+            if category not in CATEGORIES:
+>               raise ProviderError('Unknown detector category')
+E               providers.ProviderError: Unknown detector category
+
+server/providers.py:55: ProviderError
+=========================== short test summary info ============================
+FAILED server/test_garment_integrity.py::IntegrityTests::test_pants_alias_has_canonical_category
+1 failed, 6 deselected in 0.06s

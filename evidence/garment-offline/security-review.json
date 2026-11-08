@@ -1,0 +1,39 @@
+{
+  "review": "developer static review, not independent security approval",
+  "protected": [
+    {
+      "path": "server/app.py",
+      "unchanged": true,
+      "sha256": "bb17e5901b2df57e5c32a547d2c96abede447da92103b041e0797bbb6b9a514c"
+    },
+    {
+      "path": "server/store.py",
+      "unchanged": true,
+      "sha256": "db9ce412ea0cae17069bef7913f2ed4e1c26a764d5926054cbbcf212f581877f"
+    },
+    {
+      "path": "server/compose.yaml",
+      "unchanged": true,
+      "sha256": "4aaba24b5e514f6c504a06f0da7889eff6bcea23e3d1a565fe8ab7789141fce9"
+    },
+    {
+      "path": "server/.env.example",
+      "unchanged": true,
+      "sha256": "497726a59d6f3c9babd79f4a94ed4105f48d12ce23c7495aed1629b4423898cd"
+    },
+    {
+      "path": "lib/main.dart",
+      "unchanged": true,
+      "sha256": "b9266c113e55e57a94c194c9a04eda643377b8619f2859d36edddccf45ba8094"
+    }
+  ],
+  "diff_check_returncode": 0,
+  "secret_pattern_hits": [],
+  "flutter_sdk": null,
+  "limits": [
+    "No paid API calls",
+    "No service changes, restart, push or deployment",
+    "SciVora not accessed",
+    "Python dependency deprecation warnings remain"
+  ]
+}

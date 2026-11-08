@@ -1,0 +1,17 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_ IntegrityTests.test_prompts_preserve_visible_construction_without_invented_features _
+
+self = <test_garment_integrity.IntegrityTests testMethod=test_prompts_preserve_visible_construction_without_invented_features>
+
+    def test_prompts_preserve_visible_construction_without_invented_features(self):
+        for category in ('jumpsuit','dress','jacket','trousers','bag','shoes'):
+            prompt=tryoff_prompt(category)
+            for phrase in ('open front','zipper','pockets','lining','accessories','original texture','preserve only markings visibly present'):
+>               self.assertIn(phrase,prompt)
+E               AssertionError: 'preserve only markings visibly present' not found in 'TRYOFF extract only the jumpsuit from the reference image over a white background, product photography style. NO HUMAN VISIBLE. Preserve the original color, material, texture, cut, construction, hardware and visible details. Show the complete item without cropping; preserve the open front, zipper position, pockets and original texture exactly as visible. Do not close an open jacket or zipper. Do not invent labels, lining, pockets, accessories, branding or decoration; leave uncertain hidden details plain. Remove person, skin, hair and all unrelated clothing and accessories. No text.'
+
+server/test_garment_integrity.py:64: AssertionError
+=========================== short test summary info ============================
+FAILED server/test_garment_integrity.py::IntegrityTests::test_prompts_preserve_visible_construction_without_invented_features
+1 failed, 6 deselected in 0.06s

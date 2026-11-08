@@ -1,0 +1,18 @@
+✔ mobile real DOM: confirmations, selected-only generation, explicit save, session-only credential (979.673479ms)
+✔ settings immediately change destination; empty token clears session (9.689649ms)
+✔ detection refuses unconfirmed paid upload and clears stale job (1.956552ms)
+✔ confirmed detect uses reservation and UUID; rejects unsafe response without retaining job (2.054081ms)
+✔ generation fails closed on malformed items; no overlapping request or close race (1.702191ms)
+✔ review distinguishes completed items, escapes errors, disables controls while busy (0.797944ms)
+✔ health disabled is pending approval with costs; transport displays safe detail without retry (1.33609ms)
+✔ new upload clears stale job before file read; blocks overlapping uploads; no fake guidance (0.910106ms)
+✔ saving while busy is prohibited; explicit save stores only selected completed safe items (0.702738ms)
+✔ quality decision required before saving (0.663178ms)
+ℹ tests 10
+ℹ suites 0
+ℹ pass 10
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1308.076169

@@ -1,0 +1,16 @@
+test_complete_jumpsuit_wins_over_contained_pants_in_either_order (test_garment_integrity.IntegrityTests.test_complete_jumpsuit_wins_over_contained_pants_in_either_order) ... ok
+test_duplicate_winner_is_confidence_not_input_order (test_garment_integrity.IntegrityTests.test_duplicate_winner_is_confidence_not_input_order) ... ok
+test_prompts_preserve_visible_construction_without_invented_features (test_garment_integrity.IntegrityTests.test_prompts_preserve_visible_construction_without_invented_features) ... ok
+test_six_garments_preserve_distinct_masks (test_garment_integrity.IntegrityTests.test_six_garments_preserve_distinct_masks) ... ok
+test_original_above_one_megapixel_rejected_before_network (test_providers.BoundaryTests.test_original_above_one_megapixel_rejected_before_network) ... ok
+test_schema_verified_before_single_submit_then_bounded_poll (test_providers.DetectTests.test_schema_verified_before_single_submit_then_bounded_poll) ... ok
+test_original_photo_exact_runner_fields_single_png (test_providers.GenerateTests.test_original_photo_exact_runner_fields_single_png) ... ok
+test_poll_exhaustion_cancels_once_for_both_providers (test_providers.LifecycleTests.test_poll_exhaustion_cancels_once_for_both_providers) ... ok
+test_real_retained_masks_are_cropped_transparent_and_shoes_preserved (test_providers.MaskTests.test_real_retained_masks_are_cropped_transparent_and_shoes_preserved) ... ok
+test_transport_allowlist_redirect_size_and_auth (test_providers.SafetyTests.test_transport_allowlist_redirect_size_and_auth) ... ok
+test_env_bootstrap_inert_and_sanitized_events (test_providers.TelemetryTests.test_env_bootstrap_inert_and_sanitized_events) ... ok
+
+----------------------------------------------------------------------
+Ran 11 tests in 0.678s
+
+OK

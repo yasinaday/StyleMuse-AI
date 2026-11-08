@@ -20,7 +20,7 @@ class ProviderError(RuntimeError):
 
 
 CATEGORIES = ('jacket', 'top', 'trousers', 'skirt', 'dress', 'jumpsuit', 'bag', 'shoes', 'hat', 'scarf', 'belt', 'sunglasses', 'jewelry')
-ALIASES = {'leather jacket': 'jacket', 'burgundy handbag': 'bag', 'pink sneakers': 'shoes'}
+ALIASES = {'pants': 'trousers', 'leather jacket': 'jacket', 'burgundy handbag': 'bag', 'pink sneakers': 'shoes'}
 
 
 def png_uri(image):
@@ -35,17 +35,22 @@ def tryoff_prompt(category):
     return ('TRYOFF extract only the ' + category + ' from the reference image over a white background, '
             'product photography style. NO HUMAN VISIBLE. Preserve the original color, material, texture, '
             'cut, construction, hardware and visible details. Show the complete item without cropping; '
-            'conservatively reconstruct occluded areas. Do not invent branding or decoration. '
-            'Remove person, skin, hair and all unrelated clothing and accessories. No text.')
+            'preserve the open front, zipper position, pockets and original texture exactly as visible. '
+            'Do not close an open jacket or zipper. Do not invent labels, lining, pockets, '
+            'accessories, branding or decoration; leave uncertain hidden details plain. '
+            'Remove person, skin, hair and all unrelated clothing and accessories. '
+            'No added text; preserve only markings visibly present in the reference.')
 
 
 def extract_items(photo, results):
     """Full-image binary/probability masks; singleton axes only. Shoes stay separate.
 
-    Dedup only near-identical silhouettes (IoU >= .85) across categories; do not
-    collapse overlapping jacket/top or independent left/right shoes by category.
+    Suppress a contained lower-body hypothesis only when a larger one-piece
+    candidate exists. Resolve near-identical silhouettes (IoU >= .85) by score,
+    not prompt order. Preserve layered masks and independent left/right shoes.
+    These geometry heuristics cannot infer a missing jumpsuit detection.
     """
-    kept = []
+    candidates = []
     for result in results:
         category = result.get('input', {}).get('text', '')
         category = ALIASES.get(category, category)
@@ -74,14 +79,6 @@ def extract_items(photo, results):
             if box is None:
                 continue
             area = mask.histogram()[255]
-            duplicate = False
-            for _, other, other_area in kept:
-                overlap = ImageChops.multiply(mask, other).histogram()[255]
-                if overlap / (area + other_area - overlap) >= .85:
-                    duplicate = True
-                    break
-            if duplicate:
-                continue
             cut = photo.convert('RGBA')
             cut.putalpha(mask)
             cut = cut.crop(box)
@@ -89,8 +86,24 @@ def extract_items(photo, results):
             if cut.getchannel('A').getextrema() != (0, 255):
                 raise ProviderError('Mask does not produce a transparent cutout')
             item = {'category': category, 'preview': png_uri(cut), 'prompt': tryoff_prompt(category)}
-            kept.append((item, mask, area))
-    return [item for item, _, _ in kept]
+            candidates.append((item, mask, area, score))
+    # Resolve whole garments before deduplication, never subtract masks: subtraction
+    # can destroy open jackets, overlapping layers and garment construction.
+    one_piece = [c for c in candidates if c[0]['category'] in ('jumpsuit', 'dress')]
+    candidates = [c for c in candidates if not (
+        c[0]['category'] in ('trousers', 'skirt') and any(
+            whole[2] >= c[2] * 1.25 and
+            ImageChops.multiply(c[1], whole[1]).histogram()[255] / c[2] >= .9
+            for whole in one_piece))]
+    kept = []
+    for candidate in sorted(candidates, key=lambda c: (-c[3], c[0]['category'])):
+        item, mask, area, _ = candidate
+        if any(ImageChops.multiply(mask, other).histogram()[255] /
+               (area + other_area - ImageChops.multiply(mask, other).histogram()[255]) >= .85
+               for _, other, other_area, _ in kept):
+            continue
+        kept.append(candidate)
+    return [item for item, _, _, _ in kept]
 
 
 SAM_VERSION = '1bf97763d5dfd3a1584adca913a8ef4b43c684fca97e04e39e4c50a3a5e09650'

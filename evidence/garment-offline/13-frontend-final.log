@@ -1,0 +1,19 @@
+✔ offline real DOM 375px: confirmations, selected-only generation, accept/reject, explicit save (1307.956005ms)
+✔ offline real DOM 1280px: confirmations, selected-only generation, accept/reject, explicit save (1032.00918ms)
+✔ settings immediately change destination; empty token clears session (8.397308ms)
+✔ detection refuses unconfirmed paid upload and clears stale job (1.648869ms)
+✔ confirmed detect uses reservation and UUID; rejects unsafe response without retaining job (1.659446ms)
+✔ generation fails closed on malformed items; no overlapping request or close race (1.242345ms)
+✔ review distinguishes completed items, escapes errors, disables controls while busy (0.839527ms)
+✔ health disabled is pending approval with costs; transport displays safe detail without retry (1.60431ms)
+✔ new upload clears stale job before file read; blocks overlapping uploads; no fake guidance (0.720694ms)
+✔ saving while busy is prohibited; explicit save stores only selected completed safe items (0.681345ms)
+✔ quality decision required before saving (0.809783ms)
+ℹ tests 11
+ℹ suites 0
+ℹ pass 11
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2649.982378

@@ -1,0 +1,50 @@
+test_complete_jumpsuit_wins_over_contained_pants_in_either_order (test_garment_integrity.IntegrityTests.test_complete_jumpsuit_wins_over_contained_pants_in_either_order) ... FAIL
+test_duplicate_winner_is_confidence_not_input_order (test_garment_integrity.IntegrityTests.test_duplicate_winner_is_confidence_not_input_order) ... FAIL
+test_prompts_preserve_visible_construction_without_invented_features (test_garment_integrity.IntegrityTests.test_prompts_preserve_visible_construction_without_invented_features) ... FAIL
+test_six_garments_preserve_distinct_masks (test_garment_integrity.IntegrityTests.test_six_garments_preserve_distinct_masks) ... ok
+
+======================================================================
+FAIL: test_complete_jumpsuit_wins_over_contained_pants_in_either_order (test_garment_integrity.IntegrityTests.test_complete_jumpsuit_wins_over_contained_pants_in_either_order)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/opt/stylemuse-ai-integration/server/test_garment_integrity.py", line 18, in test_complete_jumpsuit_wins_over_contained_pants_in_either_order
+    self.assertEqual([i['category'] for i in extract_items(Image.new('RGB',(12,16)),rows)],['jumpsuit'])
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: Lists differ: ['trousers', 'jumpsuit'] != ['jumpsuit']
+
+First differing element 0:
+'trousers'
+'jumpsuit'
+
+First list contains 1 additional elements.
+First extra element 1:
+'jumpsuit'
+
+- ['trousers', 'jumpsuit']
++ ['jumpsuit']
+
+======================================================================
+FAIL: test_duplicate_winner_is_confidence_not_input_order (test_garment_integrity.IntegrityTests.test_duplicate_winner_is_confidence_not_input_order)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/opt/stylemuse-ai-integration/server/test_garment_integrity.py", line 23, in test_duplicate_winner_is_confidence_not_input_order
+    self.assertEqual(extract_items(Image.new('RGB',(12,16)),rows)[0]['category'],'dress')
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 'trousers' != 'dress'
+- trousers
++ dress
+
+
+======================================================================
+FAIL: test_prompts_preserve_visible_construction_without_invented_features (test_garment_integrity.IntegrityTests.test_prompts_preserve_visible_construction_without_invented_features)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/opt/stylemuse-ai-integration/server/test_garment_integrity.py", line 36, in test_prompts_preserve_visible_construction_without_invented_features
+    self.assertIn(phrase,prompt)
+    ~~~~~~~~~~~~~^^^^^^^^^^^^^^^
+AssertionError: 'open front' not found in 'TRYOFF extract only the jumpsuit from the reference image over a white background, product photography style. NO HUMAN VISIBLE. Preserve the original color, material, texture, cut, construction, hardware and visible details. Show the complete item without cropping; conservatively reconstruct occluded areas. Do not invent branding or decoration. Remove person, skin, hair and all unrelated clothing and accessories. No text.'
+
+----------------------------------------------------------------------
+Ran 4 tests in 0.014s
+
+FAILED (failures=3)

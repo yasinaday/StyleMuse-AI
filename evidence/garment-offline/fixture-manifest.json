@@ -1,0 +1,90 @@
+{
+  "kind": "existing private local artifacts, read-only reuse; no new inference",
+  "files": [
+    {
+      "path": "/opt/stylemuse-ai/test-photo.jpg",
+      "bytes": 69002,
+      "sha256": "7d39621699f7b431f0e46dbbcc7cfd241ce8cc2f60cc3e24382d88f04e70497c",
+      "size": [
+        616,
+        1536
+      ],
+      "mode": "RGB"
+    },
+    {
+      "path": "/opt/stylemuse-ai/model-schema-current.json",
+      "bytes": 9575,
+      "sha256": "73dc46e0b8a99753d1f1ece553dd39a3b53f3a0a2b661da0289525c8326c6316"
+    },
+    {
+      "path": "/opt/stylemuse-ai/approved-four-test/results-0.json",
+      "bytes": 2841855,
+      "sha256": "337cbe5867820031bc65e6ae029551c5cdd0cda376037f42df701842a380be2d"
+    },
+    {
+      "path": "/opt/stylemuse-ai/approved-four-test/results-1.json",
+      "bytes": 2841851,
+      "sha256": "ee56047f4c73ee0a6d6d5f8aea234c3f65a4fc8b7c2cfa86a0e5df4fc00ae626"
+    },
+    {
+      "path": "/opt/stylemuse-ai/approved-four-test/results-2.json",
+      "bytes": 2841858,
+      "sha256": "4e8951e0fab0a560820b145f0eb79213fd8f19cfd04ca73ee893b89b55a29a1c"
+    },
+    {
+      "path": "/opt/stylemuse-ai/approved-four-test/results-3.json",
+      "bytes": 5683546,
+      "sha256": "3ff59351d1c375905ccb299ca977429f0cad489973a2c5305cd3c5122ea95a0c"
+    },
+    {
+      "path": "/opt/stylemuse-ai/approved-four-test/bordo-canta.png",
+      "bytes": 57229,
+      "sha256": "e83dd9e6e8c5b62f7944681014f42888abc21c2a938a117b5898b5164c64dcb2",
+      "size": [
+        164,
+        402
+      ],
+      "mode": "RGBA"
+    },
+    {
+      "path": "/opt/stylemuse-ai/final-four-products/products/tek-parca-tulum.png",
+      "bytes": 480525,
+      "sha256": "ea6e439f3c3edb5dcc636cd43360e0f2663f5a109ca185192212313e23f0647c",
+      "size": [
+        768,
+        1024
+      ],
+      "mode": "RGB"
+    },
+    {
+      "path": "/opt/stylemuse-ai/final-four-products/products/deri-ceket.png",
+      "bytes": 784356,
+      "sha256": "ccf0a0ec74833c4f6e27469e0b9f1f2d5dbe8cb396a2e7d20a2042d98599bd9d",
+      "size": [
+        768,
+        1024
+      ],
+      "mode": "RGB"
+    },
+    {
+      "path": "/opt/stylemuse-ai/final-four-products/products/pembe-spor-ayakkabilar.png",
+      "bytes": 535852,
+      "sha256": "ec9466ead5d3bf2efd86ee6e81974e53b2fc3b8a9cafa1256593761fe61b8c8f",
+      "size": [
+        768,
+        1024
+      ],
+      "mode": "RGB"
+    },
+    {
+      "path": "/opt/stylemuse-ai/final-four-products/products/bordo-canta.png",
+      "bytes": 649372,
+      "sha256": "ad4351a652640a5c396e51fbefec99c09afdc4a289ac73b1f47ca96a90475d74",
+      "size": [
+        768,
+        1024
+      ],
+      "mode": "RGB"
+    }
+  ]
+}
