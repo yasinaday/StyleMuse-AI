@@ -1,6 +1,7 @@
 """SQLite writer-serialized admission and durable private job storage."""
 import sqlite3
 import os
+import time
 from pathlib import Path
 from contextlib import contextmanager
 from decimal import Decimal, ROUND_CEILING
@@ -24,6 +25,9 @@ class Store:
             CREATE TABLE IF NOT EXISTS ledger(id INTEGER PRIMARY KEY CHECK(id=1), ceiling INTEGER NOT NULL, reserved INTEGER NOT NULL);
             CREATE TABLE IF NOT EXISTS jobs(id TEXT PRIMARY KEY, owner TEXT NOT NULL, request_id TEXT NOT NULL, hash TEXT NOT NULL, state TEXT NOT NULL, original TEXT, result TEXT, expires REAL NOT NULL, UNIQUE(owner,request_id));
             CREATE TABLE IF NOT EXISTS claims(job TEXT NOT NULL,item TEXT NOT NULL,state TEXT NOT NULL,image TEXT,PRIMARY KEY(job,item));
+            CREATE TABLE IF NOT EXISTS owner_ledger(owner TEXT PRIMARY KEY, reserved INTEGER NOT NULL, ceiling INTEGER NOT NULL);
+            CREATE TABLE IF NOT EXISTS owner_rate(owner TEXT NOT NULL, admitted REAL NOT NULL);
+            CREATE INDEX IF NOT EXISTS owner_rate_lookup ON owner_rate(owner,admitted);
             CREATE TABLE IF NOT EXISTS guard(id INTEGER PRIMARY KEY CHECK(id=1), busy INTEGER NOT NULL);
             INSERT OR IGNORE INTO guard VALUES(1,0);
             ''')
@@ -31,6 +35,9 @@ class Store:
         with self.tx() as db:
             db.execute('INSERT OR IGNORE INTO ledger VALUES(1,?,0)', (units(settings.lifetime_budget_usd),))
             db.execute('UPDATE ledger SET ceiling=min(ceiling,?)', (units(settings.lifetime_budget_usd),))
+            global_ceiling = db.execute('SELECT ceiling FROM ledger').fetchone()[0]
+            db.execute('UPDATE owner_ledger SET ceiling=min(ceiling,?)',
+                       (min(units(settings.owner_lifetime_budget_usd), global_ceiling),))
 
     @contextmanager
     def tx(self):
@@ -64,13 +71,28 @@ class Store:
         if used + extra > self.settings.max_storage_bytes:
             raise HTTPException(507,'storage_limit')
 
-    def reserve(self, db, amount):
+    def reserve(self, db, amount, owner=None):
         from fastapi import HTTPException
         if db.execute('SELECT busy FROM guard').fetchone()[0]:
             raise HTTPException(409, 'busy_or_ambiguous')
         r = db.execute('SELECT * FROM ledger').fetchone()
         if r['reserved'] + amount > r['ceiling']:
             raise HTTPException(402, 'budget_exceeded')
+        if owner is not None:
+            ceiling = min(units(self.settings.owner_lifetime_budget_usd), r['ceiling'])
+            db.execute('INSERT OR IGNORE INTO owner_ledger VALUES(?,0,?)', (owner, ceiling))
+            db.execute('UPDATE owner_ledger SET ceiling=min(ceiling,?) WHERE owner=?', (ceiling, owner))
+            personal = db.execute('SELECT * FROM owner_ledger WHERE owner=?', (owner,)).fetchone()
+            if personal['reserved'] + amount > personal['ceiling']:
+                raise HTTPException(402, 'owner_budget_exceeded')
+            now = time.time()
+            cutoff = now - self.settings.owner_rate_window_seconds
+            count = db.execute('SELECT count(*) FROM owner_rate WHERE owner=? AND admitted>?', (owner, cutoff)).fetchone()[0]
+            if count >= self.settings.owner_rate_limit:
+                raise HTTPException(429, 'owner_rate_limited')
+            db.execute('DELETE FROM owner_rate WHERE owner=? AND admitted<=?', (owner, cutoff))
+            db.execute('INSERT INTO owner_rate VALUES(?,?)', (owner, now))
+            db.execute('UPDATE owner_ledger SET reserved=reserved+? WHERE owner=?', (amount, owner))
         db.execute('UPDATE ledger SET reserved=reserved+?', (amount,))
         db.execute('UPDATE guard SET busy=1')
 

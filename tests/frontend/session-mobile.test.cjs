@@ -17,7 +17,7 @@ test('mobile file picker previews locally; cookie session precedes health; disab
  assert.equal(calls.length,0,'selection must not call AI or session');
  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
  await page.screenshot({path:path.join(__dirname,'evidence/session-mobile-preview.png')});
- await page.locator('#ai-analyze').click();await page.waitForFunction(()=>document.querySelector('#ai-status').textContent.includes('kapalı'));
+ await page.locator('#ai-analyze').click();await page.waitForFunction(()=>document.querySelector('#ai-status').textContent.includes('Yetkisiz'));
  assert.deepEqual(calls.map(x=>new URL(x.url).pathname),['/api/session','/api/health']);assert.ok(calls.every(x=>!x.headers.authorization));
  assert.deepEqual(await page.evaluate(()=>performance.getEntriesByType('resource').filter(x=>x.name.includes('/api/')).map(x=>x.name.split('/').pop())),['session','health']);
  await page.getByRole('button',{name:'Elle kırp',exact:true}).click();

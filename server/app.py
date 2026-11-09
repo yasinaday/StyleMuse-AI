@@ -104,6 +104,16 @@ class Settings:
     max_request_bytes: int = 9000000
     max_image_bytes: int = 6291456
     max_pixels: int = 16000000
+    github_client_id: str = ''
+    github_client_secret: str = ''
+    github_owner_id: str = ''
+    github_owner_login: str = ''
+    github_redirect_uri: str = ''
+    github_return_url: str = ''
+    oauth_state_ttl_seconds: int = 600
+    owner_lifetime_budget_usd: float = .5
+    owner_rate_limit: int = 3
+    owner_rate_window_seconds: int = 60
 
     @classmethod
     def from_env(cls):
@@ -129,6 +139,11 @@ class Settings:
             setattr(settings, field.name, value)
         return settings
 
+def oauth_http_client():
+    import httpx
+    return httpx.Client(timeout=15, follow_redirects=False, trust_env=False)
+
+
 def create_app(settings=None, provider=None):
     s = Settings(**settings) if isinstance(settings, dict) else (settings or Settings())
     from urllib.parse import urlsplit
@@ -141,7 +156,10 @@ def create_app(settings=None, provider=None):
     if any(type(value) is not int or value <= 0
            for value in (s.max_sessions, s.session_ttl_seconds)):
         raise ValueError('Session capacity and TTL must be positive finite integers')
-    store = Store(s)
+    if any(type(value) is not int or value <= 0
+           for value in (s.owner_rate_limit, s.owner_rate_window_seconds)):
+        raise ValueError('Owner rate limit and window must be positive integers')
+    units(s.owner_lifetime_budget_usd)
     app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
     app.add_middleware(BoundedBody, limit=s.max_request_bytes)
     @app.exception_handler(RequestValidationError)
@@ -163,6 +181,130 @@ def create_app(settings=None, provider=None):
         if request.headers.getlist('origin') != [s.origin] or s.origin in ('', '*', 'null'):
             raise HTTPException(403, 'origin_not_allowed')
 
+    oauth_states = {}
+    authorized = {}
+
+    def oauth_configured():
+        from urllib.parse import urlsplit
+        callback, target = urlsplit(s.github_redirect_uri), urlsplit(s.github_return_url)
+        return (all((s.github_client_id, s.github_client_secret, s.github_owner_id,
+                     s.github_owner_login, s.github_redirect_uri, s.github_return_url))
+                and s.github_owner_id.isascii() and s.github_owner_id.isdecimal()
+                and int(s.github_owner_id) > 0 and str(int(s.github_owner_id)) == s.github_owner_id
+                and callback.scheme == 'https' and callback.hostname
+                and not callback.username and not callback.password
+                and callback.path == '/api/auth/github/callback'
+                and not callback.query and not callback.fragment
+                and target.scheme == 'https' and target.netloc == origin.netloc
+                and not target.username and not target.password and not target.fragment
+                and type(s.oauth_state_ttl_seconds) is int and 0 < s.oauth_state_ttl_seconds <= 600)
+
+    if s.enabled and (s.github_owner_id or s.github_owner_login) and not oauth_configured():
+        raise ValueError('Complete pinned GitHub OAuth configuration required when enabled')
+    store = Store(s)
+
+    def identity_status(token):
+        identity = authorized.get(token)
+        return {'authenticated': identity is not None, 'identity': identity}
+
+    @app.middleware('http')
+    async def private_cache(request, call_next):
+        response = await call_next(request)
+        response.headers['Cache-Control'] = 'no-store'
+        response.headers['Referrer-Policy'] = 'no-referrer'
+        return response
+
+    @app.post('/api/auth/github/start')
+    def github_start(request: Request):
+        from urllib.parse import urlencode
+        exact_origin(request)
+        if not oauth_configured():
+            raise HTTPException(503, 'oauth_not_configured')
+        token = request.cookies.get(cookie_name, '')
+        with session_lock:
+            now = time.monotonic()
+            entry = sessions.get(token)
+            if not entry or entry[1] <= now:
+                raise HTTPException(401, 'unauthorized')
+            for key in [key for key, value in oauth_states.items()
+                        if value[2] <= now or value[0] == token]:
+                del oauth_states[key]
+            if len(oauth_states) >= s.max_sessions:
+                raise HTTPException(429, 'oauth_capacity_reached')
+            state, verifier = secrets.token_urlsafe(32), secrets.token_urlsafe(48)
+            oauth_states[state] = (token, verifier, min(entry[1], now + s.oauth_state_ttl_seconds))
+        challenge = base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).rstrip(b'=').decode()
+        return {'authorization_url': 'https://github.com/login/oauth/authorize?' + urlencode({
+            'client_id': s.github_client_id, 'redirect_uri': s.github_redirect_uri,
+            'state': state, 'code_challenge': challenge, 'code_challenge_method': 'S256',
+            'scope': ''})}
+
+    @app.get('/api/auth/github/callback')
+    def github_callback(request: Request):
+        from starlette.responses import RedirectResponse
+        if not oauth_configured():
+            raise HTTPException(503, 'oauth_not_configured')
+        # A single-use state is a capability bound to the *original* CHIPS
+        # session. No top-level app cookie (nor newly visiting session) is used.
+        states = request.query_params.getlist('state')
+        with session_lock:
+            entry = oauth_states.pop(states[0], None) if len(states) == 1 else None
+            if not entry or entry[2] <= time.monotonic():
+                raise HTTPException(403, 'oauth_state_invalid')
+            token, verifier, _ = entry
+            session_entry = sessions.get(token)
+            if not session_entry or session_entry[1] <= time.monotonic():
+                raise HTTPException(403, 'oauth_state_invalid')
+        codes = request.query_params.getlist('code')
+        if request.query_params.get('error') or len(codes) != 1 or not 1 <= len(codes[0]) <= 1024:
+            raise HTTPException(403, 'oauth_denied')
+        try:
+            with oauth_http_client() as client:
+                response = client.post('https://github.com/login/oauth/access_token',
+                    headers={'Accept': 'application/json'}, data={
+                        'client_id': s.github_client_id, 'client_secret': s.github_client_secret,
+                        'redirect_uri': s.github_redirect_uri, 'code': codes[0],
+                        'code_verifier': verifier})
+                response.raise_for_status()
+                access = response.json()['access_token']
+                if not isinstance(access, str) or not access:
+                    raise ValueError()
+                response = client.get('https://api.github.com/user', headers={
+                    'Authorization': 'Bearer ' + access, 'Accept': 'application/vnd.github+json',
+                    'X-GitHub-Api-Version': '2022-11-28'})
+                response.raise_for_status()
+                user = response.json()
+                if not isinstance(user, dict):
+                    raise ValueError()
+        except Exception:
+            raise HTTPException(502, 'oauth_provider_failed') from None
+        if (type(user.get('id')) is not int or str(user['id']) != s.github_owner_id
+                or not isinstance(user.get('login'), str)
+                or user['login'].casefold() != s.github_owner_login.casefold()):
+            raise HTTPException(403, 'oauth_account_not_allowed')
+        with session_lock:
+            session_entry = sessions.get(token)
+            if not session_entry or session_entry[1] <= time.monotonic():
+                raise HTTPException(403, 'oauth_state_invalid')
+            authorized[token] = {'provider': 'github', 'id': s.github_owner_id,
+                                 'login': s.github_owner_login}
+        return RedirectResponse(s.github_return_url, status_code=303)
+
+    @app.post('/api/auth/logout')
+    def logout(request: Request):
+        exact_origin(request)
+        token = request.cookies.get(cookie_name, '')
+        with session_lock:
+            sessions.pop(token, None)
+            authorized.pop(token, None)
+            for state in [key for key, entry in oauth_states.items() if entry[0] == token]:
+                del oauth_states[state]
+        response = JSONResponse({'status': 'ok', 'authenticated': False, 'identity': None})
+        response.set_cookie(cookie_name, '', max_age=0, secure=True, httponly=True,
+                            samesite='none', path='/')
+        response.headers['set-cookie'] += '; Partitioned'
+        return response
+
     @app.post('/api/session')
     def session(request: Request):
         exact_origin(request)
@@ -170,6 +312,7 @@ def create_app(settings=None, provider=None):
             now = time.monotonic()
             for expired in [key for key, entry in sessions.items() if entry[1] <= now]:
                 del sessions[expired]
+                authorized.pop(expired, None)
             token = request.cookies.get(cookie_name, '')
             if token not in sessions:
                 if len(sessions) >= s.max_sessions:
@@ -177,7 +320,8 @@ def create_app(settings=None, provider=None):
                 token = secrets.token_urlsafe(32)
                 sessions[token] = (secrets.token_urlsafe(32), now + s.session_ttl_seconds)
             remaining = max(1, int(sessions[token][1] - now))
-        response = JSONResponse({'status': 'ok', 'enabled': s.enabled})
+        response = JSONResponse({'status': 'ok', 'enabled': s.enabled,
+                                 **(identity_status(token) if s.github_owner_id else {})})
         cookie_options = dict(key=cookie_name, value=token, max_age=remaining,
                               secure=True, httponly=True, samesite='none', path='/')
         try:
@@ -191,13 +335,15 @@ def create_app(settings=None, provider=None):
         return response
 
     def owner(authorization, request, *, paid=False):
-        if s.access_token and secrets.compare_digest((authorization or '').encode(), ('Bearer '+s.access_token).encode()):
+        if not s.github_owner_id and not s.github_owner_login and s.access_token and secrets.compare_digest((authorization or '').encode(), ('Bearer '+s.access_token).encode()):
             return hashlib.sha256(s.access_token.encode()).hexdigest()
         token = request.cookies.get(cookie_name, '')
         with session_lock:
             entry = sessions.get(token)
             if entry and entry[1] > time.monotonic():
                 exact_origin(request)
+                if token in authorized:
+                    return 'github:' + authorized[token]['id']
                 if paid:
                     raise HTTPException(403, 'paid_inference_not_authorized')
                 return entry[0]
@@ -209,7 +355,8 @@ def create_app(settings=None, provider=None):
     @app.post('/api/health')
     def health(request: Request, authorization: str | None = Header(None)):
         owner(authorization, request)
-        return {'status':'ok', 'enabled':s.enabled, **store.costs()}
+        return {'status':'ok', 'enabled':s.enabled, **store.costs(),
+                **(identity_status(request.cookies.get(cookie_name, '')) if s.github_owner_id else {})}
     @app.post('/api/detect')
     def detect(payload: DetectRequest, request: Request, authorization: str | None = Header(None)):
         who = owner(authorization, request, paid=True)
@@ -228,7 +375,7 @@ def create_app(settings=None, provider=None):
                 result = json.loads(row['result'])
                 return public_result(row['id'], result)
             store.capacity(db,len(original))
-            store.reserve(db, units(s.detect_reservation_usd))
+            store.reserve(db, units(s.detect_reservation_usd), owner=who if who.startswith('github:') else None)
             db.execute('INSERT INTO jobs VALUES(?,?,?,?,?,?,?,?)', (jid,who,payload.request_id,digest,'claimed',original,None,time.time()+s.session_ttl_seconds))
         try:
             items = provider.detect(original)
@@ -270,7 +417,7 @@ def create_app(settings=None, provider=None):
                 raise HTTPException(403,'cost_confirmation_required')
             if pending:
                 store.capacity(db,len(pending)*(s.max_image_bytes*4//3+100))
-                store.reserve(db,cost)
+                store.reserve(db,cost, owner=who if who.startswith('github:') else None)
                 for i in pending:
                     db.execute('INSERT INTO claims VALUES(?,?,?,NULL)',(payload.job_id,i,'claimed'))
         if not pending:
@@ -293,7 +440,7 @@ def create_app_from_env():
     """Construct locally; configuration is not permission to submit inference."""
     settings = Settings.from_env()
     provider = None
-    if settings.enabled and settings.access_token and settings.lifetime_budget_usd > 0:
+    if settings.enabled and (settings.access_token or settings.github_owner_id) and settings.lifetime_budget_usd > 0:
         from providers import RealProviders
         provider = RealProviders.from_env()
     return create_app(settings, provider)

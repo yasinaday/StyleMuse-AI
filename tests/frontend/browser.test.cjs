@@ -22,7 +22,7 @@ for(const width of [375,1280]) test(`offline real DOM ${width}px: confirmations,
  const url=route.request().url();
  if(url.startsWith(origin))return route.continue();
  if(url.includes('/api/')){
- const payload=route.request().postDataJSON();if(url.endsWith('/session')||url.endsWith('/health'))return route.fulfill({json:{status:'ok',enabled:true}});requests.push({url,payload});
+ const payload=route.request().postDataJSON();if(url.endsWith('/session')||url.endsWith('/health'))return route.fulfill({json:{status:'ok',enabled:true,authenticated:true,login:'yasinaday'}});requests.push({url,payload});
  const body=url.endsWith('/detect')?{job_id:'job',items:[{id:'top',category:'Üst giyim',preview:previewImage},{id:'bag',category:'Çanta',preview:previewImage}]}:{items:[{id:'bag',image}]};
  return route.fulfill({json:body});
  }
@@ -46,7 +46,7 @@ for(const width of [375,1280]) test(`offline real DOM ${width}px: confirmations,
  await page.waitForFunction(()=>typeof aiBusy!=='undefined'&&!aiBusy&&aiParts.length===2);
  const boxes=page.locator('#ai-cards input[type=checkbox]');
  assert.equal(await boxes.nth(1).isEnabled(),true,'detection completion must re-enable selection');
- assert.equal(await boxes.nth(0).isChecked(),false);
+ assert.equal(await boxes.nth(0).isChecked(),true);await boxes.nth(0).uncheck();
  await boxes.nth(1).check();
  accept=false;await page.locator('#ai-generate').click();assert.equal(requests.length,1);
  accept=true;await page.locator('#ai-generate').click();

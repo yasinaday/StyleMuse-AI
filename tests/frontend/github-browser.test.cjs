@@ -1,0 +1,14 @@
+const {test}=require('node:test');
+const assert=require('node:assert/strict');
+const fs=require('node:fs');const http=require('node:http');const path=require('node:path');
+const {chromium}=require('playwright');
+const html=fs.readFileSync(path.join(__dirname,'../../index.html'),'utf8');
+test('offline mobile GitHub owner status, logout and top-level login use original cookie session',async()=>{
+ const server=http.createServer((req,res)=>res.end(html));await new Promise(r=>server.listen(0,'127.0.0.1',r));let browser;
+ try{browser=await chromium.launch({headless:true,executablePath:process.env.CHROMIUM_PATH||'/root/.cache/ms-playwright/chromium-1254/chrome-linux64/chrome',args:['--no-sandbox']});
+ const page=await browser.newPage({viewport:{width:375,height:812}});const origin=`http://127.0.0.1:${server.address().port}`;const calls=[],errors=[];let owner=true;page.on('pageerror',e=>errors.push(e.message));
+ await page.route('**/*',async route=>{const req=route.request(),url=req.url();if(url.startsWith(origin))return route.continue();if(url.startsWith('https://github.com/'))return route.fulfill({contentType:'text/html',body:'<h1>Offline GitHub authorization destination</h1>'});if(url.includes('/api/')){calls.push({url,headers:req.headers(),body:req.postDataJSON()});if(url.endsWith('/logout'))owner=false;return route.fulfill({json:url.endsWith('/start')?{authorization_url:'https://github.com/login/oauth/authorize?client_id=fixture&state=opaque'}:{status:'ok',enabled:false,authenticated:owner,...(owner?{login:'yasinaday'}:{})}})}return route.abort()});
+ await page.goto(origin);await page.evaluate(()=>tab('profile'));await page.waitForFunction(()=>document.getElementById('github-status').textContent.includes('yasinaday'));assert.equal(await page.locator('#github-login').isVisible(),false);await page.locator('#github-logout').click();await page.waitForFunction(()=>document.getElementById('github-status').textContent.includes('giriş yapılmadı'));assert.equal(await page.locator('#github-login').isVisible(),true);assert.equal(await page.locator('#github-logout').isVisible(),false);assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);assert.equal(await page.evaluate(()=>localStorage.getItem('sm-auth')),null);
+ await page.locator('#github-login').click();await page.waitForURL('https://github.com/login/oauth/authorize?client_id=fixture&state=opaque');assert.equal(page.frames().length,1);assert.deepEqual(calls.map(x=>new URL(x.url).pathname),['/api/session','/api/health','/api/auth/logout','/api/session','/api/auth/github/start']);assert.ok(calls.every(x=>!x.headers.authorization));assert.ok(calls.every(x=>Object.keys(x.body).length===0));assert.deepEqual(errors,[]);
+ }finally{if(browser)await browser.close();await new Promise(r=>server.close(r))}
+});
