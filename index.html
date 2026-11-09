@@ -160,6 +160,85 @@ header{background:var(--sm-ivory);border-bottom:0;padding:19px 21px 14px}
 .nav button{color:#897384!important}.nav button.active{color:#8d3f80!important}.nav button.active span{color:#8d3f80}
 button:focus-visible,.nav button:focus-visible{outline:3px solid #b87aaa;outline-offset:2px}
 @media(max-width:355px){.sm-home-actions{grid-template-columns:1fr 1fr}.sm-home-actions button{padding:15px 11px}.sm-home-actions strong{font-size:15px}.sm-secondary-actions button{padding:13px 8px}.sm-home-hero{min-height:255px}}
+
+/* Unified StyleMuse design system: all five tabs, dialogs, wardrobe and AI review */
+:root{--sm-ink:#38283a;--sm-plum:#74416f;--sm-rose:#a45d92;--sm-pale:#f9eef4;--sm-border:#eddde7;--sm-paper:#fffaf8;--sm-muted:#826d7c}
+html{background:var(--sm-paper)}
+body{background:var(--sm-paper);color:var(--sm-ink);max-width:540px}
+header{background:var(--sm-paper);padding:20px 22px 17px}
+.brand{color:#43273f;font-size:29px}.pill{color:#7c4c71;background:#f6e6ef;border:1px solid #f1d9e7}
+.wrap{padding:0 21px}main section{min-width:0}
+#closet,#outfits,#tryon,#profile{padding:8px 0 30px}
+#closet h1,#outfits h1,#tryon h1,#profile h1{font:normal clamp(35px,9vw,45px)/1.08 Georgia,serif;color:#452942;letter-spacing:-.045em;margin:7px 0 12px}
+#closet h2,#outfits h2,#tryon h2,#profile h2{font:normal 26px/1.14 Georgia,serif;color:#452942;letter-spacing:-.035em}
+.eyebrow{font-size:10px;color:#9a6086;letter-spacing:.15em;margin-bottom:10px}
+#closet>p,#outfits>p,#tryon>p,#profile>p{font-size:14px;line-height:1.6;color:var(--sm-muted)}
+#closet .ward-head{align-items:center;margin:4px 0 18px}
+#closet .ward-head p{font-size:13px;margin:0;color:var(--sm-muted)}
+.count-pill{background:#f7e6ef;color:#75456d;border-radius:99px;padding:10px 13px;font-size:12px}
+.ward-add{border:1px solid var(--sm-border);border-radius:20px;background:#fffdfc;padding:20px 17px;margin:15px 0;box-shadow:0 8px 28px #71456508}
+.ward-add:first-of-type{border:1px solid var(--sm-border)}
+.ward-add>b{display:block;color:#55344e;font-size:17px;line-height:1.35;margin-bottom:9px}
+.ward-add label:not(.upload-button),#outfits label,#profile label{color:#5f4557;font-size:13px;font-weight:650;margin:16px 0 8px}
+.upload-button{border-radius:14px;background:linear-gradient(115deg,#94518b,#6f3b75);color:white;min-height:56px;display:flex;align-items:center;justify-content:center;padding:14px 10px;font-size:14px;line-height:1.4}
+.ward-add small,.ward-add .hint{font-size:12px;line-height:1.55;color:#8c7987}
+input:not([type=checkbox]):not([type=range]):not([type=file]),select{background:#fffdfc;border:1px solid #e8d9e2;border-radius:14px;color:#443041;min-height:49px;padding:12px 14px;font-size:15px}
+input:focus-visible,select:focus-visible{outline:2px solid #a86a99;outline-offset:2px}
+button{background:#74416f;color:white;border-radius:14px;min-height:44px}
+button.secondary{background:#f4e9f0;color:#6e4566}
+#outfits>.section button,#tryon .result-card>button,#profile .result-card button{min-height:51px;padding:13px 20px}
+#outfits select{margin-bottom:8px}
+#outfits .section{margin-top:23px}
+#outfits .section button{width:100%;background:linear-gradient(120deg,#96518e,#74416f)}
+.result-card{background:#fffdfc;border:1px solid var(--sm-border);border-radius:20px;padding:20px 16px;box-shadow:0 10px 30px #6d47610a}
+.result-card .empty{background:#fbf1f6;border:0;border-radius:17px}
+.result-card .chip{background:#f1dfea;color:#77456b}
+#tryon .result-card{margin-top:24px}
+#tryon .result-card h2{margin-top:4px}
+#tryon .try-choice{background:#fcf3f7;color:#553c50;border:1px solid #f0e0e8;border-radius:15px;padding:10px}
+#tryon .try-choice.chosen{border:2px solid #a65b97;background:#f8e6f1}
+#tryon .try-choice img{border-radius:11px;background:white}
+.preview-grid img{background:#f9eff4;border-radius:14px}
+#profile>.result-card:first-child{background:linear-gradient(135deg,#f8e7f0,#f4dfea);border:0;margin:12px 0 26px}
+#profile>.result-card:first-child p{color:#61445b;font-size:13px}
+#profile>.result-card:first-child .actions button{flex:1}
+#profile .result-card{margin-top:20px}
+#profile .result-card h2{margin-top:6px}
+#profile #name,#profile #favorite{margin-bottom:7px}
+#profile .notice{font-size:12px;line-height:1.55}
+#filterbar{margin:23px 0 10px;padding-bottom:10px;scrollbar-width:none}
+#filterbar button{border-radius:99px;background:#f6e9f0;color:#77536c;font-size:13px;min-height:40px}
+#filterbar button.selected{background:#74416f;color:#fff}
+#items{gap:13px}
+#items .tile{border:1px solid #f1e5eb;background:#fffdfc;border-radius:18px;overflow:hidden;box-shadow:none}
+#items .tile img.photo{height:188px;background:#faf3f6;object-fit:contain;border-radius:0}
+#items .tile .info{padding:11px}
+#items .item-meta button{border-radius:10px;background:#f3e8ee;color:#6d4964;min-height:35px;padding:7px 10px}
+#ward-empty{background:#f9edf3;border:1px dashed #dec6d5;border-radius:19px;padding:25px 15px}
+#ai-budget{background:#f8edf3;color:#6c5062;font-size:12px;line-height:1.55;border-radius:13px;padding:13px;margin-top:14px}
+#ai-upload-preview{border-radius:14px;background:#f8f1f5}
+.nav{background:#fffafc;border-top:1px solid #f0e0e9;box-shadow:0 -5px 23px #67415c0b}
+.nav button{color:#8e7b88!important}.nav button.active{color:#89447d!important}.nav button.active span{color:#89447d!important}
+.crop-modal,.smart-modal{background:#261b25cc;padding:12px}
+.crop-panel,.smart-panel,.ai-review-panel{background:#fffafc;border-radius:23px;padding:17px;max-height:92dvh;overflow-y:auto}
+.crop-panel h2,.smart-panel h2,.ai-review-head h2{font:normal 25px Georgia,serif;color:#4b2b45}
+.crop-panel canvas{background:#f6eaf1;border-radius:16px}
+.smart-card{background:#fff;border:1px solid #ecdce5;border-radius:15px}
+.smart-card img{background:#f8eff4}
+.ai-review-head button{background:#f5e7ef;color:#653b5d}
+.ai-review-budget{background:#f8ebf2;color:#75506b;border-radius:13px;font-size:12px;line-height:1.5}
+.ai-model{background:#faf0f5;border-radius:15px}
+.ai-piece{background:#fff;border:1px solid #ead9e3;border-radius:15px}
+.ai-piece:has(input:checked){box-shadow:0 0 0 2px #a96799}
+.ai-piece img{background:#fbf4f7;border-radius:12px}
+.ai-generated{padding:10px}
+.ai-comparison img{object-fit:contain;max-width:100%}
+.ai-product-nav button{background:#f2e4ec;color:#6f4266}
+.ai-review-actions button{min-height:50px}
+.zoom-overlay{background:#261b25e8}
+.zoom-close{background:#fff;color:#583750}
+@media(max-width:370px){.wrap{padding:0 16px}.ward-add{padding:16px 13px}#items .tile img.photo{height:160px}.nav button{font-size:10px}}
+@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
 </style></head><body><header><div class="brand">StyleMuse <small style="font:12px system-ui">AI</small></div><div class="pill">✧ Stil asistanın</div></header>
 <main class="wrap"><section id="discover" class="sm-home">
 <div class="sm-home-hero"><span class="sm-kicker">STYLEMUSE AI · KİŞİSEL DOLABIN</span><h1>Stilini<br><em>yeniden keşfet.</em></h1><p>Kıyafetlerin bir arada, kombin fikirlerin elinin altında.</p><button type="button" onclick="tab('closet')">Dolabımı aç <span aria-hidden="true">↗</span></button><span class="sm-hero-art" aria-hidden="true">✦</span></div>
@@ -172,7 +251,7 @@ button:focus-visible,.nav button:focus-visible{outline:3px solid #b87aaa;outline
 <section id="closet" class="hide"><div class="ward-head"><div><span class="eyebrow">KİŞİSEL KOLEKSİYON</span><h1>Giysilerim</h1><p>Tarzının her parçası burada.</p></div><span id="ward-count" class="count-pill">0 parça</span></div><div class="ward-add"><label for="category">Ne ekliyorsun?</label><select id="category"><option>Üst giyim</option><option>Alt giyim</option><option>Elbise</option><option>Çanta</option><option>Dış giyim</option><option>Aksesuar</option></select><label for="photo" class="upload-button">＋ Fotoğraf seç ve dolabıma ekle</label><input id="photo" type="file" accept="image/*" style="display:none" onchange="addItem(event)"><small>Fotoğrafı seçince kıyafete odaklanacak şekilde kırpabilirsin. Yalnızca bu cihazda saklanır.</small></div><div class="ward-add"><b>✦ Tek fotoğraftan birden fazla kıyafet</b><p class="hint">Yapay zekâ fotoğraftaki kıyafetleri bulur ve ayrı ayrı önerir. Kaydetmeden önce kontrol edebilirsin.</p><label for="smart-photo" class="upload-button">✦ Yapay zekâ ile kıyafetleri ayır</label><input id="smart-photo" type="file" accept="image/*" style="display:none" onchange="smartUpload(event)"><small>Fotoğraf seçmek ücretli AI işlemi başlatmaz. Manuel kırpma her zaman kullanılabilir.</small><div id="ai-upload" hidden><img id="ai-upload-preview" alt="Seçtiğin fotoğrafın yerel önizlemesi" style="display:block;width:100%;max-height:340px;object-fit:contain;margin:14px 0"><div class="actions"><button id="ai-analyze" onclick="analyzeClothes()">AI ile analiz et</button><button class="secondary" onclick="if(!aiBusy)openMultiCrop()">Elle kırp</button></div></div></div><div id="filterbar" class="filters section"></div><div id="items" class="grid"></div><div id="ward-empty" class="empty"><div style="font-size:38px">♡</div><h2>Dolabın seni bekliyor</h2><p>İlk parçanı ekleyerek başlayabilirsin.</p></div><p class="notice">Ekran görüntüsü yerine tek bir kıyafetin fotoğrafını kullan. İstemediğin parçaları Sil ile kaldırabilirsin.</p></section>
 <section id="outfits" class="hide"><span class="eyebrow">STİL ATÖLYESİ</span><h1>Kombinlerim</h1><p>Bugünün havasına ve planına göre stil fikri seç.</p><label>Bugünkü planın</label><select id="occasion"><option>Günlük</option><option>İş / Ofis</option><option>Akşam yemeği</option><option>Özel davet</option></select><label>Hangi tarz?</label><select id="style"><option>Rahat ve şık</option><option>Minimal</option><option>Romantik</option><option>Modern klasik</option></select><div class="section"><button onclick="suggest()">Bana fikir ver ✦</button></div><div id="suggestion"></div><div id="savedOutfits" class="section"></div></section>
 <section id="tryon" class="hide"><span class="eyebrow">GÖRÜNÜM STÜDYOSU</span><h1>Denemelerim</h1><p>Sevdiğin kıyafetleri yan yana gör, uyumunu keşfet.</p><div class="result-card"><h2>♡ Kombin önizlemesi</h2><p>Dolabından iki veya daha fazla parça seçerek görsel bir pano hazırla.</p><div id="try-choices" class="grid"></div><div id="try-preview" class="preview-grid"></div><button class="secondary" onclick="tab('closet')">Dolabıma git</button><p class="notice">Bu bir kombin panosudur; kıyafetleri fotoğrafındaki bedenine giydirmez. Gerçek sanal deneme için ayrı bir görüntü işleme hizmeti gerekir.</p></div></section>
-<section id="profile" class="hide"><div class="result-card"><p id="github-status" role="status">GitHub oturumu henüz doğrulanmadı.</p><div class="actions"><button id="github-login" onclick="loginGithub()">GitHub ile giriş yap</button><button id="github-logout" onclick="logoutGithub()" hidden>GitHub çıkış</button></div></div><span class="eyebrow">KİŞİSEL ALANIN</span><h1>Profilim</h1><p>Güzel görünmek karmaşık olmak zorunda değil.</p><label>Nasıl hitap edelim?</label><input id="name" placeholder="Adın" oninput="localStorage.setItem('sm-name',this.value)"><label>En sevdiğin tarz</label><select id="favorite" onchange="localStorage.setItem('sm-style',this.value)"><option>Rahat ve şık</option><option>Minimal</option><option>Romantik</option><option>Modern klasik</option></select><div class="result-card" style="margin:22px 0"><span class="eyebrow">AI HİZMETİ</span><h2>Bağlantı durumu</h2><p class="hint" id="ai-connection-state" role="status">Sunucu kontrol ediliyor…</p><button type="button" class="secondary" onclick="checkAiHealth()">Yeniden kontrol et</button></div><div class="result-card"><h2>Benim küçük stil özetim</h2><p id="profile-stats"></p><button class="secondary" onclick="exportData()">Verilerimi yedekle ↓</button><p class="notice">Kıyafetler cihazındaki tarayıcıda tutulur. Tarayıcı verilerini silersen kayıtlar kaybolabilir.</p></div></section></main>
+<section id="profile" class="hide"><span class="eyebrow">KİŞİSEL ALANIN</span><h1>Profilim</h1><p>Güzel görünmek karmaşık olmak zorunda değil.</p><div class="result-card"><p id="github-status" role="status">GitHub oturumu henüz doğrulanmadı.</p><div class="actions"><button id="github-login" onclick="loginGithub()">GitHub ile giriş yap</button><button id="github-logout" onclick="logoutGithub()" hidden>GitHub çıkış</button></div></div><label>Nasıl hitap edelim?</label><input id="name" placeholder="Adın" oninput="localStorage.setItem('sm-name',this.value)"><label>En sevdiğin tarz</label><select id="favorite" onchange="localStorage.setItem('sm-style',this.value)"><option>Rahat ve şık</option><option>Minimal</option><option>Romantik</option><option>Modern klasik</option></select><div class="result-card" style="margin:22px 0"><span class="eyebrow">AI HİZMETİ</span><h2>Bağlantı durumu</h2><p class="hint" id="ai-connection-state" role="status">Sunucu kontrol ediliyor…</p><button type="button" class="secondary" onclick="checkAiHealth()">Yeniden kontrol et</button></div><div class="result-card"><h2>Benim küçük stil özetim</h2><p id="profile-stats"></p><button class="secondary" onclick="exportData()">Verilerimi yedekle ↓</button><p class="notice">Kıyafetler cihazındaki tarayıcıda tutulur. Tarayıcı verilerini silersen kayıtlar kaybolabilir.</p></div></section></main>
 <nav class="nav" aria-label="Ana menü"><button type="button" data-tab="discover" class="active"><span>⌂</span>Keşfet</button><button type="button" data-tab="closet"><span>▦</span>Giysiler</button><button type="button" data-tab="outfits"><span>✧</span>Kombinler</button><button type="button" data-tab="tryon"><span>♧</span>Denemeler</button><button type="button" data-tab="profile"><span>♡</span>Profil</button></nav>
 <div id="smart-modal" class="smart-modal" role="dialog" aria-modal="true" aria-label="Kombin parçalarını ayır"><div class="smart-panel"><h2>✦ Parçaları ayır</h2><p class="smart-note">Bu sürüm fotoğrafı yaklaşık bölgelere ayırır; gerçek yapay zekâ ile kıyafet tanıma değildir. Kaydetmeden önce parçaları kontrol et.</p><div id="smart-grid" class="smart-grid"></div><div class="actions"><button class="secondary" onclick="closeSmart()">Vazgeç</button><button onclick="saveSmart()">Seçilenleri kaydet ✓</button></div><p class="smart-progress" id="smart-status"></p></div></div><div id="crop-modal" class="crop-modal" role="dialog" aria-modal="true" aria-label="Kıyafet fotoğrafını kırp"><div class="crop-panel"><h2>Fotoğrafı düzenle ✂</h2><p>Kıyafeti ortaya getir. Parmağınla kaydır, alttan büyüt.</p><canvas id="crop-canvas" width="600" height="600"></canvas><label for="crop-scale">Yakınlaştır</label><input id="crop-scale" type="range" min="1" max="4" step=".05" value="1" oninput="cropScale=Number(this.value);drawCrop()"><div class="actions"><button class="secondary" onclick="closeCrop()">Vazgeç</button><button onclick="saveCrop()">Kırp ve kaydet ✓</button></div><p class="crop-help">Yalnızca seçtiğin alan kaydedilir. Arka plan otomatik silinmez.</p></div></div><div id="zoom-overlay" class="zoom-overlay" role="dialog" aria-modal="true" aria-label="Fotoğrafı büyüt" onclick="closeZoom()"><button class="zoom-close" aria-label="Kapat" onclick="closeZoom()">×</button><img id="zoom-image" alt="Büyütülmüş kıyafet fotoğrafı" onclick="event.stopPropagation()"></div><script>
 function renderHomeRecent(){const target=document.getElementById('sm-home-recent');if(!target)return;const items=typeof getItems==='function'?getItems():[];target.replaceChildren();if(!items.length){const p=document.createElement('p');p.className='sm-recent-empty';p.textContent='Dolabın henüz boş. İlk kıyafetini ekleyerek başla.';target.append(p);return;}items.slice(-6).reverse().forEach(item=>{const card=document.createElement('div');card.className='sm-recent-item';const img=document.createElement('img');img.src=item.image;img.alt=item.category||'Kıyafet';img.loading='lazy';const label=document.createElement('span');label.textContent=item.category||'Kıyafet';card.append(img,label);target.append(card);});}
