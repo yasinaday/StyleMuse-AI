@@ -53,7 +53,8 @@ class FidelityTests(unittest.TestCase):
             def detect(self, original):
                 return [dict(item, secret_payload='must not leak')]
         with tempfile.TemporaryDirectory(dir=_ISOLATION.name) as root:
-            client = TestClient(api.create_app(dict(access_token='offline-test', enabled=True,
+            from offline_test_support import PaidFixtureClient, offline_app
+            client = PaidFixtureClient(offline_app(dict(access_token='offline-test', enabled=True,
                 lifetime_budget_usd=1, db_path=str(Path(root)/'api.sqlite'),
                 storage_dir=str(Path(root)/'images')), OfflineProvider()))
             client.headers['Authorization'] = 'Bearer offline-test'

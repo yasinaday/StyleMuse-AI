@@ -91,6 +91,16 @@ def login(c, monkeypatch, user=None):
     callback_client = c
     return callback_client.get('/api/auth/github/callback', params={'state':state,'code':'fixture-code'}, follow_redirects=False)
 
+def approved(c, path, payload):
+    """Explicit fixture confirmation through the production quote endpoint."""
+    inputs = {k:v for k,v in payload.items() if k not in ('confirmed', 'max_total_usd', 'quote_id')}
+    quote = c.post('/api/quote', headers=HEADERS, json={'action':path.rsplit('/',1)[-1], 'inputs':inputs})
+    if quote.status_code != 200:
+        return quote
+    q = quote.json()
+    return c.post(path, headers=HEADERS, json=dict(inputs, confirmed=True, quote_id=q['quote_id'], max_total_usd=q['estimated_cost_usd']))
+
+
 def test_oauth_owner_gets_paid_admission_and_health_identity(tmp_path, monkeypatch):
     from test_api import Provider, image
     p = Provider()
@@ -100,7 +110,7 @@ def test_oauth_owner_gets_paid_admission_and_health_identity(tmp_path, monkeypat
     health = c.post('/api/health', headers=HEADERS).json()
     assert health['authenticated'] is True
     assert health['identity']['id'] == '12345'
-    r = c.post('/api/detect', headers=HEADERS, json=dict(image=image(), request_id='owner', confirmed=True, max_total_usd=.05))
+    r = approved(c, '/api/detect', dict(image=image(), request_id='owner'))
     assert r.status_code == 200
     assert p.detect_calls == 1
 
@@ -119,23 +129,22 @@ def test_logout_revokes_session_and_pending_states(tmp_path, monkeypatch):
     assert c.post('/api/health', headers=HEADERS).status_code == 401
     assert c.get('/api/auth/github/callback', params={'state':state,'code':'x'}).status_code == 403
 
-def test_oauth_paid_routes_use_durable_owner_cap(tmp_path, monkeypatch):
+def test_oauth_paid_routes_do_not_enforce_historical_owner_cap(tmp_path, monkeypatch):
     from test_api import Provider, image
     p = Provider()
     c = TestClient(api.create_app(dict(CONFIG, enabled=True, lifetime_budget_usd=.5,
         owner_lifetime_budget_usd=.05, db_path=str(tmp_path/'db'), storage_dir=str(tmp_path/'images')), p), base_url='https://testserver')
     assert login(c, monkeypatch).status_code == 303
     payload = dict(image=image(), request_id='first', confirmed=True, max_total_usd=.05)
-    first = c.post('/api/detect', headers=HEADERS, json=payload)
+    first = approved(c, '/api/detect', payload)
     assert first.status_code == 200
     job = first.json()
-    blocked = c.post('/api/generate', headers=HEADERS, json=dict(job_id=job['job_id'],
+    generated = approved(c, '/api/generate', dict(job_id=job['job_id'],
         item_ids=[job['items'][0]['id']], confirmed=True, max_total_usd=.1))
-    assert blocked.status_code == 402
-    assert blocked.json()['error'] == 'owner_budget_exceeded'
+    assert generated.status_code == 200
     payload['request_id'] = 'second'
-    assert c.post('/api/detect', headers=HEADERS, json=payload).status_code == 402
-    assert p.detect_calls == 1 and p.generate_calls == 0
+    assert approved(c, '/api/detect', payload).status_code == 200
+    assert p.detect_calls == 2 and p.generate_calls == 1
 
 @pytest.mark.parametrize('user', [{'id': 999, 'login':'yasinaday'},
     {'id':12345,'login':'attacker'}, {'id':'12345','login':'yasinaday'}])
@@ -288,12 +297,12 @@ def test_owner_rate_is_shared_across_reauthentication_and_restart(tmp_path, monk
     first = client()
     assert login(first, monkeypatch).status_code == 303
     payload = dict(image=image(), request_id='first', confirmed=True, max_total_usd=.05)
-    assert first.post('/api/detect', headers=HEADERS, json=payload).status_code == 200
+    assert approved(first, '/api/detect', payload).status_code == 200
     first.post('/api/auth/logout', headers=HEADERS)
     second = client()
     assert login(second, monkeypatch).status_code == 303
     payload['request_id'] = 'second'
-    r = second.post('/api/detect', headers=HEADERS, json=payload)
+    r = approved(second, '/api/detect', payload)
     assert r.status_code == 429 and r.json()['error'] == 'owner_rate_limited'
     assert second.post('/api/health', headers=HEADERS).json()['reserved_usd'] == .05
     assert p.detect_calls == 1

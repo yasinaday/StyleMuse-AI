@@ -100,7 +100,7 @@ for(const [status,expected] of [['missing',/Maske eksik/],['review_required',/Ma
 }));
 
 test('detection retains conservative provider quality metadata',()=>mobile(360,async page=>{
- await page.evaluate(()=>{closeAiReview();window.confirm=()=>true;aiPost=async path=>path==='/api/detect'?{job_id:'mock',items:[{id:'mask',preview:fixture,category:'bag',mask_quality:'low',quality_warnings:['Mock mask warning'],category_verified:false}]}:{status:'ok',enabled:true,authenticated:true,remaining_usd:.45};});
+ await page.evaluate(()=>{closeAiReview();window.confirm=()=>true;aiPost=async path=>path==='/api/quote'?{quote_id:'fixture-detect',action:'detect',estimated_cost_usd:.05,expires_in_seconds:90}:path==='/api/detect'?{job_id:'mock',items:[{id:'mask',preview:fixture,category:'bag',mask_quality:'low',quality_warnings:['Mock mask warning'],category_verified:false}]}:{status:'ok',enabled:true,authenticated:true,remaining_usd:.45};});
  await page.evaluate(()=>analyzeClothes());
  assert.match(await page.locator('.ai-piece').innerText(),/Maske kalitesi düşük/);
  assert.match(await page.locator('.ai-piece').innerText(),/Mock mask warning/);

@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 from PIL import Image, ImageOps
 from fastapi.testclient import TestClient
+from offline_test_support import PaidFixtureClient, offline_app
 
 import app as api
 from providers import original_image, extract_items, png_uri
@@ -60,7 +61,7 @@ def test_upload_normalized_before_detection_storage_and_generation(tmp_path, sou
 
     settings = api.Settings(access_token='offline', enabled=True, lifetime_budget_usd=1,
         db_path=str(tmp_path/'state.sqlite'), storage_dir=str(tmp_path/'images'))
-    with TestClient(api.create_app(settings, OfflineProvider())) as client:
+    with PaidFixtureClient(offline_app(settings, OfflineProvider())) as client:
         client.headers['Authorization'] = 'Bearer offline'
         response = client.post('/api/detect', json={'image': 'data:image/jpeg;base64,' + base64.b64encode(raw).decode(),
             'request_id': source, 'confirmed': True, 'max_total_usd': 1})

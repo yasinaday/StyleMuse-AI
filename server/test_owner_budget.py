@@ -33,7 +33,7 @@ def test_owner_cap_survives_restart_cannot_increase_and_preserves_global(tmp_pat
         assert db.execute('SELECT reserved FROM owner_ledger WHERE owner=?', ('github:12345',)).fetchone()[0] == units(.1)
         assert db.execute('SELECT busy FROM guard').fetchone()[0] == 0
 
-def test_lowered_owner_cap_persists_even_without_successful_admission(tmp_path):
+def test_startup_does_not_rewrite_historical_owner_ceiling(tmp_path):
     s = Settings(db_path=str(tmp_path/'db'), storage_dir=str(tmp_path/'images'), lifetime_budget_usd=.5)
     first = Store(s)
     with first.tx() as db:
@@ -43,10 +43,9 @@ def test_lowered_owner_cap_persists_even_without_successful_admission(tmp_path):
     Store(s)
     s.owner_lifetime_budget_usd = .5
     reopened = Store(s)
-    with pytest.raises(HTTPException) as exc:
-        with reopened.tx() as db:
-            reopened.reserve(db, units(.01), owner='github:12345')
-    assert exc.value.detail == 'owner_budget_exceeded'
+    with reopened.tx() as db:
+        assert db.execute('SELECT ceiling FROM owner_ledger').fetchone()[0] == units(.5)
+        reopened.reserve(db, units(.01), owner='github:12345', enforce_budget=False)
 
 
 def test_owner_rate_limit_survives_restart_and_rolls_back_all_admission(tmp_path, monkeypatch):

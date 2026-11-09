@@ -94,21 +94,25 @@ def test_operation_release_requires_durable_unsubmitted_evidence(tmp_path):
     store.release()
 
 
-def test_real_preflight_failure_releases_but_keeps_tombstone(tmp_path):
+def test_real_unknown_credit_blocks_before_reservation_or_job(tmp_path, monkeypatch):
     from fastapi.testclient import TestClient
     from app import create_app
     from providers import RealProviders
     from test_api import image
     provider = RealProviders('', '')
-    client = TestClient(create_app(dict(access_token='secret', enabled=True,
-        lifetime_budget_usd=.5, db_path=str(tmp_path/'db'), storage_dir=str(tmp_path/'images')), provider))
-    client.headers['Authorization'] = 'Bearer secret'
+    from test_oauth import CONFIG, HEADERS, login
+    client = TestClient(create_app(dict(CONFIG, enabled=True,
+        lifetime_budget_usd=.5, db_path=str(tmp_path/'db'), storage_dir=str(tmp_path/'images')), provider), base_url='https://testserver')
+    assert login(client, monkeypatch).status_code == 303
+    client.headers.update(HEADERS)
     payload = dict(image=image(), request_id='preflight', confirmed=True, max_total_usd=.05)
-    assert client.post('/api/detect', json=payload).status_code == 502
+    assert client.post('/api/detect', json=payload).status_code == 402
     health = client.post('/api/health').json()
     assert health['reserved_usd'] == health['pending_usd'] == health['spent_usd'] == 0
     assert health['remaining_usd'] == .5
-    assert client.post('/api/detect', json=payload).status_code == 409
+    assert client.post('/api/detect', json=payload).status_code == 402
+    with make_store(tmp_path).tx() as db:
+        assert db.execute('SELECT count(*) FROM jobs').fetchone()[0] == 0
     provider.close()
 
 
@@ -140,18 +144,27 @@ def test_cancelled_preflight_releases_and_propagates_cancellation(tmp_path):
     from app import create_app, DetectRequest
     from providers import RealProviders
     from test_api import image
+    from offline_test_support import PaidFixtureClient, offline_app
+    from starlette.requests import Request
+    from test_oauth import HEADERS
     class Cancelled(BaseException):
         pass
     provider = RealProviders('fixture', '')
     def cancel(*args, **kwargs):
         raise Cancelled()
     provider.http.request = cancel
-    app = create_app(dict(access_token='secret', enabled=True, lifetime_budget_usd=.5,
+    app = offline_app(dict(access_token='secret', enabled=True, lifetime_budget_usd=.5,
         db_path=str(tmp_path/'db'), storage_dir=str(tmp_path/'images')), provider)
+    client = PaidFixtureClient(app)
+    inputs = dict(image=image(), request_id='cancelled')
+    quote = client.post('/api/quote', json={'action':'detect','inputs':inputs}).json()
+    cookie = client.cookies.get('__Host-stylemuse_session')
+    request = Request({'type':'http', 'headers':[(b'origin', HEADERS['Origin'].encode()),
+        (b'cookie', ('__Host-stylemuse_session='+cookie).encode())]})
     endpoint = next(route.endpoint for route in app.routes if route.path == '/api/detect')
     try:
         with pytest.raises(Cancelled):
-            endpoint(DetectRequest(image=image(), request_id='cancelled', confirmed=True, max_total_usd=.05), None, 'Bearer secret')
+            endpoint(DetectRequest(**inputs, confirmed=True, max_total_usd=.05, quote_id=quote['quote_id']), request, None)
         store = make_store(tmp_path)
         assert store.costs()['reserved_usd'] == 0
         with store.tx() as db:

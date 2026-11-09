@@ -205,6 +205,26 @@ class RealProviders:
         except Exception:
             raise ProviderError('Invalid provider JSON') from None
 
+    def credit_available_usd(self, action):
+        """Fresh read-only provider credit, never inferred from usage or keys.
+
+        Replicate has no verified balance API: detect admission stays closed.
+        fal contract: https://fal.ai/docs/platform-apis/v1/account/billing
+        """
+        import math
+        if action != 'generate' or not self.fal_key:
+            return None
+        try:
+            data = self._json('GET', 'https://api.fal.ai/v1/account/billing?expand=credits', self.fal_key,
+                              headers={'Accept': 'application/json'})
+            credits = data['credits']
+            value = credits['current_balance']
+            if credits['currency'] != 'USD' or type(value) not in (int, float) or not math.isfinite(value) or value < 0:
+                return None
+            return value
+        except Exception:
+            return None
+
     def detect(self, image, *, before_submit=None):
         photo = original_image(image)
         if not self.replicate_token:
@@ -305,7 +325,7 @@ class RealProviders:
 
 
 class SafeHTTP:
-    API = {'api.replicate.com': 'Bearer ', 'queue.fal.run': 'Key '}
+    API = {'api.replicate.com': 'Bearer ', 'queue.fal.run': 'Key ', 'api.fal.ai': 'Key '}
     DOWNLOAD = {'replicate.delivery', 'v3.fal.media', 'v3b.fal.media', 'v3.fal.media', 'fal.media'}
 
     def __init__(self, transport=None, max_bytes=64 * 1024 * 1024):

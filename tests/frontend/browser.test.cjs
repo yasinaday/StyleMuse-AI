@@ -14,7 +14,7 @@ for(const width of [375,1280]) test(`offline real DOM ${width}px: confirmations,
  try{
  browser=await chromium.launch({headless:true,executablePath:process.env.CHROMIUM_PATH||'/root/.cache/ms-playwright/chromium-1254/chrome-linux64/chrome',args:['--no-sandbox']});
  const page=await browser.newPage({viewport:{width,height:812},isMobile:width===375,hasTouch:width===375});
- const errors=[],requests=[],dialogs=[];let accept=false;
+ const errors=[],requests=[],dialogs=[],quotes=[];let accept=false;
  page.on('pageerror',e=>errors.push(e.message));
  page.on('dialog',async d=>{dialogs.push(d.message());await (accept?d.accept():d.dismiss())});
  const origin=`http://127.0.0.1:${server.address().port}`;
@@ -22,7 +22,8 @@ for(const width of [375,1280]) test(`offline real DOM ${width}px: confirmations,
  const url=route.request().url();
  if(url.startsWith(origin))return route.continue();
  if(url.includes('/api/')){
- const payload=route.request().postDataJSON();if(url.endsWith('/session')||url.endsWith('/health'))return route.fulfill({json:{status:'ok',enabled:true,authenticated:true,login:'yasinaday'}});requests.push({url,payload});
+ const payload=route.request().postDataJSON();if(url.endsWith('/session')||url.endsWith('/health'))return route.fulfill({json:{status:'ok',enabled:true,authenticated:true,login:'yasinaday'}});
+ if(url.endsWith('/quote')){const quote={quote_id:'fixture-'+quotes.length,action:payload.action,estimated_cost_usd:payload.action==='detect'?.05:.1,expires_in_seconds:90};quotes.push({quote,inputs:payload.inputs});return route.fulfill({json:quote})}requests.push({url,payload});
  const body=url.endsWith('/detect')?{job_id:'job',items:[{id:'top',category:'Üst giyim',preview:previewImage},{id:'bag',category:'Çanta',preview:previewImage}]}:{items:[{id:'bag',image}]};
  return route.fulfill({json:body});
  }
@@ -39,7 +40,7 @@ for(const width of [375,1280]) test(`offline real DOM ${width}px: confirmations,
  assert.equal(requests.length,0);assert.equal(dialogs.length,0);
  await page.locator('#ai-analyze').click();
  await page.waitForFunction(()=>document.querySelector('#ai-status')?.textContent.includes('iptal'));
- assert.equal(requests.length,0);assert.match(dialogs[0],/0,05 USD/);
+ assert.equal(requests.length,0);assert.equal(quotes.length,1);assert.match(dialogs[0],/0.050000 USD/);
  accept=true;
  await page.locator('#smart-photo').setInputFiles({name:'outfit.jpg',mimeType:'image/jpeg',buffer:fs.readFileSync(fixtureRoot+'/test-photo.jpg')});
  await page.waitForFunction(()=>!aiBusy);await page.locator('#ai-analyze').click();
@@ -48,13 +49,15 @@ for(const width of [375,1280]) test(`offline real DOM ${width}px: confirmations,
  assert.equal(await boxes.nth(1).isEnabled(),true,'detection completion must re-enable selection');
  assert.equal(await boxes.nth(0).isChecked(),true);await boxes.nth(0).uncheck();
  await boxes.nth(1).check();
- accept=false;await page.locator('#ai-generate').click();assert.equal(requests.length,1);
+ accept=false;await page.locator('#ai-generate').click();await page.waitForFunction(()=>!aiBusy);assert.equal(requests.length,1);
  accept=true;await page.locator('#ai-generate').click();
  await page.waitForFunction(()=>!aiBusy&&aiParts[1].generated);
  assert.equal(await page.evaluate(()=>aiParts[1].originalPreview),previewImage);
  assert.deepEqual(requests[1].payload.item_ids,['bag']);assert.equal(requests[1].payload.confirmed,true);assert.equal(requests[1].payload.max_total_usd,.1);
  assert.equal(requests[0].payload.confirmed,true);assert.equal(requests[0].payload.max_total_usd,.05);
- assert.match(dialogs.at(-1),/toplam 0.10 USD/);
+ assert.match(dialogs.at(-1),/toplam maliyet: 0.100000 USD/);
+ assert.equal(requests[0].payload.quote_id,quotes[1].quote.quote_id);
+ assert.equal(requests[1].payload.quote_id,quotes[3].quote.quote_id);
  assert.equal(await page.evaluate(()=>localStorage.getItem('sm-items')),null);
  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
  const panel=await page.locator('.ai-review-panel').boundingBox();assert.ok(panel.x>=0&&panel.x+panel.width<=width);

@@ -16,6 +16,7 @@ from providers import is_footwear
 class GenerateRequest(BaseModel):
     model_config = ConfigDict(extra='forbid')
     job_id: str = Field(min_length=1,max_length=128)
+    quote_id: str = Field(default='', max_length=128)
     item_ids: list[str] = Field(min_length=1,max_length=20)
     confirmed: bool = Field(default=False, strict=True)
     max_total_usd: float = Field(default=0,ge=0,allow_inf_nan=False)
@@ -23,6 +24,7 @@ class GenerateRequest(BaseModel):
 class DetectRequest(BaseModel):
     model_config = ConfigDict(extra='forbid')
     image: str
+    quote_id: str = Field(default='', max_length=128)
     request_id: str = Field(min_length=1, max_length=128, pattern=r'^[a-zA-Z0-9_-]+$')
     confirmed: bool = Field(default=False, strict=True)
     max_total_usd: float = Field(default=0, ge=0, allow_inf_nan=False)
@@ -440,7 +442,7 @@ def create_app(settings=None, provider=None):
         return response
 
     def owner(authorization, request, *, paid=False):
-        if not s.github_owner_id and not s.github_owner_login and s.access_token and secrets.compare_digest((authorization or '').encode(), ('Bearer '+s.access_token).encode()):
+        if not paid and not s.github_owner_id and not s.github_owner_login and s.access_token and secrets.compare_digest((authorization or '').encode(), ('Bearer '+s.access_token).encode()):
             return hashlib.sha256(s.access_token.encode()).hexdigest()
         token = request.cookies.get(cookie_name, '')
         with session_lock:
@@ -462,6 +464,85 @@ def create_app(settings=None, provider=None):
         owner(authorization, request)
         return {'status':'ok', 'enabled':s.enabled, **store.costs(),
                 **(identity_status(request.cookies.get(cookie_name, '')) if s.github_owner_id else {})}
+    def credit_preflight(action, cost):
+        from decimal import Decimal
+        import math
+        try:
+            balance = provider.credit_available_usd(action)
+        except Exception:
+            balance = None
+        if type(balance) not in (int, float, Decimal) or not math.isfinite(balance) or balance < 0:
+            raise HTTPException(402, 'provider_credit_unavailable')
+        if Decimal(str(balance)) * 1000000 < cost:
+            raise HTTPException(402, 'provider_credit_insufficient')
+
+    def quote_digest(action, inputs):
+        return hashlib.sha256(json.dumps({'action': action, 'inputs': inputs},
+            sort_keys=True, separators=(',', ':')).encode()).hexdigest()
+
+    def before_paid_submit(operation, action, cost):
+        credit_preflight(action, cost)
+        store.mark_submitted(operation)
+
+    def consume_quote(db, payload, request, who, action, inputs, cost):
+        from decimal import Decimal
+        if not payload.confirmed or Decimal(str(payload.max_total_usd)) * 1000000 != cost:
+            raise HTTPException(403, 'cost_confirmation_required')
+        row = db.execute('SELECT * FROM payment_quotes WHERE id=?', (payload.quote_id,)).fetchone()
+        if (not row or row['used'] or row['expires'] <= time.time()
+                or row['owner'] != who or row['session'] != request.cookies.get(cookie_name, '')
+                or row['digest'] != quote_digest(action, inputs) or row['amount'] != cost):
+            raise HTTPException(403, 'quote_invalid_or_expired')
+        db.execute('UPDATE payment_quotes SET used=1 WHERE id=?', (payload.quote_id,))
+
+    @app.post('/api/quote')
+    async def quote(request: Request, authorization: str | None = Header(None)):
+        who = owner(authorization, request, paid=True)
+        if not s.enabled or provider is None:
+            raise HTTPException(503, 'inference_disabled')
+        try:
+            body = await request.json()
+            if set(body) != {'action', 'inputs'} or body['action'] not in ('detect', 'generate'):
+                raise ValueError()
+            action = body['action']
+            payload = (DetectRequest if action == 'detect' else GenerateRequest).model_validate(body['inputs'])
+            if payload.confirmed or payload.quote_id or payload.max_total_usd:
+                raise ValueError()
+        except Exception:
+            raise HTTPException(422, 'invalid_request') from None
+        if action == 'detect':
+            normalize(payload.image, s, upload=True)
+            inputs = {'image': payload.image, 'request_id': payload.request_id}
+            cost = units(s.detect_reservation_usd)
+        else:
+            if len(set(payload.item_ids)) != len(payload.item_ids):
+                raise HTTPException(422, 'invalid_request')
+            with store.tx() as db:
+                job = db.execute('SELECT * FROM jobs WHERE id=? AND owner=?', (payload.job_id, who)).fetchone()
+                if not job or job['state'] != 'done' or job['expires'] <= time.time():
+                    raise HTTPException(404, 'job_not_found')
+                available = {i['id'] for i in json.loads(job['result']) if not is_footwear(i.get('category'))}
+                if any(i not in available for i in payload.item_ids):
+                    raise HTTPException(404, 'item_not_found')
+                old = {r['item']: r for r in db.execute('SELECT * FROM claims WHERE job=?', (payload.job_id,))}
+                if any(i in old and old[i]['state'] != 'done' for i in payload.item_ids):
+                    raise HTTPException(409, 'generation_already_claimed')
+                cost = units(s.generation_reservation_usd) * sum(i not in old for i in payload.item_ids)
+                inputs = generation_quote_inputs(payload, job)
+        if cost:
+            credit_preflight(action, cost)
+        qid = secrets.token_urlsafe(32)
+        with store.tx() as db:
+            db.execute('INSERT INTO payment_quotes VALUES(?,?,?,?,?,?,?,0)',
+                (qid, who, request.cookies.get(cookie_name, ''), quote_digest(action, inputs),
+                 cost, time.time() + 90, action))
+        return {'quote_id': qid, 'action': action, 'estimated_cost_usd': cost/1000000,
+                'expires_in_seconds': 90}
+
+    def generation_quote_inputs(payload, job):
+        return {'job_id': payload.job_id, 'item_ids': payload.item_ids,
+                'source_hash': hashlib.sha256(job['original'].encode()).hexdigest(), 'result_hash': hashlib.sha256(job['result'].encode()).hexdigest()}
+
     @app.post('/api/detect')
     def detect(payload: DetectRequest, request: Request, authorization: str | None = Header(None)):
         who = owner(authorization, request, paid=True)
@@ -470,9 +551,12 @@ def create_app(settings=None, provider=None):
         if not payload.confirmed or units(payload.max_total_usd) < units(s.detect_reservation_usd):
             raise HTTPException(403, 'cost_confirmation_required')
         original = normalize(payload.image, s, upload=True)
+        credit_preflight('detect', units(s.detect_reservation_usd))
         digest = hashlib.sha256(original.encode()).hexdigest()
         jid = secrets.token_urlsafe(24)
         with store.tx() as db:
+            consume_quote(db, payload, request, who, 'detect',
+                          {'image': payload.image, 'request_id': payload.request_id}, units(s.detect_reservation_usd))
             row = db.execute('SELECT * FROM jobs WHERE owner=? AND request_id=?', (who,payload.request_id)).fetchone()
             if row:
                 if row['hash'] != digest or row['state'] != 'done' or row['expires'] < time.time():
@@ -480,16 +564,16 @@ def create_app(settings=None, provider=None):
                 result = json.loads(row['result'])
                 return public_result(row['id'], result)
             store.capacity(db,len(original))
-            store.reserve(db, units(s.detect_reservation_usd), owner=who if who.startswith('github:') else None)
+            store.reserve(db, units(s.detect_reservation_usd), owner=who, enforce_budget=False)
             store.record_operation(db, 'detect:' + jid, units(s.detect_reservation_usd), who if who.startswith('github:') else None)
             db.execute('INSERT INTO jobs VALUES(?,?,?,?,?,?,?,?)', (jid,who,payload.request_id,digest,'claimed',original,None,time.time()+s.session_ttl_seconds))
         try:
             from providers import RealProviders
             if type(provider) is RealProviders:
-                items = provider.detect(original, before_submit=lambda: store.mark_submitted('detect:' + jid))
+                items = provider.detect(original, before_submit=lambda: before_paid_submit('detect:' + jid, 'detect', units(s.detect_reservation_usd)))
             else:
                 # Unknown adapters provide no proof of non-submission.
-                store.mark_submitted('detect:' + jid)
+                before_paid_submit('detect:' + jid, 'detect', units(s.detect_reservation_usd))
                 items = provider.detect(original)
             if not isinstance(items,list) or not 0 <= len(items) <= 20:
                 raise ValueError()
@@ -531,11 +615,11 @@ def create_app(settings=None, provider=None):
                 raise HTTPException(409,'generation_already_claimed')
             pending = [i for i in payload.item_ids if i not in old]
             cost = units(s.generation_reservation_usd)*len(pending)
-            if units(payload.max_total_usd) < cost:
-                raise HTTPException(403,'cost_confirmation_required')
+            consume_quote(db, payload, request, who, 'generate', generation_quote_inputs(payload, job), cost)
             if pending:
+                credit_preflight('generate', cost)
                 store.capacity(db,len(pending)*(s.max_image_bytes*4//3+100))
-                store.reserve(db,cost, owner=who if who.startswith('github:') else None)
+                store.reserve(db,cost, owner=who, enforce_budget=False)
                 for i in pending:
                     store.record_operation(db, 'generate:' + payload.job_id + ':' + i, units(s.generation_reservation_usd), who if who.startswith('github:') else None)
                     db.execute('INSERT INTO claims VALUES(?,?,?,NULL)',(payload.job_id,i,'claimed'))
@@ -546,9 +630,9 @@ def create_app(settings=None, provider=None):
                 from providers import RealProviders
                 operation = 'generate:' + payload.job_id + ':' + i
                 if type(provider) is RealProviders:
-                    generated = provider.generate(job['original'], available[i], before_submit=lambda: store.mark_submitted(operation))
+                    generated = provider.generate(job['original'], available[i], before_submit=lambda: before_paid_submit(operation, 'generate', units(s.generation_reservation_usd)))
                 else:
-                    store.mark_submitted(operation)
+                    before_paid_submit(operation, 'generate', units(s.generation_reservation_usd))
                     generated = provider.generate(job['original'], available[i])
                 result = normalize(generated,s)
                 with store.tx() as db:
@@ -571,7 +655,7 @@ def create_app_from_env():
     """Construct locally; configuration is not permission to submit inference."""
     settings = Settings.from_env()
     provider = None
-    if settings.enabled and (settings.access_token or settings.github_owner_id) and settings.lifetime_budget_usd > 0:
+    if settings.enabled and settings.github_owner_id:
         from providers import RealProviders
         provider = RealProviders.from_env()
     return create_app(settings, provider)
