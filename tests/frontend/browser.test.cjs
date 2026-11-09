@@ -58,11 +58,11 @@ for(const width of [375,1280]) test(`offline real DOM ${width}px: confirmations,
  assert.equal(await page.evaluate(()=>localStorage.getItem('sm-items')),null);
  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
  const panel=await page.locator('.ai-review-panel').boundingBox();assert.ok(panel.x>=0&&panel.x+panel.width<=width);
- await page.screenshot({path:require('node:path').join(__dirname,`evidence/review-${width}.png`)});
+ await page.screenshot({path:require('node:path').join(__dirname,`evidence/budget-review-${width}-${Date.now()}.png`)});
  await page.getByRole('button',{name:'Reddet',exact:true}).click();
  assert.equal(await page.getByRole('button',{name:'✓ Seçilen üretilmiş ürünleri kaydet',exact:true}).isDisabled(),true);
- await page.getByRole('button',{name:'Kabul et',exact:true}).click();
- await page.getByRole('button',{name:'✓ Seçilen üretilmiş ürünleri kaydet',exact:true}).click();
+ await page.getByRole('button',{name:'Kabul et ve kaydet',exact:true}).click();
+ assert.equal(await page.getByRole('button',{name:'✓ Dolaba kaydedildi',exact:true}).isDisabled(),true);
  assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('sm-items')).length),1);
  assert.deepEqual(errors,[]);
  }finally{if(browser)await browser.close();await new Promise(r=>server.close(r))}

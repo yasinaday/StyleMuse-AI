@@ -9,7 +9,7 @@ const API='https://localhost:19443', PAGES='https://yasinaday.github.io:19443/st
 const html=fs.readFileSync(path.join(ROOT,'index.html'),'utf8').replace("const STYLEMUSE_API='https://stylemuse-api.129.121.148.187.sslip.io'",`const STYLEMUSE_API='${API}'`);
 
 test('real cross-site CHIPS: owner succeeds; forwarded launch, authorize and provider URLs fail', {timeout:180000}, async()=>{
- const dir=fs.mkdtempSync(path.join(ROOT,'evidence/oauth-browser-binding/browser-run-'));
+ const dir=fs.mkdtempSync(path.join(__dirname,'evidence/oauth-budget-browser-run-'));
  execFileSync('openssl',['req','-x509','-newkey','rsa:2048','-nodes','-keyout',dir+'/key.pem','-out',dir+'/cert.pem','-days','1','-subj','/CN=localhost'],{stdio:'ignore'});
  const output=fs.openSync(dir+'/fixture.log','wx');
  const server=spawn('/opt/stylemuse-ai/integration-venv/bin/python',['-m','uvicorn','oauth_browser_fixture:app','--host','127.0.0.1','--port','19443','--ssl-keyfile',dir+'/key.pem','--ssl-certfile',dir+'/cert.pem','--no-access-log'],{cwd:ROOT+'/server',env:{...process.env,OAUTH_FIXTURE_DIR:dir},stdio:['ignore',output,output]});
