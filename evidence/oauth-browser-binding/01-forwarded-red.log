@@ -1,0 +1,44 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+__________ test_forwarded_authorization_url_never_authorizes_attacker __________
+
+tmp_path = PosixPath('/root/.hermes/cache/scratch/pytest-of-root/pytest-130/test_forwarded_authorization_u0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7eaedc83d480>
+
+    def test_forwarded_authorization_url_never_authorizes_attacker(tmp_path, monkeypatch):
+        calls = fixture_provider(monkeypatch)
+        attacker = configured(tmp_path)
+        attacker.post('/api/session', headers=HEADERS)
+        start = attacker.post('/api/auth/github/start', headers=HEADERS).json()
+        # Follow the complete legitimate initiation in the attacker's browser when
+        # the secure bridge exists, then forward only the provider URL to victim.
+        url = start.get('launch_url', start.get('authorization_url'))
+        if 'launch_url' in start:
+            launch = attacker.get(url, follow_redirects=False)
+            handoff = parse_qs(urlsplit(launch.headers['location']).fragment)['oauth_handoff'][0]
+            verify = attacker.post('/api/auth/github/handoff', headers=HEADERS, json={'handoff': handoff})
+            authorize = attacker.get(verify.json()['authorization_url'], follow_redirects=False)
+            url = authorize.headers['location']
+        state = parse_qs(urlsplit(url).query)['state'][0]
+        victim = TestClient(attacker.app, base_url='https://testserver')
+        response = victim.get('/api/auth/github/callback', params={'state': state, 'code': 'victim-owner-code'}, follow_redirects=False)
+>       assert response.status_code == 403, 'forwarded OAuth URL authorized the attacker session'
+E       AssertionError: forwarded OAuth URL authorized the attacker session
+E       assert 303 == 403
+E        +  where 303 = <Response [303 See Other]>.status_code
+
+server/test_oauth_browser_binding.py:35: AssertionError
+=============================== warnings summary ===============================
+../stylemuse-ai/integration-venv/lib/python3.14/site-packages/starlette/testclient.py:37
+  /opt/stylemuse-ai/integration-venv/lib/python3.14/site-packages/starlette/testclient.py:37: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = typing.Callable[[], typing.ContextManager[anyio.abc.BlockingPortal]]
+
+../stylemuse-ai/integration-venv/lib/python3.14/site-packages/fastapi/routing.py:233: 8 warnings
+server/test_oauth_browser_binding.py: 8 warnings
+  /opt/stylemuse-ai/integration-venv/lib/python3.14/site-packages/fastapi/routing.py:233: DeprecationWarning: 'asyncio.iscoroutinefunction' is deprecated and slated for removal in Python 3.16; use inspect.iscoroutinefunction() instead
+    is_coroutine = asyncio.iscoroutinefunction(dependant.call)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED server/test_oauth_browser_binding.py::test_forwarded_authorization_url_never_authorizes_attacker
+1 failed, 17 warnings in 0.29s

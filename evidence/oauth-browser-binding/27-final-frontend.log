@@ -1,0 +1,48 @@
+✔ offline real DOM 375px: confirmations, selected-only generation, accept/reject, explicit save (13237.979405ms)
+✔ offline real DOM 1280px: confirmations, selected-only generation, accept/reject, explicit save (14779.900746ms)
+✔ offline mobile GitHub owner status, logout and top-level login use original cookie session (3634.51533ms)
+✔ cookie session precedes health without browser credentials (5.58216ms)
+✔ detection refuses unconfirmed paid upload and clears stale job (1.068608ms)
+✔ confirmed detect uses reservation and UUID; rejects unsafe response without retaining job (1.778086ms)
+✔ generation fails closed on malformed items; no overlapping request or close race (4.011432ms)
+✔ review distinguishes completed items, escapes errors, disables controls while busy (0.778282ms)
+✔ health disabled is pending approval with costs; transport displays safe detail without retry (1.125466ms)
+✔ new upload clears stale job before file read; blocks overlapping uploads; no fake guidance (0.817773ms)
+✔ saving while busy is prohibited; explicit save stores only selected completed safe items (0.738312ms)
+✔ anonymous owner gate prevents confirmation and paid requests even when enabled (0.764662ms)
+✔ GitHub login bootstraps cookie and navigates top level; logout clears owner and stale job (0.961835ms)
+✔ English provider categories map to Turkish groups without losing trouser and skirt identity (1.188181ms)
+✔ GitHub redirect rejects non-GitHub URLs and surfaces disabled login safely (3.226276ms)
+✔ missing authenticated claim fails closed before cost confirmation (0.600672ms)
+✔ expired cookie clears bootstrap cache; explicit retry opens new session without replay (0.73727ms)
+✔ rejected replacement clears the old local upload preview (0.533498ms)
+✔ quality decision required before saving (0.629205ms)
+REQUEST_FAILED /photo-1483985988355-763728e1935b net::ERR_FAILED
+REQUEST_FAILED /photo-1539109136881-3be0616acf4b net::ERR_FAILED
+REQUEST_FAILED /photo-1483985988355-763728e1935b net::ERR_FAILED
+REQUEST_FAILED /photo-1539109136881-3be0616acf4b net::ERR_FAILED
+FORWARDED_LAUNCH_PAGE {
+  origin: 'https://yasinaday.github.io:19443',
+  hasFragment: false,
+  status: 'GitHub oturumu henüz doğrulanmadı.'
+}
+REQUEST_FAILED /photo-1483985988355-763728e1935b net::ERR_FAILED
+REQUEST_FAILED /photo-1539109136881-3be0616acf4b net::ERR_FAILED
+REQUEST_FAILED /photo-1483985988355-763728e1935b net::ERR_FAILED
+REQUEST_FAILED /photo-1539109136881-3be0616acf4b net::ERR_FAILED
+REQUEST_FAILED /photo-1483985988355-763728e1935b net::ERR_FAILED
+REQUEST_FAILED /photo-1539109136881-3be0616acf4b net::ERR_FAILED
+REQUEST_FAILED /photo-1483985988355-763728e1935b net::ERR_FAILED
+REQUEST_FAILED /photo-1539109136881-3be0616acf4b net::ERR_FAILED
+PASS: two isolated contexts, actual cross-site CHIPS + top-level Lax cookie, forwarded launch and provider callback rejected, owner success, replay rejected, no AI calls
+Browser evidence: /opt/stylemuse-ai-integration/evidence/oauth-browser-binding/browser-run-v4rQbd
+✔ real cross-site CHIPS: owner succeeds; forwarded launch, authorize and provider URLs fail (63276.781402ms)
+✔ mobile file picker previews locally; cookie session precedes health; disabled never detects (1593.396865ms)
+ℹ tests 21
+ℹ suites 0
+ℹ pass 21
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 97847.631078

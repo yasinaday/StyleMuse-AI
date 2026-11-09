@@ -1,0 +1,38 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+_________ test_superseded_callback_cannot_authorize_after_provider_io __________
+
+tmp_path = PosixPath('/root/.hermes/cache/scratch/pytest-of-root/pytest-141/test_superseded_callback_canno0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x786b51be5a70>
+
+    def test_superseded_callback_cannot_authorize_after_provider_io(tmp_path, monkeypatch):
+        owner = configured(tmp_path)
+        owner.post('/api/session', headers=HEADERS)
+        state = parse_qs(urlsplit(start_authorization(owner)).query)['state'][0]
+        def transport(request):
+            if request.url.host == 'github.com':
+                assert owner.post('/api/auth/github/start', headers=HEADERS).status_code == 200
+                return httpx.Response(200, json={'access_token': 'fixture'})
+            return httpx.Response(200, json={'id': 12345, 'login': 'yasinaday'})
+        monkeypatch.setattr(api, 'oauth_http_client', lambda: httpx.Client(transport=httpx.MockTransport(transport)))
+>       assert owner.get('/api/auth/github/callback', params={'state': state, 'code': 'fixture'}, follow_redirects=False).status_code == 403
+E       AssertionError: assert 303 == 403
+E        +  where 303 = <Response [303 See Other]>.status_code
+E        +    where <Response [303 See Other]> = get('/api/auth/github/callback', params={'state': 'u5Y9zl_UopTj2ABkPHNSYr0zOVGz9cnN8H19X3tTHxg', 'code': 'fixture'}, follow_redirects=False)
+E        +      where get = <starlette.testclient.TestClient object at 0x786b51a9e660>.get
+
+server/test_oauth_browser_binding.py:124: AssertionError
+=============================== warnings summary ===============================
+../stylemuse-ai/integration-venv/lib/python3.14/site-packages/starlette/testclient.py:37
+  /opt/stylemuse-ai/integration-venv/lib/python3.14/site-packages/starlette/testclient.py:37: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = typing.Callable[[], typing.ContextManager[anyio.abc.BlockingPortal]]
+
+../stylemuse-ai/integration-venv/lib/python3.14/site-packages/fastapi/routing.py:233: 11 warnings
+server/test_oauth_browser_binding.py: 11 warnings
+  /opt/stylemuse-ai/integration-venv/lib/python3.14/site-packages/fastapi/routing.py:233: DeprecationWarning: 'asyncio.iscoroutinefunction' is deprecated and slated for removal in Python 3.16; use inspect.iscoroutinefunction() instead
+    is_coroutine = asyncio.iscoroutinefunction(dependant.call)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED server/test_oauth_browser_binding.py::test_superseded_callback_cannot_authorize_after_provider_io
+1 failed, 23 warnings in 0.25s

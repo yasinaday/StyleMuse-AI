@@ -1,0 +1,18 @@
+........................................................................ [ 69%]
+................................                                       [100%]
+=============================== warnings summary ===============================
+../stylemuse-ai/integration-venv/lib/python3.14/site-packages/starlette/testclient.py:37
+  /opt/stylemuse-ai/integration-venv/lib/python3.14/site-packages/starlette/testclient.py:37: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = typing.Callable[[], typing.ContextManager[anyio.abc.BlockingPortal]]
+
+../stylemuse-ai/integration-venv/lib/python3.14/site-packages/fastapi/routing.py:233: 11 warnings
+server/test_api.py: 154 warnings
+server/test_image_normalization.py: 33 warnings
+server/test_oauth.py: 363 warnings
+server/test_oauth_browser_binding.py: 77 warnings
+server/test_sessions.py: 220 warnings
+  /opt/stylemuse-ai/integration-venv/lib/python3.14/site-packages/fastapi/routing.py:233: DeprecationWarning: 'asyncio.iscoroutinefunction' is deprecated and slated for removal in Python 3.16; use inspect.iscoroutinefunction() instead
+    is_coroutine = asyncio.iscoroutinefunction(dependant.call)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+104 passed, 859 warnings, 2 subtests passed in 8.56s

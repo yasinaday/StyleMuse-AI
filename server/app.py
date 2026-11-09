@@ -182,6 +182,7 @@ def create_app(settings=None, provider=None):
             raise HTTPException(403, 'origin_not_allowed')
 
     oauth_states = {}
+    oauth_active = {}
     authorized = {}
 
     def oauth_configured():
@@ -232,26 +233,88 @@ def create_app(settings=None, provider=None):
             if len(oauth_states) >= s.max_sessions:
                 raise HTTPException(429, 'oauth_capacity_reached')
             state, verifier = secrets.token_urlsafe(32), secrets.token_urlsafe(48)
-            oauth_states[state] = (token, verifier, min(entry[1], now + s.oauth_state_ttl_seconds))
+            oauth_active[token] = state
+            oauth_states[state] = (token, verifier, min(entry[1], now + s.oauth_state_ttl_seconds),
+                                   {'phase': 'launch'})
+        return {'launch_url': s.github_redirect_uri.rsplit('/', 1)[0] + '/launch?' + urlencode({'ticket': state})}
+
+    def oauth_ticket(request, phase):
+        tickets = request.query_params.getlist('ticket')
+        state = tickets[0] if len(tickets) == 1 else ''
+        entry = oauth_states.get(state)
+        if (not entry or entry[2] <= time.monotonic() or entry[3]['phase'] != phase
+                or entry[0] not in sessions or sessions[entry[0]][1] <= time.monotonic()):
+            raise HTTPException(403, 'oauth_state_invalid')
+        return state, entry
+
+    @app.get('/api/auth/github/launch')
+    def github_launch(request: Request):
+        from starlette.responses import RedirectResponse
+        from urllib.parse import urlencode
+        with session_lock:
+            state, entry = oauth_ticket(request, 'launch')
+            proof, handoff = secrets.token_urlsafe(32), secrets.token_urlsafe(32)
+            entry[3].update(phase='handoff', proof=proof, handoff=handoff)
+            response = RedirectResponse(s.github_return_url + '#' + urlencode({'oauth_handoff': handoff}), status_code=303)
+            response.set_cookie('__Host-stylemuse_oauth_browser', proof,
+                secure=True, httponly=True, samesite='lax', path='/', max_age=s.oauth_state_ttl_seconds)
+            return response
+
+    @app.post('/api/auth/github/handoff')
+    async def github_handoff(request: Request):
+        from urllib.parse import urlencode
+        exact_origin(request)
+        try:
+            payload = await request.json()
+            handoff = payload.get('handoff') if isinstance(payload, dict) else None
+        except Exception:
+            handoff = None
+        if not isinstance(handoff, str) or not 1 <= len(handoff) <= 128:
+            raise HTTPException(403, 'oauth_handoff_invalid')
+        token = request.cookies.get(cookie_name, '')
+        with session_lock:
+            for state, entry in oauth_states.items():
+                meta = entry[3]
+                if (entry[0] == token and entry[2] > time.monotonic()
+                        and meta['phase'] == 'handoff'
+                        and secrets.compare_digest(meta['handoff'], handoff)
+                        and token in sessions and sessions[token][1] > time.monotonic()):
+                    meta['phase'] = 'authorize'
+                    del meta['handoff']
+                    return {'authorization_url': s.github_redirect_uri.rsplit('/', 1)[0] + '/authorize?' + urlencode({'ticket': state})}
+        raise HTTPException(403, 'oauth_handoff_invalid')
+
+    @app.get('/api/auth/github/authorize')
+    def github_authorize(request: Request):
+        from starlette.responses import RedirectResponse
+        from urllib.parse import urlencode
+        with session_lock:
+            state, entry = oauth_ticket(request, 'authorize')
+            if not secrets.compare_digest(request.cookies.get('__Host-stylemuse_oauth_browser', ''), entry[3]['proof']):
+                raise HTTPException(403, 'oauth_browser_invalid')
+            entry[3]['phase'] = 'callback'
+            verifier = entry[1]
         challenge = base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).rstrip(b'=').decode()
-        return {'authorization_url': 'https://github.com/login/oauth/authorize?' + urlencode({
+        return RedirectResponse('https://github.com/login/oauth/authorize?' + urlencode({
             'client_id': s.github_client_id, 'redirect_uri': s.github_redirect_uri,
             'state': state, 'code_challenge': challenge, 'code_challenge_method': 'S256',
-            'scope': ''})}
+            'scope': ''}), status_code=303)
 
     @app.get('/api/auth/github/callback')
     def github_callback(request: Request):
         from starlette.responses import RedirectResponse
         if not oauth_configured():
             raise HTTPException(503, 'oauth_not_configured')
-        # A single-use state is a capability bound to the *original* CHIPS
-        # session. No top-level app cookie (nor newly visiting session) is used.
+        # State/PKCE alone do not identify the browser that approved consent.
+        # Only the proof-bearing browser can consume its transaction.
         states = request.query_params.getlist('state')
         with session_lock:
-            entry = oauth_states.pop(states[0], None) if len(states) == 1 else None
-            if not entry or entry[2] <= time.monotonic():
+            entry = oauth_states.get(states[0]) if len(states) == 1 else None
+            if (not entry or entry[2] <= time.monotonic() or entry[3]['phase'] != 'callback'
+                    or not secrets.compare_digest(request.cookies.get('__Host-stylemuse_oauth_browser', ''), entry[3]['proof'])):
                 raise HTTPException(403, 'oauth_state_invalid')
-            token, verifier, _ = entry
+            del oauth_states[states[0]]
+            token, verifier, deadline, _ = entry
             session_entry = sessions.get(token)
             if not session_entry or session_entry[1] <= time.monotonic():
                 raise HTTPException(403, 'oauth_state_invalid')
@@ -284,8 +347,10 @@ def create_app(settings=None, provider=None):
             raise HTTPException(403, 'oauth_account_not_allowed')
         with session_lock:
             session_entry = sessions.get(token)
-            if not session_entry or session_entry[1] <= time.monotonic():
+            if (not session_entry or session_entry[1] <= time.monotonic()
+                    or deadline <= time.monotonic() or oauth_active.get(token) != states[0]):
                 raise HTTPException(403, 'oauth_state_invalid')
+            oauth_active.pop(token, None)
             authorized[token] = {'provider': 'github', 'id': s.github_owner_id,
                                  'login': s.github_owner_login}
         return RedirectResponse(s.github_return_url, status_code=303)
@@ -296,6 +361,7 @@ def create_app(settings=None, provider=None):
         token = request.cookies.get(cookie_name, '')
         with session_lock:
             sessions.pop(token, None)
+            oauth_active.pop(token, None)
             authorized.pop(token, None)
             for state in [key for key, entry in oauth_states.items() if entry[0] == token]:
                 del oauth_states[state]
@@ -312,6 +378,7 @@ def create_app(settings=None, provider=None):
             now = time.monotonic()
             for expired in [key for key, entry in sessions.items() if entry[1] <= now]:
                 del sessions[expired]
+                oauth_active.pop(expired, None)
                 authorized.pop(expired, None)
             token = request.cookies.get(cookie_name, '')
             if token not in sessions:

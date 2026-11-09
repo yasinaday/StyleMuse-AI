@@ -1,0 +1,39 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+________ test_wrong_browser_callback_cannot_consume_legitimate_attempt _________
+
+tmp_path = PosixPath('/root/.hermes/cache/scratch/pytest-of-root/pytest-139/test_wrong_browser_callback_ca0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x79fdcf1f1940>
+
+    def test_wrong_browser_callback_cannot_consume_legitimate_attempt(tmp_path, monkeypatch):
+        calls = fixture_provider(monkeypatch)
+        owner = configured(tmp_path)
+        owner.post('/api/session', headers=HEADERS)
+        state = parse_qs(urlsplit(start_authorization(owner)).query)['state'][0]
+        other = TestClient(owner.app, base_url='https://testserver')
+        params = {'state': state, 'code': 'fixture'}
+        for proof in ('', 'different-browser-proof'):
+            other.cookies.set('__Host-stylemuse_oauth_browser', proof)
+            assert other.get('/api/auth/github/callback', params=params).status_code == 403
+        assert calls == []
+>       assert owner.get('/api/auth/github/callback', params=params, follow_redirects=False).status_code == 303
+E       AssertionError: assert 403 == 303
+E        +  where 403 = <Response [403 Forbidden]>.status_code
+E        +    where <Response [403 Forbidden]> = get('/api/auth/github/callback', params={'state': 'LRxkzwnV4ZbrRLk5c6mkjZDtiW1hgWXLAWjIH4UoJvo', 'code': 'fixture'}, follow_redirects=False)
+E        +      where get = <starlette.testclient.TestClient object at 0x79fdcf0a2660>.get
+
+server/test_oauth_browser_binding.py:76: AssertionError
+=============================== warnings summary ===============================
+../stylemuse-ai/integration-venv/lib/python3.14/site-packages/starlette/testclient.py:37
+  /opt/stylemuse-ai/integration-venv/lib/python3.14/site-packages/starlette/testclient.py:37: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = typing.Callable[[], typing.ContextManager[anyio.abc.BlockingPortal]]
+
+../stylemuse-ai/integration-venv/lib/python3.14/site-packages/fastapi/routing.py:233: 11 warnings
+server/test_oauth_browser_binding.py: 11 warnings
+  /opt/stylemuse-ai/integration-venv/lib/python3.14/site-packages/fastapi/routing.py:233: DeprecationWarning: 'asyncio.iscoroutinefunction' is deprecated and slated for removal in Python 3.16; use inspect.iscoroutinefunction() instead
+    is_coroutine = asyncio.iscoroutinefunction(dependant.call)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED server/test_oauth_browser_binding.py::test_wrong_browser_callback_cannot_consume_legitimate_attempt
+1 failed, 23 warnings in 0.30s

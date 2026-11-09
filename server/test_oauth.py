@@ -20,6 +20,16 @@ CONFIG = dict(github_client_id='test-client', github_client_secret='server-secre
 def configured(tmp_path, **changes):
     return make(tmp_path, **(CONFIG | changes))
 
+def start_authorization(c):
+    start = c.post('/api/auth/github/start', headers=HEADERS)
+    assert start.status_code == 200
+    launch = c.get(start.json()['launch_url'], follow_redirects=False)
+    handoff = parse_qs(urlsplit(launch.headers['location']).fragment)['oauth_handoff'][0]
+    verified = c.post('/api/auth/github/handoff', headers=HEADERS, json={'handoff': handoff})
+    authorize = c.get(verified.json()['authorization_url'], follow_redirects=False)
+    return authorize.headers['location']
+
+
 def test_oauth_owner_login_bound_to_original_session_with_pkce(tmp_path, monkeypatch):
     assert hasattr(api.Settings, 'github_owner_id'), 'OAuth owner configuration is missing'
     import httpx
@@ -35,14 +45,13 @@ def test_oauth_owner_login_bound_to_original_session_with_pkce(tmp_path, monkeyp
     monkeypatch.setattr(api, 'oauth_http_client', lambda: real_client(transport=httpx.MockTransport(transport)))
     c = configured(tmp_path)
     c.post('/api/session', headers=HEADERS)
-    start = c.post('/api/auth/github/start', headers=HEADERS)
-    assert start.status_code == 200
-    query = parse_qs(urlsplit(start.json()['authorization_url']).query)
+    query = parse_qs(urlsplit(start_authorization(c)).query)
     assert query['redirect_uri'] == [CONFIG['github_redirect_uri']]
     assert query['code_challenge_method'] == ['S256']
     assert len(query['code_challenge'][0]) == 43
-    # Top-level navigation has NO partitioned API cookie.
+    # Callback has the independent unpartitioned proof, not the CHIPS cookie.
     callback_client = TestClient(c.app, base_url='https://testserver')
+    callback_client.cookies.set('__Host-stylemuse_oauth_browser', c.cookies.get('__Host-stylemuse_oauth_browser'))
     callback = callback_client.get('/api/auth/github/callback', params={'state': query['state'][0], 'code': 'test-code'}, follow_redirects=False)
     assert callback.status_code == 303
     assert callback.headers['location'] == CONFIG['github_return_url']
@@ -78,9 +87,8 @@ def login(c, monkeypatch, user=None):
     real_client = httpx.Client
     monkeypatch.setattr(api, 'oauth_http_client', lambda: real_client(transport=httpx.MockTransport(transport)))
     c.post('/api/session', headers=HEADERS)
-    response = c.post('/api/auth/github/start', headers=HEADERS)
-    state = parse_qs(urlsplit(response.json()['authorization_url']).query)['state'][0]
-    callback_client = TestClient(c.app, base_url='https://testserver')
+    state = parse_qs(urlsplit(start_authorization(c)).query)['state'][0]
+    callback_client = c
     return callback_client.get('/api/auth/github/callback', params={'state':state,'code':'fixture-code'}, follow_redirects=False)
 
 def test_oauth_owner_gets_paid_admission_and_health_identity(tmp_path, monkeypatch):
@@ -100,8 +108,7 @@ def test_logout_revokes_session_and_pending_states(tmp_path, monkeypatch):
     c = configured(tmp_path)
     assert login(c, monkeypatch).status_code == 303
     old_cookie = c.cookies.get('__Host-stylemuse_session')
-    start = c.post('/api/auth/github/start', headers=HEADERS)
-    state = parse_qs(urlsplit(start.json()['authorization_url']).query)['state'][0]
+    state = parse_qs(urlsplit(start_authorization(c)).query)['state'][0]
     assert c.post('/api/auth/logout').status_code == 403
     r = c.post('/api/auth/logout', headers=HEADERS)
     assert r.status_code == 200
@@ -145,8 +152,7 @@ def test_state_expiration_replay_and_new_start_invalidation(tmp_path, monkeypatc
     c = configured(tmp_path, oauth_state_ttl_seconds=10)
     c.post('/api/session', headers=HEADERS)
     def start():
-        r = c.post('/api/auth/github/start', headers=HEADERS)
-        return parse_qs(urlsplit(r.json()['authorization_url']).query)['state'][0]
+        return parse_qs(urlsplit(start_authorization(c)).query)['state'][0]
     expired = start()
     now[0] += 10
     assert c.get('/api/auth/github/callback', params={'state':expired,'code':'x'}).json() == {'error':'oauth_state_invalid'}
@@ -214,8 +220,7 @@ def test_oauth_provider_error_is_redacted_and_state_consumed(tmp_path, monkeypat
     import httpx
     c = configured(tmp_path)
     c.post('/api/session', headers=HEADERS)
-    r = c.post('/api/auth/github/start', headers=HEADERS)
-    state = parse_qs(urlsplit(r.json()['authorization_url']).query)['state'][0]
+    state = parse_qs(urlsplit(start_authorization(c)).query)['state'][0]
     real_client = httpx.Client
     def fail(request):
         raise RuntimeError('SECRET_ACCESS_TOKEN')
@@ -261,13 +266,12 @@ def test_malformed_github_user_fails_closed_redacted(tmp_path, monkeypatch, body
     import httpx
     c = configured(tmp_path)
     c.post('/api/session', headers=HEADERS)
-    r = c.post('/api/auth/github/start', headers=HEADERS)
-    state = parse_qs(urlsplit(r.json()['authorization_url']).query)['state'][0]
+    state = parse_qs(urlsplit(start_authorization(c)).query)['state'][0]
     real_client = httpx.Client
     def transport(request):
         return httpx.Response(200, json={'access_token':'fixture-token'} if request.url.host == 'github.com' else body)
     monkeypatch.setattr(api, 'oauth_http_client', lambda: real_client(transport=httpx.MockTransport(transport)))
-    callback = TestClient(c.app, base_url='https://testserver', raise_server_exceptions=False)
+    callback = c
     r = callback.get('/api/auth/github/callback', params={'state':state,'code':'x'})
     assert r.status_code == 502
     assert r.json() == {'error':'oauth_provider_failed'}
