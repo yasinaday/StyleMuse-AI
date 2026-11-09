@@ -137,7 +137,8 @@ def test_environment_constructor_is_inert_and_defaults_closed(tmp_path, monkeypa
     client = TestClient(api.create_app_from_env())
     client.headers['Authorization'] = 'Bearer local-test-token'
     assert client.post('/api/health').json() == {'status': 'ok', 'enabled': False,
-        'reserved_usd': 0, 'lifetime_budget_usd': 0}
+        'reserved_usd': 0, 'lifetime_budget_usd': 0,
+        'spent_usd': 0, 'pending_usd': 0, 'remaining_usd': 0}
     assert detect(client).status_code == 503
 
 

@@ -28,6 +28,7 @@ class Store:
             CREATE TABLE IF NOT EXISTS owner_ledger(owner TEXT PRIMARY KEY, reserved INTEGER NOT NULL, ceiling INTEGER NOT NULL);
             CREATE TABLE IF NOT EXISTS owner_rate(owner TEXT NOT NULL, admitted REAL NOT NULL);
             CREATE INDEX IF NOT EXISTS owner_rate_lookup ON owner_rate(owner,admitted);
+            CREATE TABLE IF NOT EXISTS operations(id TEXT PRIMARY KEY, owner TEXT, amount INTEGER NOT NULL CHECK(amount>=0), state TEXT NOT NULL CHECK(state IN ('reserved','submitted','spent','released')));
             CREATE TABLE IF NOT EXISTS guard(id INTEGER PRIMARY KEY CHECK(id=1), busy INTEGER NOT NULL);
             INSERT OR IGNORE INTO guard VALUES(1,0);
             ''')
@@ -56,7 +57,12 @@ class Store:
     def costs(self):
         with self.tx() as db:
             r = db.execute('SELECT * FROM ledger').fetchone()
-            return {'reserved_usd': r['reserved']/1000000, 'lifetime_budget_usd': r['ceiling']/1000000}
+            spent = db.execute("SELECT COALESCE(sum(amount),0) FROM operations WHERE state='spent'").fetchone()[0]
+            return {'reserved_usd': r['reserved']/1000000, 'lifetime_budget_usd': r['ceiling']/1000000,
+                    # Completed estimates, NOT provider-confirmed billed amounts.
+                    # Unknown legacy reservations remain pending, never refunded.
+                    'spent_usd': spent/1000000, 'pending_usd': (r['reserved']-spent)/1000000,
+                    'remaining_usd': max(0, r['ceiling']-r['reserved'])/1000000}
 
     def capacity(self, db, extra=0):
         import time
@@ -95,6 +101,33 @@ class Store:
             db.execute('UPDATE owner_ledger SET reserved=reserved+? WHERE owner=?', (amount, owner))
         db.execute('UPDATE ledger SET reserved=reserved+?', (amount,))
         db.execute('UPDATE guard SET busy=1')
+
+    def record_operation(self, db, operation, amount, owner=None):
+        # Called in the same admission transaction as reserve and job/claim.
+        db.execute('INSERT INTO operations VALUES(?,?,?,?)', (operation, owner, amount, 'reserved'))
+
+    def mark_submitted(self, operation):
+        # Durable BEFORE the POST; persistence failure prevents submission.
+        with self.tx() as db:
+            changed = db.execute("UPDATE operations SET state='submitted' WHERE id=? AND state='reserved'", (operation,)).rowcount
+            if changed != 1:
+                raise RuntimeError('operation_not_reserved')
+
+    def finish_operation(self, operation, *, success):
+        with self.tx() as db:
+            row = db.execute('SELECT * FROM operations WHERE id=?', (operation,)).fetchone()
+            if not row or row['state'] in ('released', 'spent'):
+                return
+            if success:
+                db.execute("UPDATE operations SET state='spent' WHERE id=?", (operation,))
+            elif row['state'] == 'reserved':
+                # Only an unwound live invocation that never crossed the durable
+                # submit boundary may refund. Never sweep these on startup.
+                db.execute('UPDATE ledger SET reserved=reserved-?', (row['amount'],))
+                if row['owner'] is not None:
+                    db.execute('UPDATE owner_ledger SET reserved=reserved-? WHERE owner=?', (row['amount'], row['owner']))
+                db.execute("UPDATE operations SET state='released' WHERE id=?", (operation,))
+            # submitted failures/timeouts stay pending: billing is ambiguous.
 
     def release(self):
         with self.tx() as db:

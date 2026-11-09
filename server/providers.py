@@ -174,7 +174,7 @@ class RealProviders:
         except Exception:
             raise ProviderError('Invalid provider JSON') from None
 
-    def detect(self, image):
+    def detect(self, image, *, before_submit=None):
         photo = original_image(image)
         if not self.replicate_token:
             raise ProviderError('Replicate not configured')
@@ -197,6 +197,8 @@ class RealProviders:
                 'prompts': [json.dumps({'text': c}) for c in CATEGORIES],
                 'confidence_threshold': .5, 'visualize': False, 'offset_masks': False,
                 'split_output': True, 'concat_input': True, 'backbone_output': False}}
+        if before_submit is not None:
+            before_submit()
         job = self._json('POST', 'https://api.replicate.com/v1/predictions', self.replicate_token,
                          body, {'Cancel-After': '40s'})
         job_id = job.get('id')
@@ -233,7 +235,7 @@ class RealProviders:
                 pass
             raise
 
-    def generate(self, original, item):
+    def generate(self, original, item, *, before_submit=None):
         original_image(original)
         if not isinstance(original, str) or not self.fal_key:
             raise ProviderError('Original data URI and configured fal key required')
@@ -242,6 +244,8 @@ class RealProviders:
                 'image_size': {'width': 768, 'height': 1024}, 'num_images': 1,
                 'num_inference_steps': 28, 'guidance_scale': 5, 'seed': 42,
                 'acceleration': 'none', 'enable_safety_checker': True, 'output_format': 'png', 'sync_mode': False}
+        if before_submit is not None:
+            before_submit()
         job = self._json('POST', 'https://queue.fal.run/' + FAL_MODEL, self.fal_key, body)
         request_id = job.get('request_id')
         if not isinstance(request_id, str) or not request_id.replace('-', '').isalnum() or len(request_id) > 100:

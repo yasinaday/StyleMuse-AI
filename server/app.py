@@ -443,9 +443,16 @@ def create_app(settings=None, provider=None):
                 return public_result(row['id'], result)
             store.capacity(db,len(original))
             store.reserve(db, units(s.detect_reservation_usd), owner=who if who.startswith('github:') else None)
+            store.record_operation(db, 'detect:' + jid, units(s.detect_reservation_usd), who if who.startswith('github:') else None)
             db.execute('INSERT INTO jobs VALUES(?,?,?,?,?,?,?,?)', (jid,who,payload.request_id,digest,'claimed',original,None,time.time()+s.session_ttl_seconds))
         try:
-            items = provider.detect(original)
+            from providers import RealProviders
+            if type(provider) is RealProviders:
+                items = provider.detect(original, before_submit=lambda: store.mark_submitted('detect:' + jid))
+            else:
+                # Unknown adapters provide no proof of non-submission.
+                store.mark_submitted('detect:' + jid)
+                items = provider.detect(original)
             if not isinstance(items,list) or not 1 <= len(items) <= 20:
                 raise ValueError()
             result = []
@@ -456,8 +463,12 @@ def create_app(settings=None, provider=None):
             with store.tx() as db:
                 store.capacity(db,len(json.dumps(result)))
                 db.execute('UPDATE jobs SET state=?,result=? WHERE id=?', ('done',json.dumps(result),jid))
+            store.finish_operation('detect:' + jid, success=True)
             return public_result(jid,result)
-        except Exception:
+        except BaseException as exc:
+            store.finish_operation('detect:' + jid, success=False)
+            if not isinstance(exc, Exception):
+                raise
             raise HTTPException(502, 'provider_failed_no_retry') from None
         finally:
             store.release()
@@ -486,18 +497,31 @@ def create_app(settings=None, provider=None):
                 store.capacity(db,len(pending)*(s.max_image_bytes*4//3+100))
                 store.reserve(db,cost, owner=who if who.startswith('github:') else None)
                 for i in pending:
+                    store.record_operation(db, 'generate:' + payload.job_id + ':' + i, units(s.generation_reservation_usd), who if who.startswith('github:') else None)
                     db.execute('INSERT INTO claims VALUES(?,?,?,NULL)',(payload.job_id,i,'claimed'))
         if not pending:
             return {'items':[{'id':i,'image':old[i]['image']} for i in payload.item_ids]}
         try:
             for i in pending:
-                result = normalize(provider.generate(job['original'],available[i]),s)
+                from providers import RealProviders
+                operation = 'generate:' + payload.job_id + ':' + i
+                if type(provider) is RealProviders:
+                    generated = provider.generate(job['original'], available[i], before_submit=lambda: store.mark_submitted(operation))
+                else:
+                    store.mark_submitted(operation)
+                    generated = provider.generate(job['original'], available[i])
+                result = normalize(generated,s)
                 with store.tx() as db:
                     db.execute('UPDATE claims SET state=?,image=? WHERE job=? AND item=?',('done',result,payload.job_id,i))
+                store.finish_operation(operation, success=True)
             with store.tx() as db:
                 results = {r['item']:r['image'] for r in db.execute('SELECT * FROM claims WHERE job=?',(payload.job_id,))}
             return {'items':[{'id':i,'image':results[i]} for i in payload.item_ids]}
-        except Exception:
+        except BaseException as exc:
+            for i in pending:
+                store.finish_operation('generate:' + payload.job_id + ':' + i, success=False)
+            if not isinstance(exc, Exception):
+                raise
             raise HTTPException(502,'provider_failed_no_retry') from None
         finally:
             store.release()
