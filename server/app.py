@@ -85,8 +85,45 @@ class BoundedBody:
             return {'type':'http.request','body':b''.join(chunks),'more_body':False}
         await self.app(scope,replay,send)
 
+def quality_fields(item):
+    """Bounded public diagnostics, never a provider payload or semantic verdict."""
+    quality = item.get('mask_quality', {'status': 'missing', 'source': 'unavailable'})
+    warnings = item.get('quality_warnings', ['semantic_category_unverified', 'mask_quality_unavailable'])
+    if item.get('category_verified', False) is not False:
+        raise ValueError('Unsupported semantic verification claim')
+    allowed_warnings = {'semantic_category_unverified', 'mask_completeness_unverified',
+                        'mask_quality_unavailable', 'small_mask', 'image_boundary_contact'}
+    if (not isinstance(warnings, list) or len(warnings) > 5 or
+            any(not isinstance(w, str) or w not in allowed_warnings for w in warnings)):
+        raise ValueError('Invalid quality warnings')
+    if not isinstance(quality, dict) or quality.get('status') not in ('unverified', 'review_required', 'missing'):
+        raise ValueError('Invalid mask quality')
+    if quality.get('source') not in ('detector_mask', 'unavailable'):
+        raise ValueError('Invalid mask source')
+    safe = {k: quality[k] for k in ('status', 'source')}
+    for key, size in (('bbox', 4), ('image_size', 2)):
+        if key in quality:
+            value = quality[key]
+            if (not isinstance(value, list) or len(value) != size or
+                    any(type(n) is not int or not 0 <= n <= 1_048_576 for n in value)):
+                raise ValueError('Invalid mask geometry')
+            safe[key] = value
+    if 'foreground_pixels' in quality:
+        area = quality['foreground_pixels']
+        if type(area) is not int or not 0 < area <= 1_048_576:
+            raise ValueError('Invalid mask area')
+        safe['foreground_pixels'] = area
+    if 'detector_score' in quality:
+        score = quality['detector_score']
+        if type(score) not in (int, float) or not 0 <= score <= 1:
+            raise ValueError('Invalid detector score')
+        safe['detector_score'] = score
+    return dict(mask_quality=safe, quality_warnings=list(warnings), category_verified=False)
+
+
 def public_result(jid, items):
-    return {'job_id':jid, 'items':[{k:i[k] for k in ('id','preview','category')} for i in items]}
+    return {'job_id':jid, 'items':[dict({k:i[k] for k in ('id','preview','category')},
+                                     **quality_fields(i)) for i in items]}
 
 @dataclass
 class Settings:
@@ -459,7 +496,7 @@ def create_app(settings=None, provider=None):
             for item in items:
                 if not isinstance(item.get('category'),str) or not 1 <= len(item['category']) <= 100 or not isinstance(item.get('prompt'),str) or len(item['prompt']) > 4000:
                     raise ValueError()
-                result.append(dict(id=secrets.token_urlsafe(24), category=item['category'], preview=normalize(item['preview'],s,preserve_alpha=True), prompt=item['prompt']))
+                result.append(dict(id=secrets.token_urlsafe(24), category=item['category'], preview=normalize(item['preview'],s,preserve_alpha=True), prompt=item['prompt'], **quality_fields(item)))
             with store.tx() as db:
                 store.capacity(db,len(json.dumps(result)))
                 db.execute('UPDATE jobs SET state=?,result=? WHERE id=?', ('done',json.dumps(result),jid))

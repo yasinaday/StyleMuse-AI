@@ -33,8 +33,12 @@ def tryoff_prompt(category):
     if category not in CATEGORIES:
         raise ProviderError('Unknown garment category')
     return ('TRYOFF extract only the ' + category + ' from the reference image over a white background, '
-            'product photography style. NO HUMAN VISIBLE. Preserve the original color, material, texture, '
-            'cut, construction, hardware and visible details. Show the complete item without cropping; '
+            'product photography style. NO HUMAN VISIBLE. Preserve the original colors, material, texture, '
+            'fabric pattern, cut, construction, hardware, pockets, buttons and visible accessories belonging '
+            'to the target item. Preserve all visible regions unchanged. '
+            'Reconstruct only missing or occluded regions, conservatively continuing the visible construction. '
+            'Do not redesign, recolor, restyle, simplify patterns or replace fabric. '
+            'Show the complete item without cropping; '
             'preserve the open front, zipper position, pockets and original texture exactly as visible. '
             'Do not close an open jacket or zipper. Do not invent labels, lining, pockets, '
             'accessories, branding or decoration; leave uncertain hidden details plain. '
@@ -56,7 +60,9 @@ def extract_items(photo, results):
         category = ALIASES.get(category, category)
         if category not in CATEGORIES:
             raise ProviderError('Unknown detector category')
-        masks, scores = result.get('masks', []), result.get('scores', [])
+        if 'masks' not in result or 'scores' not in result:
+            raise ProviderError('Missing detector masks or scores')
+        masks, scores = result['masks'], result['scores']
         if not isinstance(masks, list) or len(masks) != len(scores) or len(masks) > 64:
             raise ProviderError('Malformed mask instances')
         for raw, score in zip(masks, scores):
@@ -77,7 +83,7 @@ def extract_items(photo, results):
             mask = Image.frombytes('L', photo.size, bytes(pixels))
             box = mask.getbbox()
             if box is None:
-                continue
+                raise ProviderError('Empty detector mask')
             area = mask.histogram()[255]
             cut = photo.convert('RGBA')
             cut.putalpha(mask)
@@ -85,9 +91,30 @@ def extract_items(photo, results):
             # A full rectangular opaque mask is not a transparent garment cutout.
             if cut.getchannel('A').getextrema() != (0, 255):
                 raise ProviderError('Mask does not produce a transparent cutout')
-            item = {'category': category, 'preview': png_uri(cut), 'prompt': tryoff_prompt(category)}
+            item = {'category': category, 'preview': png_uri(cut), 'prompt': tryoff_prompt(category),
+                    'category_verified': False,
+                    'mask_quality': {'status': 'unverified', 'source': 'detector_mask',
+                                     'foreground_pixels': area, 'bbox': list(box),
+                                     'image_size': list(photo.size), 'detector_score': score},
+                    'quality_warnings': ['semantic_category_unverified', 'mask_completeness_unverified']}
+            if area <= 3:
+                item['quality_warnings'].append('small_mask')
+            if box[0] == 0 or box[1] == 0 or box[2] == photo.width or box[3] == photo.height:
+                item['quality_warnings'].append('image_boundary_contact')
+            if len(item['quality_warnings']) > 2:
+                item['mask_quality']['status'] = 'review_required'
             candidates.append((item, mask, area, score))
-    # Resolve whole garments before deduplication, never subtract masks: subtraction
+    # A detector score is not calibrated semantic evidence. In particular, a
+    # trousers/shoes collision must not silently become whichever prompt scored
+    # higher. Reject before containment/deduplication can erase the conflict.
+    for index, (_, mask, area, _) in enumerate(candidates):
+        for other_item, other_mask, other_area, _ in candidates[index + 1:]:
+            if {candidates[index][0]['category'], other_item['category']} != {'trousers', 'shoes'}:
+                continue
+            intersection = ImageChops.multiply(mask, other_mask).histogram()[255]
+            if intersection / (area + other_area - intersection) >= .85:
+                raise ProviderError('Ambiguous trousers/shoes masks; semantic review required')
+    # Resolve whole garments before deduplication, never subtract masks:
     # can destroy open jackets, overlapping layers and garment construction.
     one_piece = [c for c in candidates if c[0]['category'] in ('jumpsuit', 'dress')]
     candidates = [c for c in candidates if not (

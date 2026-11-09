@@ -5,7 +5,7 @@ const {chromium}=require('playwright');
 const fixtures=process.env.STYLEMUSE_FIXTURE_ROOT||'/opt/stylemuse-ai';
 const source='data:image/png;base64,'+fs.readFileSync(fixtures+'/approved-four-test/bordo-canta.png').toString('base64');
 const generated='data:image/png;base64,'+fs.readFileSync(fixtures+'/final-four-products/products/bordo-canta.png').toString('base64');
-test('375px review has large labelled SAM3/fal images, reject and immediate duplicate-safe save',async()=>{
+test('375px review has compact labelled SAM3/fal images, reject and immediate duplicate-safe save',async()=>{
  const server=http.createServer((q,s)=>{s.setHeader('Content-Type','text/html');s.end(fs.readFileSync(path.join(__dirname,'../../index.html')))});
  await new Promise(r=>server.listen(0,'127.0.0.1',r));let browser;
  try{
@@ -18,7 +18,7 @@ test('375px review has large labelled SAM3/fal images, reject and immediate dupl
    aiParts=[{id:'bag',image:generated,originalPreview:source,category:'Çanta',selected:true,generated:true,review:'pending'}];showAiParts();
   },{source,generated});
   const images=page.locator('.ai-generated img');
-  for(let i=0;i<2;i++){const box=await images.nth(i).boundingBox();assert.ok(box.width>=250&&box.height>=220,JSON.stringify(box))}
+  for(let i=0;i<2;i++){const box=await images.nth(i).boundingBox();assert.ok(box.width>=220&&box.height===160,JSON.stringify(box))}
   assert.match(await page.locator('.ai-generated').innerText(),/SAM 3/);assert.match(await page.locator('.ai-generated').innerText(),/fal.ai/);
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
   const evidence=fs.mkdtempSync(path.join(__dirname,'evidence/large-budget-review-'));
