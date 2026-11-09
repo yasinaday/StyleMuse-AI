@@ -51,7 +51,7 @@ class SafetyTests(unittest.TestCase):
 
 
 class MaskTests(unittest.TestCase):
-    def test_real_retained_masks_are_cropped_transparent_and_shoes_preserved(self):
+    def test_real_retained_masks_are_cropped_transparent_without_shoes(self):
         self.assertTrue(hasattr(p, 'extract_items'), 'missing real mask extraction')
         root = Path('/opt/stylemuse-ai')
         if not (root / 'test-photo.jpg').exists():
@@ -59,8 +59,8 @@ class MaskTests(unittest.TestCase):
         photo = Image.open(root / 'test-photo.jpg').convert('RGB')
         results = [json.loads((root / f'approved-four-test/results-{i}.json').read_text()) for i in range(4)]
         items = p.extract_items(photo, results)
-        self.assertEqual(len(items), 5)  # jacket, jumpsuit, bag, TWO distinct shoes
-        self.assertEqual(sum(i['category'] == 'shoes' for i in items), 2)
+        self.assertEqual({i['category'] for i in items}, {'jacket', 'jumpsuit', 'bag'})
+        self.assertEqual(len(items), 3)
         for item in items:
             im = Image.open(io.BytesIO(base64.b64decode(item['preview'].split(',')[1])))
             self.assertEqual(im.mode, 'RGBA')

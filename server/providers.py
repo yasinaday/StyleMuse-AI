@@ -19,8 +19,20 @@ class ProviderError(RuntimeError):
     """Sanitized provider failure (never contains tokens or response bodies)."""
 
 
-CATEGORIES = ('jacket', 'top', 'trousers', 'skirt', 'dress', 'jumpsuit', 'bag', 'shoes', 'hat', 'scarf', 'belt', 'sunglasses', 'jewelry')
-ALIASES = {'pants': 'trousers', 'leather jacket': 'jacket', 'burgundy handbag': 'bag', 'pink sneakers': 'shoes'}
+CATEGORIES = ('jacket', 'top', 'trousers', 'skirt', 'dress', 'jumpsuit', 'bag', 'hat', 'scarf', 'belt', 'sunglasses', 'jewelry')
+ALIASES = {'pants': 'trousers', 'leather jacket': 'jacket', 'burgundy handbag': 'bag'}
+
+
+def is_footwear(category):
+    """Recognize legacy detector labels and footwear aliases at every boundary."""
+    if not isinstance(category, str):
+        return False
+    words = category.casefold().replace('-', ' ').replace('_', ' ').split()
+    return bool(set(words) & {'shoe', 'shoes', 'footwear', 'sneaker', 'sneakers',
+                             'boot', 'boots', 'sandal', 'sandals', 'heel', 'heels',
+                             'trainer', 'trainers', 'loafer', 'loafers', 'slipper',
+                             'slippers', 'flipflop', 'flipflops'} or
+                'flip flop' in ' '.join(words))
 
 
 def png_uri(image):
@@ -31,7 +43,7 @@ def png_uri(image):
 
 def tryoff_prompt(category):
     if category not in CATEGORIES:
-        raise ProviderError('Unknown garment category')
+        raise ProviderError('Unknown or unsupported garment category')
     return ('TRYOFF extract only the ' + category + ' from the reference image over a white background, '
             'product photography style. NO HUMAN VISIBLE. Preserve the original colors, material, texture, '
             'fabric pattern, cut, construction, hardware, pockets, buttons and visible accessories belonging '
@@ -47,16 +59,18 @@ def tryoff_prompt(category):
 
 
 def extract_items(photo, results):
-    """Full-image binary/probability masks; singleton axes only. Shoes stay separate.
+    """Full-image binary/probability masks; singleton axes only.
 
     Suppress a contained lower-body hypothesis only when a larger one-piece
     candidate exists. Resolve near-identical silhouettes (IoU >= .85) by score,
-    not prompt order. Preserve layered masks and independent left/right shoes.
+    not prompt order. Preserve layered masks; discard unsupported footwear.
     These geometry heuristics cannot infer a missing jumpsuit detection.
     """
     candidates = []
     for result in results:
         category = result.get('input', {}).get('text', '')
+        if is_footwear(category):
+            continue
         category = ALIASES.get(category, category)
         if category not in CATEGORIES:
             raise ProviderError('Unknown detector category')
@@ -104,16 +118,6 @@ def extract_items(photo, results):
             if len(item['quality_warnings']) > 2:
                 item['mask_quality']['status'] = 'review_required'
             candidates.append((item, mask, area, score))
-    # A detector score is not calibrated semantic evidence. In particular, a
-    # trousers/shoes collision must not silently become whichever prompt scored
-    # higher. Reject before containment/deduplication can erase the conflict.
-    for index, (_, mask, area, _) in enumerate(candidates):
-        for other_item, other_mask, other_area, _ in candidates[index + 1:]:
-            if {candidates[index][0]['category'], other_item['category']} != {'trousers', 'shoes'}:
-                continue
-            intersection = ImageChops.multiply(mask, other_mask).histogram()[255]
-            if intersection / (area + other_area - intersection) >= .85:
-                raise ProviderError('Ambiguous trousers/shoes masks; semantic review required')
     # Resolve whole garments before deduplication, never subtract masks:
     # can destroy open jackets, overlapping layers and garment construction.
     one_piece = [c for c in candidates if c[0]['category'] in ('jumpsuit', 'dress')]

@@ -26,14 +26,16 @@ class IntegrityTests(unittest.TestCase):
         rows=[result('trousers',points,.6),result('dress',points,.95)]
         self.assertEqual(extract_items(Image.new('RGB',(12,16)),rows)[0]['category'],'dress')
 
-    def test_six_garments_preserve_distinct_masks(self):
+    def test_five_garments_preserve_distinct_masks_without_footwear(self):
         rows=[]
         for n,cat in enumerate(('jumpsuit','dress','jacket','trousers','bag','shoes')):
             points={(n*2,y) for y in range(2,8)}|{(n*2+1,2)}
             rows.append(result(cat,points))
-        self.assertEqual(len(extract_items(Image.new('RGB',(12,16)),rows)),6)
+        items = extract_items(Image.new('RGB',(12,16)),rows)
+        self.assertEqual({i['category'] for i in items}, {'jumpsuit','dress','jacket','trousers','bag'})
+        self.assertEqual(len(items),5)
 
-    def test_layer_overlap_preserves_original_pixels_and_both_shoes(self):
+    def test_layer_overlap_preserves_original_pixels_without_shoes(self):
         import base64
         import io
         photo = Image.new('RGB', (12,16), (23,47,81))
@@ -43,8 +45,8 @@ class IntegrityTests(unittest.TestCase):
         right = {(9,13),(9,14),(10,14)}
         items = extract_items(photo,[result('jacket',jacket), result('top',top),
                                     result('shoes',left),result('shoes',right)])
-        self.assertEqual(len(items),4)
-        self.assertEqual(sum(i['category']=='shoes' for i in items),2)
+        self.assertEqual(len(items),2)
+        self.assertEqual({i['category'] for i in items}, {'jacket', 'top'})
         for item in items:
             image=Image.open(io.BytesIO(base64.b64decode(item['preview'].split(',')[1])))
             for r,g,b,a in (image.getpixel((x,y)) for y in range(image.height) for x in range(image.width)):
@@ -58,7 +60,7 @@ class IntegrityTests(unittest.TestCase):
         self.assertEqual(len(items),2)
 
     def test_prompts_preserve_visible_construction_without_invented_features(self):
-        for category in ('jumpsuit','dress','jacket','trousers','bag','shoes'):
+        for category in ('jumpsuit','dress','jacket','trousers','bag'):
             prompt=tryoff_prompt(category)
             for phrase in ('open front','zipper','pockets','lining','accessories','original texture','preserve only markings visibly present'):
                 self.assertIn(phrase,prompt)

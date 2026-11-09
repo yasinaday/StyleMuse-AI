@@ -11,6 +11,7 @@ from PIL import Image, ImageOps
 from math import sqrt
 from pydantic import BaseModel, Field, ConfigDict
 from store import Store, units
+from providers import is_footwear
 
 class GenerateRequest(BaseModel):
     model_config = ConfigDict(extra='forbid')
@@ -123,7 +124,7 @@ def quality_fields(item):
 
 def public_result(jid, items):
     return {'job_id':jid, 'items':[dict({k:i[k] for k in ('id','preview','category')},
-                                     **quality_fields(i)) for i in items]}
+                                     **quality_fields(i)) for i in items if not is_footwear(i.get('category'))]}
 
 @dataclass
 class Settings:
@@ -490,10 +491,12 @@ def create_app(settings=None, provider=None):
                 # Unknown adapters provide no proof of non-submission.
                 store.mark_submitted('detect:' + jid)
                 items = provider.detect(original)
-            if not isinstance(items,list) or not 1 <= len(items) <= 20:
+            if not isinstance(items,list) or not 0 <= len(items) <= 20:
                 raise ValueError()
             result = []
             for item in items:
+                if is_footwear(item.get('category')):
+                    continue
                 if not isinstance(item.get('category'),str) or not 1 <= len(item['category']) <= 100 or not isinstance(item.get('prompt'),str) or len(item['prompt']) > 4000:
                     raise ValueError()
                 result.append(dict(id=secrets.token_urlsafe(24), category=item['category'], preview=normalize(item['preview'],s,preserve_alpha=True), prompt=item['prompt'], **quality_fields(item)))
@@ -520,7 +523,7 @@ def create_app(settings=None, provider=None):
             job = db.execute('SELECT * FROM jobs WHERE id=? AND owner=?', (payload.job_id,who)).fetchone()
             if not job or job['state'] != 'done' or job['expires'] < time.time():
                 raise HTTPException(404,'job_not_found')
-            available = {i['id']:i for i in json.loads(job['result'])}
+            available = {i['id']:i for i in json.loads(job['result']) if not is_footwear(i.get('category'))}
             if any(i not in available for i in payload.item_ids):
                 raise HTTPException(404,'item_not_found')
             old = {r['item']:r for r in db.execute('SELECT * FROM claims WHERE job=?',(payload.job_id,))}

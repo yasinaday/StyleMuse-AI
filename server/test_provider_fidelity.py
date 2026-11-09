@@ -25,7 +25,7 @@ def detection(category, score=.9, points=None):
 class FidelityTests(unittest.TestCase):
     def test_small_and_boundary_masks_report_review_not_success(self):
         item = extract_items(Image.new('RGB', (12, 16)),
-                             [detection('shoes', points={(0, 0), (0, 1), (1, 1)})])[0]
+                             [detection('bag', points={(0, 0), (0, 1), (1, 1)})])[0]
         self.assertEqual(item['mask_quality']['status'], 'review_required')
         self.assertIn('small_mask', item['quality_warnings'])
         self.assertIn('image_boundary_contact', item['quality_warnings'])
@@ -69,7 +69,7 @@ class FidelityTests(unittest.TestCase):
             self.assertEqual(client.post('/api/detect', json=payload).json(), response.json())
 
     def test_prompt_only_reconstructs_missing_regions_without_redesign(self):
-        for category in ('jacket', 'trousers', 'shoes', 'bag'):
+        for category in ('jacket', 'trousers', 'bag'):
             prompt = tryoff_prompt(category)
             for phrase in ('fabric pattern', 'buttons', 'visible accessories',
                            'Reconstruct only missing or occluded regions', 'Do not redesign',
@@ -94,10 +94,11 @@ class FidelityTests(unittest.TestCase):
         self.assertIn('semantic_category_unverified', item['quality_warnings'])
         self.assertIn('mask_completeness_unverified', item['quality_warnings'])
 
-    def test_trousers_shoes_duplicate_rejected_without_semantic_guess(self):
+    def test_trousers_preserved_when_duplicate_shoes_are_filtered(self):
         photo = Image.new('RGB', (12, 16))
         for rows in ([detection('trousers', .99), detection('shoes', .8)],
                      [detection('shoes', .99), detection('trousers', .8)]):
             with self.subTest(rows=[r['input']['text'] for r in rows]):
-                with self.assertRaisesRegex(ProviderError, 'Ambiguous trousers/shoes'):
-                    extract_items(photo, rows)
+                items = extract_items(photo, rows)
+                self.assertEqual([i['category'] for i in items], ['trousers'])
+                self.assertFalse(items[0]['category_verified'])
