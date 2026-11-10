@@ -403,7 +403,7 @@ document.getElementById('ai-cards').innerHTML=aiParts.map((p,i)=>'<div class="ai
 modal.querySelectorAll('.ai-piece').forEach((card,i)=>{card.classList.toggle('ai-active',i===aiActiveIndex);card.hidden=aiReviewPhase==='detail'&&(!aiParts[i].selected||i!==aiActiveIndex);});
 modal.querySelectorAll('button').forEach(b=>b.disabled=aiBusy||b.disabled);modal.classList.toggle('ai-working',aiBusy);
 }
-async function reviewAiPart(i,decision){
+async async function reviewAiPart(i,decision){
  if(aiBusy||!aiParts[i]?.generated||!['accepted','rejected'].includes(decision))return;
  const p=aiParts[i];
  if(p.saved){aiStatus('Bu ürün zaten dolabına kaydedildi.');return;}
@@ -418,7 +418,7 @@ async function reviewAiPart(i,decision){
    await persistWardrobe(items);
    p.review='accepted';p.saved=true;p.selected=false;p.status='Dolaba kaydedildi';
    render();renderProfile();
-   aiStatus('1 kıyafet dolabına kaydedildi.');closeAiReview();tab('wardrobe');
+   aiStatus('1 kıyafet dolabına kaydedildi.');if(!aiParts.some(x=>x.selected&&!x.saved&&x.review!=='rejected')){closeAiReview();multiSource=null;aiJobId=null;aiParts=[];tab('closet');return;}
   }catch(e){alert('Kıyafet kaydedilemedi. Telefonun depolama alanını kontrol et.');return;}
  }else{p.review='rejected';p.selected=false;p.status='Reddedildi';}
  const rail=document.getElementById('ai-cards');const scroll=rail?.scrollTop||0;
