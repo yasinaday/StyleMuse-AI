@@ -307,8 +307,9 @@ async function aiRequest(path,payload){
  if(path==='/api/health')updateAiBudget(result);
  return result;
 }
-const AI_CATEGORIES=['Üst giyim','Alt giyim','Elbise','Çanta','Dış giyim','Aksesuar'];
+const AI_CATEGORIES=['Üst giyim','Alt giyim','Elbise','Çanta','Dış giyim'];
 const AI_CATEGORY_MAP=Object.freeze({jacket:'Dış giyim',top:'Üst giyim',trousers:'Alt giyim',skirt:'Alt giyim',dress:'Elbise',jumpsuit:'Elbise',bag:'Çanta',hat:'Aksesuar',scarf:'Aksesuar',belt:'Aksesuar',sunglasses:'Aksesuar',jewelry:'Aksesuar'});
+const isAccessoryCategory=x=>typeof x==='string'&&['aksesuar','accessory','accessories','hat','scarf','belt','sunglasses','jewelry','jewellery','necklace','bracelet','earring','watch','glasses','ring','glove','gloves'].includes(x.toLowerCase().trim());
 const normalizeAiCategory=x=>AI_CATEGORIES.includes(x)?x:(Object.hasOwn(AI_CATEGORY_MAP,x)?AI_CATEGORY_MAP[x]:null);
 const safeAiImage=x=>typeof x==='string'&&/^data:image\/(png|jpeg);base64,[A-Za-z0-9+/]+={0,2}$/.test(x);
 const safeAiId=x=>(typeof x==='string'&&x.length>0&&x.length<=200)||(Number.isSafeInteger(x)&&x>=0);
@@ -335,7 +336,7 @@ async function analyzeClothes(){
  const result=await aiPost('/api/detect',{...inputs,quote_id:quote.quote_id,confirmed:true,max_total_usd:quote.estimated_cost_usd});
  if(!result||!safeAiId(result.job_id)||!Array.isArray(result.items)||!result.items.length||result.items.some(x=>!x||!safeAiId(x.id)||!safeAiImage(x.preview)||(!normalizeAiCategory(x.category)&&!isFootwearCategory(x.category)))||new Set(result.items.map(x=>x.id)).size!==result.items.length)throw Error('Geçersiz tespit sonucu');
  await refreshAiBudget();
- const parts=result.items.filter(x=>!isFootwearCategory(x.category)).map(x=>({id:x.id,image:x.preview,category:normalizeAiCategory(x.category),providerCategory:x.category,mask_quality:x.mask_quality,quality_warnings:x.quality_warnings,category_verified:x.category_verified===true,selected:false,generated:false,status:'SAM 3 ile bulundu · seçim bekliyor'}));
+ const parts=result.items.filter(x=>!isFootwearCategory(x.category)&&!isAccessoryCategory(x.category)).map(x=>({id:x.id,image:x.preview,category:normalizeAiCategory(x.category),providerCategory:x.category,mask_quality:x.mask_quality,quality_warnings:x.quality_warnings,category_verified:x.category_verified===true,selected:false,generated:false,status:'SAM 3 ile bulundu · seçim bekliyor'}));
  aiJobId=result.job_id;aiParts=parts;aiReviewPhase='selection';showAiParts();
  aiStatus('✦ '+aiParts.length+' ürün tespit edildi.');
  }catch(e){aiJobId=null;aiParts=[];aiStatus(e.message+' Elle kırpma seçeneği kullanılabilir.');}
@@ -343,7 +344,7 @@ async function analyzeClothes(){
 }
 async function generateAiParts(){
  if(aiBusy)return;
- const chosen=aiParts.filter(x=>!isFootwearItem(x)&&x.selected&&!x.generated);
+ const chosen=aiParts.filter(x=>!isFootwearItem(x)&&!isAccessoryCategory(x.category)&&!isAccessoryCategory(x.providerCategory)&&x.selected&&!x.generated);
  if(aiReviewPhase!=='detail')return alert('Önce seçtiğin parçaları incele.');
  if(!chosen.length)return alert('Bütünleştirilecek parçaları seç.');
  if(chosen.some(aiMaskNeedsReview)&&!confirm('Seçili ürünlerin bazılarında maske veya kategori doğrulanmadı. Yanlış giysi üretilip ücret oluşabilir. Ürünleri tek tek kontrol ettin mi?'))return;
@@ -383,7 +384,7 @@ function aiQualityNotice(p){
  return '<p class="ai-quality-warning" role="status">'+[mask,...warnings,p.category_verified===true?'Kategori sağlayıcı tarafından doğrulandı':'Kategori doğrulanmadı'].map(escapeAi).join(' · ')+'</p>';
 }
 let aiActiveIndex=0,aiActiveParts=null,aiReviewPhase='selection';
-function aiVisibleIndices(){return aiParts.map((p,i)=>p.selected&&!isFootwearItem(p)?i:-1).filter(i=>i>=0)}
+function aiVisibleIndices(){return aiParts.map((p,i)=>p.selected&&!isFootwearItem(p)&&!isAccessoryCategory(p.category)&&!isAccessoryCategory(p.providerCategory)?i:-1).filter(i=>i>=0)}
 function startAiDetailReview(){if(aiBusy)return;const visible=aiVisibleIndices();if(!visible.length){aiStatus('Önce incelemek istediğin kıyafetleri işaretle.');return;}aiReviewPhase='detail';aiActiveIndex=visible[0];showAiParts()}
 function backAiSelection(){if(aiBusy)return;aiReviewPhase='selection';showAiParts()}
 function aiMaskNeedsReview(p){return p.category_verified!==true||p.mask_quality!=='verified'||(Array.isArray(p.quality_warnings)&&p.quality_warnings.length>0)}
@@ -407,7 +408,7 @@ function reviewAiPart(i,decision){
  const p=aiParts[i];
  if(p.saved){aiStatus('Bu ürün zaten dolabına kaydedildi.');return;}
  if(decision==='accepted'){
-  if(isFootwearItem(p))return;
+  if(isFootwearItem(p)||isAccessoryCategory(p.category)||isAccessoryCategory(p.providerCategory))return;
   if(!safeAiImage(p.image)){aiStatus('Ürün görseli geçersiz; kaydedilemedi.');return;}
   if(p.category_verified!==true||p.mask_quality!=='verified'||(Array.isArray(p.quality_warnings)&&p.quality_warnings.length)){if(!confirm('Bu kıyafetin maskesi veya kategorisi doğrulanmadı. Üretilen ürün orijinalinden farklı olabilir. Görseli kontrol ettin mi ve yine de dolaba kaydetmek istiyor musun?'))return;}
   try{
@@ -417,7 +418,7 @@ function reviewAiPart(i,decision){
    localStorage.setItem('sm-items',JSON.stringify(items));
    p.review='accepted';p.saved=true;p.selected=false;p.status='Dolaba kaydedildi';
    render();renderProfile();
-   aiStatus('1 kıyafet dolabına kaydedildi.');
+   aiStatus('1 kıyafet dolabına kaydedildi.');closeAiReview();
   }catch(e){alert('Kıyafet kaydedilemedi. Telefonun depolama alanını kontrol et.');return;}
  }else{p.review='rejected';p.selected=false;p.status='Reddedildi';}
  const rail=document.getElementById('ai-cards');const scroll=rail?.scrollTop||0;
@@ -427,7 +428,7 @@ function reviewAiPart(i,decision){
  const updatedPanel=document.querySelector('.ai-review-panel');if(updatedPanel)updatedPanel.scrollTop=panelScroll;
 }
 function closeAiReview(){if(aiBusy)return;document.getElementById('ai-review')?.classList.remove('active');document.body.style.overflow='';document.getElementById('smart-photo').focus()}
-function saveAiParts(){if(aiBusy)return;const chosen=aiParts.filter(p=>!isFootwearItem(p)&&p.selected&&p.generated&&p.review==='accepted'&&!p.saved&&safeAiImage(p.image));if(!chosen.length)return alert('Önce AI ile ürün görseli oluştur.');if(chosen.some(p=>p.category_verified!==true||p.mask_quality!=='verified'||(Array.isArray(p.quality_warnings)&&p.quality_warnings.length))&&!confirm('Seçili ürünlerden bazılarının maske veya kategorisi doğrulanmadı. Orijinalinden farklı ürünler kaydedilebilir. Kontrol ederek kaydetmeyi onaylıyor musun?'))return;try{const items=getItems();chosen.forEach((p,i)=>items.push({image:p.image,category:p.category,providerCategory:p.providerCategory,id:Date.now()+i}));localStorage.setItem('sm-items',JSON.stringify(items));closeAiReview();multiSource=null;aiJobId=null;aiParts=[];currentFilter='Tümü';render();aiStatus(chosen.length+' kıyafet dolabına kaydedildi.')}catch(err){alert('Telefonun depolama alanı dolmuş olabilir. Daha az parça seç.')}}
+function saveAiParts(){if(aiBusy)return;const chosen=aiParts.filter(p=>!isFootwearItem(p)&&!isAccessoryCategory(p.category)&&!isAccessoryCategory(p.providerCategory)&&p.selected&&p.generated&&p.review==='accepted'&&!p.saved&&safeAiImage(p.image));if(!chosen.length)return alert('Önce AI ile ürün görseli oluştur.');if(chosen.some(p=>p.category_verified!==true||p.mask_quality!=='verified'||(Array.isArray(p.quality_warnings)&&p.quality_warnings.length))&&!confirm('Seçili ürünlerden bazılarının maske veya kategorisi doğrulanmadı. Orijinalinden farklı ürünler kaydedilebilir. Kontrol ederek kaydetmeyi onaylıyor musun?'))return;try{const items=getItems();chosen.forEach((p,i)=>items.push({image:p.image,category:p.category,providerCategory:p.providerCategory,id:Date.now()+i}));localStorage.setItem('sm-items',JSON.stringify(items));closeAiReview();multiSource=null;aiJobId=null;aiParts=[];currentFilter='Tümü';render();aiStatus(chosen.length+' kıyafet dolabına kaydedildi.')}catch(err){alert('Telefonun depolama alanı dolmuş olabilir. Daha az parça seç.')}}
 function openMultiCrop(){if(!multiSource)return;document.getElementById('category').value='Üst giyim';openCrop(multiSource,null,'Üst giyim');const p=document.querySelector('.crop-panel');let controls=document.getElementById('multi-controls');if(!controls){controls=document.createElement('div');controls.id='multi-controls';controls.innerHTML='<label for="multi-category">Bu parça nedir?</label><select id="multi-category"><option>Üst giyim</option><option>Alt giyim</option><option>Elbise</option><option>Çanta</option><option>Dış giyim</option><option>Aksesuar</option></select><p class="hint">Fotoğrafı kaydırıp yakınlaştırarak kıyafeti çerçeveye al.</p><p id="multi-counter" class="hint"></p>';p.insertBefore(controls,document.getElementById('crop-canvas'))}controls.style.display='block';document.getElementById('multi-category').value='Üst giyim';document.getElementById('multi-counter').textContent=multiSaved+' parça kaydedildi';p.querySelector('.actions button:last-child').textContent='Parçayı kaydet ve devam et'}
 function finishMulti(){multiSource=null;multiSaved=0;const controls=document.getElementById('multi-controls');if(controls)controls.style.display='none';const btn=document.querySelector('.crop-panel .actions button:last-child');if(btn)btn.textContent='Kırp ve kaydet ✓'}
 let currentFilter='Tümü',lastCombo=[];
