@@ -64,6 +64,7 @@ for(const width of [320,360,390,412])test('reject accept save and confirmed dele
  await page.getByRole('button',{name:'Reddet',exact:true}).click();
  assert.equal(await page.evaluate(()=>aiParts[0].review),'rejected');
  assert.equal(await page.evaluate(()=>getItems().length),1);
+ page.once('dialog',d=>{assert.match(d.message(),/doğrulanmadı/);d.accept()});
  await page.getByRole('button',{name:'Kabul et ve kaydet',exact:true}).click();
  assert.equal(await page.evaluate(()=>aiParts[0].review),'accepted');
  assert.equal(await page.evaluate(()=>getItems().length),2);

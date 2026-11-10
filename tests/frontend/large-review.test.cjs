@@ -30,6 +30,7 @@ test('375px review has compact labelled SAM3/fal images, reject and immediate du
   await page.screenshot({path:path.join(evidence,'review-actions-375.png')});
   console.log('Mobile review evidence:',evidence);
   assert.equal(await page.evaluate(()=>localStorage.getItem('sm-items')),null);
+  page.once('dialog',d=>{assert.match(d.message(),/doğrulanmadı/);d.accept()});
   await page.getByRole('button',{name:'Kabul et ve kaydet',exact:true}).click();
   assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('sm-items')).length),1);
   assert.equal(await page.getByRole('button',{name:'✓ Dolaba kaydedildi',exact:true}).isDisabled(),true);
