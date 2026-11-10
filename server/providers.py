@@ -224,7 +224,7 @@ class RealProviders:
         fal contract: https://fal.ai/docs/platform-apis/v1/account/billing
         """
         import math
-        if action != 'generate' or not self.fal_key:
+        if action not in ('generate', 'tryon') or not self.fal_key:
             return None
         try:
             data = self._json('GET', 'https://api.fal.ai/v1/account/billing?expand=credits', self.fal_key,
@@ -236,6 +236,14 @@ class RealProviders:
             return value
         except Exception:
             return None
+
+    def tryon_submit(self, person, clothing, *, before_submit):
+        from virtual_tryon import VirtualTryOn
+        return VirtualTryOn(self.fal_key).submit(person, clothing, before_submit=before_submit)
+
+    def tryon_poll(self, request_id):
+        from virtual_tryon import VirtualTryOn
+        return VirtualTryOn(self.fal_key).poll(request_id)
 
     def detect(self, image, *, before_submit=None):
         photo = original_image(image)

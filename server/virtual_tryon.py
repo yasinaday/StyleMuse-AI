@@ -14,6 +14,16 @@ MODEL = "fal-ai/image-apps-v2/virtual-try-on"
 QUEUE = "https://queue.fal.run/" + MODEL
 REQUEST_ID = re.compile(r"^[A-Za-z0-9_-]{1,100}$")
 
+def safe_result_url(value):
+    """Never fetch arbitrary URLs; browser display is restricted to fal CDN."""
+    try:
+        u = urlsplit(value)
+        return (isinstance(value, str) and len(value) <= 4096 and u.scheme == 'https'
+                and u.hostname in {'fal.media', 'v3.fal.media', 'v3b.fal.media'}
+                and not u.username and not u.password and u.port in (None, 443))
+    except (ValueError, TypeError):
+        return False
+
 class TryOnError(RuntimeError):
     pass
 
@@ -61,26 +71,33 @@ class VirtualTryOn:
             raise TryOnError("invalid_request_id")
         return rid
 
+    def poll(self, request_id):
+        """One bounded read-only poll, resumable by the authenticated caller.
+
+        Official fal-js queue client strips the endpoint subpath for lifecycle
+        routes: owner/alias/requests/id, not owner/alias/subpath/requests/id.
+        """
+        if not isinstance(request_id, str) or not REQUEST_ID.fullmatch(request_id):
+            raise TryOnError('invalid_request_id')
+        base = 'https://queue.fal.run/fal-ai/image-apps-v2/requests/' + request_id
+        state = self._request('GET', base + '/status').get('status')
+        if state in ('IN_QUEUE', 'IN_PROGRESS'):
+            return None
+        if state != 'COMPLETED':
+            raise TryOnError('generation_failed' if state in ('FAILED', 'CANCELED') else 'invalid_status')
+        images = self._request('GET', base).get('images')
+        if not isinstance(images, list) or len(images) != 1 or not isinstance(images[0], dict) or not safe_result_url(images[0].get('url')):
+            raise TryOnError('invalid_result')
+        return images[0]['url']
+
     def result(self, request_id, *, max_wait=180):
         """Poll one known request, never submit or retry a generation."""
         if not isinstance(request_id, str) or not REQUEST_ID.fullmatch(request_id):
             raise TryOnError("invalid_request_id")
-        base = QUEUE + "/requests/" + request_id
         end = time.monotonic() + max_wait
         while time.monotonic() < end:
-            state = self._request("GET", base + "/status").get("status")
-            if state == "COMPLETED":
-                data = self._request("GET", base)
-                images = data.get("images")
-                if not isinstance(images, list) or not images or not isinstance(images[0], dict):
-                    raise TryOnError("invalid_result")
-                url = images[0].get("url")
-                if not isinstance(url, str) or urlsplit(url).scheme != "https":
-                    raise TryOnError("invalid_result")
+            url = self.poll(request_id)
+            if url is not None:
                 return url
-            if state in ("FAILED", "CANCELED"):
-                raise TryOnError("generation_failed")
-            if state not in ("IN_QUEUE", "IN_PROGRESS"):
-                raise TryOnError("invalid_status")
             time.sleep(2)
         raise TryOnError("generation_pending")

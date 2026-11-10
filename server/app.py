@@ -29,6 +29,19 @@ class DetectRequest(BaseModel):
     confirmed: bool = Field(default=False, strict=True)
     max_total_usd: float = Field(default=0, ge=0, allow_inf_nan=False)
 
+class TryOnRequest(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    person_image: str
+    clothing_image: str
+    request_id: str = Field(min_length=1, max_length=100, pattern=r'^[a-zA-Z0-9_-]+$')
+    quote_id: str = Field(default='', max_length=128)
+    confirmed: bool = Field(default=False, strict=True)
+    max_total_usd: float = Field(default=0, ge=0, allow_inf_nan=False)
+
+class TryOnStatus(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    job_id: str = Field(min_length=1, max_length=128)
+
 def normalize(uri, s, *, preserve_alpha=False, upload=False):
     try:
         if not isinstance(uri, str) or not uri.startswith(('data:image/png;base64,', 'data:image/jpeg;base64,')):
@@ -516,15 +529,20 @@ def create_app(settings=None, provider=None):
             raise HTTPException(503, 'inference_disabled')
         try:
             body = await request.json()
-            if set(body) != {'action', 'inputs'} or body['action'] not in ('detect', 'generate'):
+            if set(body) != {'action', 'inputs'} or body['action'] not in ('detect', 'generate', 'tryon'):
                 raise ValueError()
             action = body['action']
-            payload = (DetectRequest if action == 'detect' else GenerateRequest).model_validate(body['inputs'])
+            payload = {'detect': DetectRequest, 'generate': GenerateRequest, 'tryon': TryOnRequest}[action].model_validate(body['inputs'])
             if payload.confirmed or payload.quote_id or payload.max_total_usd:
                 raise ValueError()
         except Exception:
             raise HTTPException(422, 'invalid_request') from None
-        if action == 'detect':
+        if action == 'tryon':
+            normalize(payload.person_image, s, upload=True)
+            normalize(payload.clothing_image, s, preserve_alpha=True, upload=True)
+            inputs = tryon_inputs(payload)
+            cost = 40000  # fal official price: one output image, $0.04.
+        elif action == 'detect':
             normalize(payload.image, s, upload=True)
             inputs = {'image': payload.image, 'request_id': payload.request_id}
             cost = units(s.detect_reservation_usd)
@@ -533,7 +551,7 @@ def create_app(settings=None, provider=None):
                 raise HTTPException(422, 'invalid_request')
             with store.tx() as db:
                 job = db.execute('SELECT * FROM jobs WHERE id=? AND owner=?', (payload.job_id, who)).fetchone()
-                if not job or job['state'] != 'done' or job['expires'] <= time.time():
+                if not job or job['request_id'].startswith('tryon:') or job['state'] != 'done' or job['expires'] <= time.time():
                     raise HTTPException(404, 'job_not_found')
                 available = {i['id'] for i in json.loads(job['result']) if not is_footwear(i.get('category'))}
                 if any(i not in available for i in payload.item_ids):
@@ -618,7 +636,7 @@ def create_app(settings=None, provider=None):
             raise HTTPException(403, 'cost_confirmation_required')
         with store.tx() as db:
             job = db.execute('SELECT * FROM jobs WHERE id=? AND owner=?', (payload.job_id,who)).fetchone()
-            if not job or job['state'] != 'done' or job['expires'] < time.time():
+            if not job or job['request_id'].startswith('tryon:') or job['state'] != 'done' or job['expires'] < time.time():
                 raise HTTPException(404,'job_not_found')
             available = {i['id']:i for i in json.loads(job['result']) if not is_footwear(i.get('category'))}
             if any(i not in available for i in payload.item_ids):
@@ -662,6 +680,84 @@ def create_app(settings=None, provider=None):
             raise HTTPException(502,'provider_failed_no_retry') from None
         finally:
             store.release()
+    def tryon_inputs(payload):
+        return {'person_image': payload.person_image, 'clothing_image': payload.clothing_image,
+                'request_id': payload.request_id}
+
+    @app.post('/api/tryon')
+    def tryon(payload: TryOnRequest, request: Request, authorization: str | None = Header(None)):
+        who = owner(authorization, request, paid=True)
+        if not s.enabled or provider is None:
+            raise HTTPException(503, 'inference_disabled')
+        person = normalize(payload.person_image, s, upload=True)
+        clothing = normalize(payload.clothing_image, s, preserve_alpha=True, upload=True)
+        credit = credit_preflight('tryon', 40000)
+        jid = 'tryon-' + secrets.token_urlsafe(24)
+        operation = 'tryon:' + jid
+        with store.tx() as db:
+            consume_quote(db, payload, request, who, 'tryon', tryon_inputs(payload), 40000, credit)
+            if db.execute('SELECT 1 FROM jobs WHERE owner=? AND request_id=?',
+                          (who, 'tryon:' + payload.request_id)).fetchone():
+                raise HTTPException(409, 'request_already_claimed')
+            store.capacity(db, 2048)
+            store.reserve(db, 40000, owner=who, enforce_budget=False)
+            store.record_operation(db, operation, 40000, who)
+            db.execute('INSERT INTO jobs VALUES(?,?,?,?,?,?,?,?)',
+                (jid, who, 'tryon:' + payload.request_id, quote_digest('tryon', tryon_inputs(payload)),
+                 'claimed', None, None, time.time() + s.session_ttl_seconds))
+        try:
+            rid = provider.tryon_submit(person, clothing,
+                before_submit=lambda: before_paid_submit(operation, 'tryon', 40000))
+            with store.tx() as db:
+                db.execute('UPDATE jobs SET state=?,result=? WHERE id=?',
+                           ('pending', json.dumps({'request_id': rid}), jid))
+            return {'job_id': jid, 'state': 'pending'}
+        except Exception:
+            store.finish_operation(operation, success=False)
+            store.release()
+            raise HTTPException(502, 'provider_failed_no_retry') from None
+
+    @app.post('/api/tryon/status')
+    def tryon_status(payload: TryOnStatus, request: Request, authorization: str | None = Header(None)):
+        who = owner(authorization, request, paid=True)
+        if not s.enabled or provider is None:
+            raise HTTPException(503, 'inference_disabled')
+        with store.tx() as db:
+            row = db.execute('SELECT * FROM jobs WHERE id=? AND owner=?', (payload.job_id, who)).fetchone()
+            if not row or not row['request_id'].startswith('tryon:') or row['expires'] <= time.time():
+                raise HTTPException(404, 'job_not_found')
+            if row['state'] == 'done':
+                return json.loads(row['result'])
+            if row['state'] == 'failed':
+                return {'job_id': payload.job_id, 'state': 'failed'}
+            if row['state'] != 'pending':
+                raise HTTPException(409, 'request_ambiguous_no_retry')
+        try:
+            url = provider.tryon_poll(json.loads(row['result'])['request_id'])
+        except Exception as exc:
+            from virtual_tryon import TryOnError
+            if isinstance(exc, TryOnError) and str(exc) == 'generation_failed':
+                with store.tx() as db:
+                    changed = db.execute("UPDATE jobs SET state='failed' WHERE id=? AND state='pending'", (payload.job_id,)).rowcount
+                    if changed:
+                        db.execute('UPDATE guard SET busy=0')
+                return {'job_id': payload.job_id, 'state': 'failed'}
+            # Keep resumable state: a transient GET failure never creates a new paid job.
+            raise HTTPException(502, 'poll_failed_resume_same_job') from None
+        if url is None:
+            return {'job_id': payload.job_id, 'state': 'pending'}
+        from virtual_tryon import safe_result_url
+        if not safe_result_url(url):
+            raise HTTPException(502, 'invalid_result')
+        result = {'job_id': payload.job_id, 'state': 'done', 'image': url}
+        with store.tx() as db:
+            changed = db.execute("UPDATE jobs SET state=?,result=? WHERE id=? AND state='pending'",
+                       ('done', json.dumps(result), payload.job_id)).rowcount
+            if changed:
+                table = store._operation_table(db, 'tryon:' + payload.job_id)
+                db.execute(f"UPDATE {table} SET state='spent' WHERE id=? AND state='submitted'", ('tryon:' + payload.job_id,))
+                db.execute('UPDATE guard SET busy=0')
+        return result
     return app
 
 def create_app_from_env():
