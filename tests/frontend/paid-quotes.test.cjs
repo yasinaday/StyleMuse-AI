@@ -2,10 +2,10 @@ const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const {app}=require('./offline-harness.cjs');
 
-test('health never describes blocked Replicate analysis as usable and never calls provider',async()=>{
+test('health describes per-operation manual or API credit policy without claiming realtime balance and never calls provider',async()=>{
  const a=app();await a.ctx.checkAiHealth();
- assert.match(a.get('ai-connection-state').textContent,/Replicate.*kredi.*doğrulanam/i);
- assert.match(a.get('ai-connection-state').textContent,/analiz.*engelli/i);
+ assert.match(a.get('ai-connection-state').textContent,/Replicate.*manuel/i);
+ assert.match(a.get('ai-connection-state').textContent,/anlık değil/i);
  assert.equal(a.calls.some(c=>/\/(detect|generate|quote)$/.test(c.url)),false);
 });
 

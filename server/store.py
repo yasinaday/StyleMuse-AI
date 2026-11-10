@@ -34,6 +34,8 @@ class Store:
             CREATE TABLE IF NOT EXISTS period_owner_ledger(period TEXT NOT NULL REFERENCES budget_periods(id), owner TEXT NOT NULL, reserved INTEGER NOT NULL, ceiling INTEGER NOT NULL, PRIMARY KEY(period,owner));
             CREATE TABLE IF NOT EXISTS period_operations(id TEXT PRIMARY KEY, period TEXT NOT NULL REFERENCES budget_periods(id), owner TEXT, amount INTEGER NOT NULL CHECK(amount>=0), state TEXT NOT NULL CHECK(state IN ('reserved','submitted','spent','released')));
             CREATE TABLE IF NOT EXISTS guard(id INTEGER PRIMARY KEY CHECK(id=1), busy INTEGER NOT NULL);
+            CREATE TABLE IF NOT EXISTS manual_provider_credit(id TEXT PRIMARY KEY, account TEXT NOT NULL, amount INTEGER NOT NULL CHECK(amount>=0), recorded REAL NOT NULL, expires REAL NOT NULL, evidence TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS manual_provider_debits(operation TEXT PRIMARY KEY, snapshot TEXT NOT NULL REFERENCES manual_provider_credit(id), amount INTEGER NOT NULL CHECK(amount>=0));
             CREATE TABLE IF NOT EXISTS payment_quotes(id TEXT PRIMARY KEY, owner TEXT NOT NULL, session TEXT NOT NULL, digest TEXT NOT NULL, amount INTEGER NOT NULL, expires REAL NOT NULL, action TEXT NOT NULL, used INTEGER NOT NULL CHECK(used IN (0,1)));
             INSERT OR IGNORE INTO guard VALUES(1,0);
             ''')
@@ -157,10 +159,48 @@ class Store:
     def _operation_table(self, db, operation):
         return 'period_operations' if db.execute('SELECT 1 FROM period_operations WHERE id=?', (operation,)).fetchone() else 'operations'
 
-    def mark_submitted(self, operation):
+    def record_manual_credit(self, snapshot_id, account, amount, evidence):
+        """Operator-only user Billing statement, not API-verified credit or a grant."""
+        amount = units(amount)
+        if not snapshot_id or not isinstance(account, str) or not account or not evidence:
+            raise ValueError('invalid_manual_credit')
+        with self.tx() as db:
+            prior = db.execute('SELECT * FROM manual_provider_credit WHERE id=?', (snapshot_id,)).fetchone()
+            if prior:
+                if (prior['account'], prior['amount'], prior['evidence']) != (account, amount, evidence):
+                    raise ValueError('manual_credit_conflict')
+                return
+            if db.execute('SELECT busy FROM guard').fetchone()[0]:
+                raise RuntimeError('busy_or_ambiguous')
+            now = time.time()
+            db.execute('INSERT INTO manual_provider_credit VALUES(?,?,?,?,?,?)',
+                       (snapshot_id, account, amount, now, now + 86400, evidence))
+
+    def _manual_credit(self, db, account):
+        row = db.execute('SELECT * FROM manual_provider_credit ORDER BY recorded DESC, rowid DESC LIMIT 1').fetchone()
+        if not row or row['account'] != account or not row['recorded'] <= time.time() < row['expires']:
+            return None
+        debited = db.execute('SELECT COALESCE(sum(amount),0) FROM manual_provider_debits WHERE snapshot=?', (row['id'],)).fetchone()[0]
+        return {'snapshot_id': row['id'], 'account': row['account'], 'recorded_at': row['recorded'],
+                'expires_at': row['expires'], 'source': 'manual_non_realtime',
+                'available_usd': max(0, row['amount'] - debited)/1000000, 'overspend_risk': True}
+
+    def manual_credit(self, account):
+        with self.tx() as db:
+            return self._manual_credit(db, account)
+
+    def mark_submitted(self, operation, *, manual_credit_id=None):
         # Durable BEFORE the POST; persistence failure prevents submission.
         with self.tx() as db:
             table = self._operation_table(db, operation)
+            if manual_credit_id is not None:
+                snapshot = db.execute('SELECT * FROM manual_provider_credit WHERE id=?', (manual_credit_id,)).fetchone()
+                credit = self._manual_credit(db, snapshot['account']) if snapshot else None
+                row = db.execute(f'SELECT * FROM {table} WHERE id=?', (operation,)).fetchone()
+                if (not credit or credit['snapshot_id'] != manual_credit_id or not row or row['state'] != 'reserved'
+                        or units(credit['available_usd']) < row['amount']):
+                    raise RuntimeError('manual_credit_unavailable')
+                db.execute('INSERT INTO manual_provider_debits VALUES(?,?,?)', (operation, manual_credit_id, row['amount']))
             changed = db.execute(f"UPDATE {table} SET state='submitted' WHERE id=? AND state='reserved'", (operation,)).rowcount
             if changed != 1:
                 raise RuntimeError('operation_not_reserved')

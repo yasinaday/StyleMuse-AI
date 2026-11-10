@@ -205,10 +205,22 @@ class RealProviders:
         except Exception:
             raise ProviderError('Invalid provider JSON') from None
 
-    def credit_available_usd(self, action):
-        """Fresh read-only provider credit, never inferred from usage or keys.
+    def replicate_account(self):
+        """Read-only credential identity; this endpoint does not report balance."""
+        if not self.replicate_token:
+            raise ProviderError('Replicate not configured')
+        data = self._json('GET', 'https://api.replicate.com/v1/account', self.replicate_token,
+                          headers={'Accept': 'application/json'})
+        kind, username = data.get('type'), data.get('username')
+        import re
+        if kind not in ('user', 'organization') or not isinstance(username, str) or not re.fullmatch(r'[A-Za-z0-9_-]{1,100}', username):
+            raise ProviderError('Invalid Replicate identity')
+        return kind + ':' + username
 
-        Replicate has no verified balance API: detect admission stays closed.
+    def credit_available_usd(self, action):
+        """Read-only provider API credit; manual Replicate evidence lives in Store.
+
+        Replicate account authentication is not a balance API.
         fal contract: https://fal.ai/docs/platform-apis/v1/account/billing
         """
         import math
