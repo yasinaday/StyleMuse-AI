@@ -244,7 +244,7 @@ button.secondary{background:#f4e9f0;color:#6e4566}
 
 /* Separate full-photo selection from focused item review. */
 #ai-review.ai-focused .ai-stage{display:block}#ai-review.ai-focused .ai-rail{width:100%;max-width:100%;display:block;overflow:visible}#ai-review.ai-focused .ai-piece{width:100%;max-width:100%;box-sizing:border-box}#ai-review.ai-focused .ai-piece[hidden]{display:none!important}#ai-review.ai-focused .ai-model{display:none}#ai-review.ai-focused .ai-piece-select img{max-height:310px;object-fit:contain;width:100%}#ai-review.ai-focused .ai-review-panel{overflow-y:auto;max-height:calc(100dvh - 42px)}#ai-review.ai-focused .ai-comparison img{width:100%;max-height:310px;object-fit:contain}#ai-review .ai-review-actions button{min-height:46px}
-</style></head><body><header><div class="brand">StyleMuse <small style="font:12px system-ui">AI</small></div><div class="pill">✧ Stil asistanın</div></header>
+</style><style>.ai-piece>small[role="status"],.ai-piece .ai-quality,.ai-generated::after{display:none!important}.ai-piece select{font-size:14px;min-height:42px;padding:8px}.ai-piece{overflow:hidden}.ai-review-budget{font-size:13px!important;padding:9px 12px!important}.ai-working .ai-model::before{content:"";position:absolute;z-index:3;inset:0;pointer-events:none;background:linear-gradient(to bottom,transparent 0%,#f4c2f122 43%,#d17bd4b0 50%,#f4c2f122 57%,transparent 100%);animation:sm-sweep 2.2s ease-in-out infinite}@keyframes sm-sweep{0%{transform:translateY(-100%)}100%{transform:translateY(100%)}}@media(prefers-reduced-motion:reduce){.ai-working .ai-model::before{animation:none}}</style></head><body><header><div class="brand">StyleMuse <small style="font:12px system-ui">AI</small></div><div class="pill">✧ Stil asistanın</div></header>
 <main class="wrap"><section id="discover" class="sm-home">
 <div class="sm-home-hero"><span class="sm-kicker">STYLEMUSE AI · KİŞİSEL DOLABIN</span><h1>Stilini<br><em>yeniden keşfet.</em></h1><p>Kıyafetlerin bir arada, kombin fikirlerin elinin altında.</p><button type="button" onclick="tab('closet')">Dolabımı aç <span aria-hidden="true">↗</span></button><span class="sm-hero-art" aria-hidden="true">✦</span></div>
 <div class="sm-home-head"><div><span class="sm-kicker">HEMEN BAŞLA</span><h2>Bugün ne yapalım?</h2></div></div>
@@ -323,7 +323,7 @@ async function analyzeClothes(){
  if(aiBusy)return;
  aiJobId=null;aiParts=[];
  if(!safeAiImage(multiSource)){aiStatus('Yalnızca PNG veya JPEG fotoğraf kullanılabilir.');return;}
- aiBusy=true;aiStatus('Sunucu kontrol ediliyor…');document.body.classList.add('ai-busy');
+ aiBusy=true;aiStatus('Sunucu kontrol ediliyor…');document.body.classList.add('ai-busy','ai-detecting');
  try{
  const health=await aiPost('/api/health',{});
  if(health.authenticated!==true)throw Error('Yetkisiz: GitHub sahibi olarak giriş yapmalısın. Ücretli istek yapılmadı.');
@@ -340,7 +340,7 @@ async function analyzeClothes(){
  aiJobId=result.job_id;aiParts=parts;aiReviewPhase='selection';showAiParts();
  aiStatus('✦ '+aiParts.length+' ürün tespit edildi.');
  }catch(e){aiJobId=null;aiParts=[];aiStatus(e.message+' Elle kırpma seçeneği kullanılabilir.');}
- finally{aiBusy=false;document.body.classList.remove('ai-busy');if(aiParts.length)showAiParts();}
+ finally{aiBusy=false;document.body.classList.remove('ai-busy','ai-detecting');if(aiParts.length)showAiParts();}
 }
 async function generateAiParts(){
  if(aiBusy)return;
@@ -394,14 +394,14 @@ modal.classList.add('active');modal.classList.toggle('ai-focused',aiReviewPhase=
 const disabled=aiBusy?' disabled':'';
 const selectionCount=aiVisibleIndices().length;
 const visibleIndices=aiVisibleIndices();if(aiReviewPhase==='detail'&&!visibleIndices.length)aiReviewPhase='selection';if(aiReviewPhase==='detail'&&!visibleIndices.includes(aiActiveIndex))aiActiveIndex=visibleIndices[0]??0;
-const budgetText=selectionCount+' ürün seçili · İşleme özel tahmini toplam sunucu teklifinde gösterilir; açık onay olmadan üretim yapılmaz.';
+const budgetText=selectionCount+' ürün seçili';
 const pos=visibleIndices.indexOf(aiActiveIndex);
 const productNav=aiReviewPhase==='detail'&&visibleIndices.length>1?'<nav class="ai-product-nav" aria-label="Seçili ürünler arasında gezin"><button type="button" onclick="navigateAiPart(-1)"'+(pos<=0?' disabled':'')+'>Önceki ürün</button><span aria-live="polite">'+(pos+1)+' / '+visibleIndices.length+'</span><button type="button" onclick="navigateAiPart(1)"'+(pos===visibleIndices.length-1?' disabled':'')+'>Sonraki ürün</button></nav>':'';
 modal.innerHTML='<div class="crop-panel ai-review-panel" aria-busy="'+aiBusy+'"><div class="ai-review-head"><h2>✦ '+(aiReviewPhase==='selection'?'Fotoğraf analizi · Ürün seçimi':'Seçilen parçaların analizi')+'</h2><button class="secondary" onclick="closeAiReview()" aria-label="Kapat"'+disabled+'>✕</button></div><p class="hint">'+(aiReviewPhase==='selection'?'Fotoğrafın tamamındaki tespitler aşağıda. Yalnızca incelemek istediğin kıyafetleri işaretle.':'Yalnızca seçtiğin parçaları incele. Kategori ve maske sınırlarını kontrol et. Hatalı maskeleri fal.ai ile üretme.')+'</p><p class="ai-review-budget" role="status">'+escapeAi(budgetText)+'</p>'+productNav+'<div class="ai-stage"><div class="ai-rail" id="ai-cards" aria-label="Tespit edilen parçalar"></div><div class="ai-model"><img id="ai-original" alt="Yüklediğin kombin fotoğrafı"></div></div><div class="ai-review-actions">'+(aiReviewPhase==='selection'?'<button onclick="startAiDetailReview()"'+(aiBusy||!selectionCount?' disabled':'')+'>Seçtiğim '+selectionCount+' parçayı incele</button>':'<button class="secondary" onclick="backAiSelection()"'+disabled+'>← Ürün seçimine dön</button>')+'<button id="ai-generate" onclick="generateAiParts()"'+(aiReviewPhase!=='detail'||aiBusy||!aiParts.some(p=>p.selected&&!p.generated)?' disabled':'')+'>✦ fal.ai ile parçaları bütünleştir</button><button onclick="saveAiParts()"'+(aiBusy||!aiParts.some(p=>p.selected&&p.generated&&p.review==='accepted')?' disabled':'')+'>✓ Seçilen üretilmiş ürünleri kaydet</button><button class="secondary" onclick="if(!aiBusy){closeAiReview();openMultiCrop()}"'+disabled+'>Elle kırp</button></div></div>';
 document.getElementById('ai-original').src=safeAiImage(multiSource)?multiSource:'';
 document.getElementById('ai-cards').innerHTML=aiParts.map((p,i)=>'<div class="ai-piece'+(!p.selected?' not-selected':'')+(p.generated?' ai-generated':'')+'"><label class="ai-piece-select"><input aria-label="'+escapeAi(p.category)+' parçasını seç" type="checkbox" '+(p.selected?'checked':'')+disabled+' onchange="selectAiPart('+i+',this.checked)"><img src="'+(safeAiImage(p.image)?p.image:'')+'" alt="Kıyafet parçası '+(i+1)+'"></label><select aria-label="Kıyafet türü '+(i+1)+'"'+disabled+' onchange="categoryAiPart('+i+',this.value)">'+AI_CATEGORIES.map(c=>'<option '+(c===p.category?'selected':'')+'>'+c+'</option>').join('')+'</select><small role="status">'+escapeAi(p.status||'Tespit edildi')+'</small>'+aiQualityNotice(p)+(p.generated?'<div class="ai-comparison"><p>SAM 3 — orijinal maske · fal.ai sonucu yukarıda</p><img src="'+(safeAiImage(p.originalPreview)?p.originalPreview:'')+'" alt="Orijinal kıyafet maskesi"><p>Kesim, açık ön, fermuar, cep, doku ve etiketleri karşılaştır. AI kalite puanı ölçülmedi.</p><button onclick="reviewAiPart('+i+',\'accepted\')"'+(p.saved?' disabled':'')+disabled+'>'+(p.saved?'✓ Dolaba kaydedildi':'Kabul et ve kaydet')+'</button><button onclick="reviewAiPart('+i+',\'rejected\')"'+(p.saved?' disabled':'')+disabled+'>Reddet</button><small role="status">'+(p.saved?'Dolaba kaydedildi':p.review==='accepted'?'Kabul edildi':p.review==='rejected'?'Reddedildi — kaydedilmez':'İnceleme bekliyor — kaydedilmez')+'</small></div>':'')+'</div>' ).join('');
 modal.querySelectorAll('.ai-piece').forEach((card,i)=>{card.classList.toggle('ai-active',i===aiActiveIndex);card.hidden=aiReviewPhase==='detail'&&(!aiParts[i].selected||i!==aiActiveIndex);});
-modal.querySelectorAll('button').forEach(b=>b.disabled=aiBusy||b.disabled);
+modal.querySelectorAll('button').forEach(b=>b.disabled=aiBusy||b.disabled);modal.classList.toggle('ai-working',aiBusy);
 }
 async function reviewAiPart(i,decision){
  if(aiBusy||!aiParts[i]?.generated||!['accepted','rejected'].includes(decision))return;
@@ -418,7 +418,7 @@ async function reviewAiPart(i,decision){
    await persistWardrobe(items);
    p.review='accepted';p.saved=true;p.selected=false;p.status='Dolaba kaydedildi';
    render();renderProfile();
-   aiStatus('1 kıyafet dolabına kaydedildi.');closeAiReview();
+   aiStatus('1 kıyafet dolabına kaydedildi.');closeAiReview();tab('wardrobe');
   }catch(e){alert('Kıyafet kaydedilemedi. Telefonun depolama alanını kontrol et.');return;}
  }else{p.review='rejected';p.selected=false;p.status='Reddedildi';}
  const rail=document.getElementById('ai-cards');const scroll=rail?.scrollTop||0;
