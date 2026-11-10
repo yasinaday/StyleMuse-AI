@@ -403,7 +403,7 @@ document.getElementById('ai-cards').innerHTML=aiParts.map((p,i)=>'<div class="ai
 modal.querySelectorAll('.ai-piece').forEach((card,i)=>{card.classList.toggle('ai-active',i===aiActiveIndex);card.hidden=aiReviewPhase==='detail'&&(!aiParts[i].selected||i!==aiActiveIndex);});
 modal.querySelectorAll('button').forEach(b=>b.disabled=aiBusy||b.disabled);modal.classList.toggle('ai-working',aiBusy);
 }
-async async function reviewAiPart(i,decision){
+async function reviewAiPart(i,decision){
  if(aiBusy||!aiParts[i]?.generated||!['accepted','rejected'].includes(decision))return;
  const p=aiParts[i];
  if(p.saved){aiStatus('Bu ürün zaten dolabına kaydedildi.');return;}
