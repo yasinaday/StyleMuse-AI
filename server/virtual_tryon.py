@@ -63,7 +63,8 @@ class VirtualTryOn:
             raise TryOnError("approval_gate_required")
         body = {"person_image_url": _image(person_image),
                 "clothing_image_url": _image(clothing_image),
-                "preserve_pose": True}
+                "preserve_pose": True,
+                "aspect_ratio": {"ratio": "9:16"}}
         before_submit()
         data = self._request("POST", QUEUE, payload=body)
         rid = data.get("request_id")

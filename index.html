@@ -911,6 +911,7 @@ async function pollVirtualTryOn(job,step){
    if(!tryonSafeUrl(result.image))throw Error('Geçersiz sonuç adresi.');
    tryonResultUrl=result.image;
    const img=document.getElementById('mannequin-person');
+   delete img.dataset.readyModel;
    img.alt='AI sanal giydirme sonucu';
    img.src=result.image;
    img.hidden=false;
@@ -939,7 +940,7 @@ async function requestVirtualTryOn(){
    if(i)person=await tryonImageData(tryonResultUrl);
    const item=items[i],step=labels[mannequinGroup(item)]||item.category;
    el.textContent=(i+1)+'/'+items.length+' · '+step+' için teklif hazırlanıyor…';const progress=(i+1)+'/'+items.length+' · '+step;setStageProgress(progress+' · Teklif hazırlanıyor…');
-   const accessory=mannequinGroup(item);const inputs={person_image:person,clothing_image:item.image,request_id:crypto.randomUUID()};if(accessory==='bag'){inputs.garment_category='accessory';inputs.accessory_type='handbag';inputs.instructions='Add this handbag at realistic human scale: handbag body approximately 20–30 cm wide, no more than one quarter of the model torso width. Carry it naturally at the side, hand or shoulder. Preserve the model face, pose, top, bottoms and outerwear; do not enlarge the handbag, do not change clothing.'}else if(accessory==='hat'){inputs.garment_category='accessory';inputs.accessory_type='hat';inputs.instructions='Place this hat naturally on the model head at realistic head scale; preserve the face and existing outfit.'}
+   const inputs={person_image:person,clothing_image:item.image,request_id:crypto.randomUUID()};
    const quote=await aiPost('/api/quote',{action:'tryon',inputs},45000);
    if(quote.action!=='tryon'||!quote.quote_id||!Number.isFinite(quote.estimated_cost_usd)||quote.estimated_cost_usd<=0)throw Error('Geçersiz maliyet teklifi; ücretli işlem yapılmadı.');
    // Quoted cost ceiling remains enforced by the server; no extra browser confirmation.
