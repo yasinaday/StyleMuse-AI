@@ -717,6 +717,19 @@ def create_app(settings=None, provider=None):
             store.release()
             raise HTTPException(502, 'provider_failed_no_retry') from None
 
+    @app.post('/api/tryon/pending')
+    def pending_tryon(request: Request, authorization: str | None = Header(None)):
+        who = owner(authorization, request, paid=True)
+        with store.tx() as db:
+            rows = db.execute(
+                "SELECT id FROM jobs WHERE owner=? AND request_id LIKE 'tryon:%' "
+                "AND state='pending' AND result IS NOT NULL AND expires>? LIMIT 2",
+                (who, time.time()),
+            ).fetchall()
+        if len(rows) != 1:
+            raise HTTPException(404, 'pending_tryon_not_found')
+        return {'job_id': rows[0]['id']}
+
     @app.post('/api/tryon/status')
     def tryon_status(payload: TryOnStatus, request: Request, authorization: str | None = Header(None)):
         who = owner(authorization, request, paid=True)

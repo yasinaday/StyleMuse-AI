@@ -147,3 +147,11 @@ def test_known_failed_job_has_durable_terminal_status(tmp_path, monkeypatch):
         response=c.post('/api/tryon/status',headers=HEADERS,json=dict(job_id=jid))
         assert response.status_code==200
         assert response.json()['state']=='failed'
+
+
+def test_pending_lookup_recovers_same_job_without_paid_submit(tmp_path, monkeypatch):
+    c, provider, job = submitted(tmp_path, monkeypatch)
+    assert c.post('/api/tryon/pending', headers=HEADERS).json() == {'job_id': job}
+    assert c.post('/api/tryon/status', headers=HEADERS, json={'job_id': job}).json()['state'] == 'done'
+    assert c.post('/api/tryon/pending', headers=HEADERS).status_code == 404
+    assert provider.calls == 1
