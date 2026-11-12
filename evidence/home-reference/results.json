@@ -1,0 +1,86 @@
+[
+  {
+    "width": 360,
+    "layout": {
+      "width": 360,
+      "scrollWidth": 360,
+      "navTop": 624,
+      "cards": [
+        {
+          "bottom": 325.015625,
+          "clipped": false
+        },
+        {
+          "bottom": 325.015625,
+          "clipped": false
+        },
+        {
+          "bottom": 449.203125,
+          "clipped": false
+        },
+        {
+          "bottom": 449.203125,
+          "clipped": false
+        }
+      ]
+    },
+    "pageErrors": [],
+    "paidRequests": []
+  },
+  {
+    "width": 390,
+    "layout": {
+      "width": 390,
+      "scrollWidth": 390,
+      "navTop": 624,
+      "cards": [
+        {
+          "bottom": 349.015625,
+          "clipped": false
+        },
+        {
+          "bottom": 349.015625,
+          "clipped": false
+        },
+        {
+          "bottom": 483.765625,
+          "clipped": false
+        },
+        {
+          "bottom": 483.765625,
+          "clipped": false
+        }
+      ]
+    },
+    "pageErrors": [],
+    "paidRequests": []
+  },
+  {
+    "width": 430,
+    "layout": {
+      "width": 430,
+      "scrollWidth": 430,
+      "navTop": 624,
+      "cards": [
+        {
+          "bottom": 381.03125,
+          "clipped": false
+        },
+        {
+          "bottom": 381.03125,
+          "clipped": false
+        },
+        {
+          "bottom": 529.875,
+          "clipped": false
+        },
+        {
+          "bottom": 529.875,
+          "clipped": false
+        }
+      ]
+    },
+    "pageErrors": [],
+    "paidRequests": []
+  }
+]
