@@ -784,27 +784,17 @@ async function removeItem(id){if(!confirm('Bu kıyafeti dolabından silmek istiy
 let comboIndex=0;
 function suggest(){
  const a=document.getElementById('occasion').value,b=document.getElementById('style').value,list=getItems();
- const by=c=>list.filter(x=>c.includes(x.category));
- const tops=by(['Üst giyim']),dresses=by(['Elbise']),bottoms=by(['Alt giyim']),outer=by(['Dış giyim']),bags=by(['Çanta']);
- const separates=Math.max(1,tops.length)*Math.max(1,bottoms.length);
- const baseCount=dresses.length&&(!tops.length||!bottoms.length)?dresses.length:separates+dresses.length;
- const jacketCount=Math.max(1,outer.length),bagCount=bags.length+1;
- const count=baseCount*jacketCount*bagCount;
- const index=comboIndex%count;
- comboIndex=(index+1)%count;
- const baseIndex=index%baseCount;
- const useDress=dresses.length&&(!tops.length||!bottoms.length||baseIndex>=separates);
- const base=useDress?[dresses[baseIndex-(baseCount===dresses.length?0:separates)]]
-  :[tops[baseIndex%Math.max(1,tops.length)],bottoms[Math.floor(baseIndex/Math.max(1,tops.length))]];
- const jacket=outer[Math.floor(index/baseCount)%jacketCount];
- const bag=bags[Math.floor(index/(baseCount*jacketCount))-1];
- lastCombo=[...base,jacket,bag].filter(Boolean);
- const slots=[...lastCombo.slice(0,4)];
- // Dördüncü alan isteğe bağlıdır; çanta yoksa veya önerilmediyse boş kalır.
- while(slots.length<4)slots.push(null);
+ const by=(...categories)=>list.filter(x=>categories.includes(x.category)&&!isFootwearItem(x));
+ const tops=by('Üst giyim'),dresses=by('Elbise'),bottoms=by('Alt giyim');
+ const outer=by('Dış giyim'),accessories=by('Çanta','Aksesuar');
+ const index=comboIndex++;
+ const pick=items=>items.length?items[index%items.length]:null;
+ const useDress=dresses.length&&(!tops.length||!bottoms.length);
+ const slots=[pick(useDress?dresses:tops),useDress?null:pick(bottoms),pick(outer),pick(accessories)];
+ lastCombo=slots.filter(Boolean);
  let html='<div class="result-card"><h2>✦ Senin kombin fikrin</h2><p>'+ideas[a]+'</p><span class="chip">'+b+'</span>';
  if(lastCombo.length){
-  html+='<p class="hint">Dolabındaki '+lastCombo.length+' parçayla oluşturuldu</p><div class="grid sm-four-combo-slots">'+slots.map(x=>x?'<div class="sm-combo-slot"><img alt="'+x.category+'" src="'+x.image+'"><small>'+x.category+'</small></div>':'<div class="sm-combo-slot sm-combo-empty" aria-label="İsteğe bağlı boş kombin alanı"></div>').join('')+'</div>';
+  html+='<p class="hint">Dolabındaki '+lastCombo.length+' parçayla oluşturuldu</p><div class="grid sm-four-combo-slots">'+slots.map((x,i)=>x?'<div class="sm-combo-slot"><img alt="'+x.category+'" src="'+x.image+'"><small>'+x.category+'</small></div>':'<div class="sm-combo-slot sm-combo-empty" aria-label="Boş kombin alanı">'+(i===3?'Çanta veya aksesuar yok':'')+'</div>').join('')+'</div>';
  }else{html+='<p>Önce dolabına birkaç kıyafet ekle, kendi parçalarınla kombin oluşturalım.</p><button onclick="tab(\'closet\')">Kıyafet ekle</button>'}
  document.getElementById('suggestion').innerHTML=html+'</div>';
 }
