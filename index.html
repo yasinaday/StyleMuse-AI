@@ -362,6 +362,15 @@ section .result-card{margin-top:9px;padding:12px}
 #tryon .sm-progress-track{grid-column:2!important;grid-row:2 / span 2!important;align-self:end!important;margin:0 7px 7px 4px!important;min-height:38px!important}
 #tryon .mannequin-stage{display:block!important;position:relative!important}
 #tryon .mannequin-image-label{position:absolute!important;bottom:7px!important;left:calc(32% + 3px)!important;right:7px!important;margin:0!important;z-index:5!important}
+
+/* Stable mobile mannequin layout: selected items must never resize or crop the model. */
+#tryon .mannequin-stage{aspect-ratio:0.77!important;height:auto!important;min-height:0!important;overflow:hidden!important}
+#tryon .sm-stage-grid{height:100%!important;min-height:0!important;grid-template-columns:32% minmax(0,68%)!important;grid-template-rows:minmax(0,1fr) 48px 38px!important;align-content:stretch!important}
+#tryon .sm-stage-photo{grid-column:2!important;grid-row:1 / 4!important;height:100%!important;min-height:0!important;overflow:hidden!important;align-items:stretch!important}
+#tryon .sm-stage-photo #mannequin-person{display:block;max-height:100%!important;max-width:100%!important;width:100%!important;height:100%!important;object-fit:contain!important;object-position:center center!important;transform:none!important}
+#tryon .sm-stage-items{overflow:hidden!important;min-height:0!important;grid-template-rows:repeat(4,minmax(0,1fr))!important}
+#tryon .sm-stage-item{min-height:0!important;overflow:hidden!important}
+#tryon .mannequin-image-label{bottom:7px!important;left:calc(32% + 3px)!important;right:7px!important;max-height:40px!important}
 </style></head><body class="on-home"><header id="site-brand-header"><div class="brand">StyleMuse <small style="font:12px system-ui">AI</small><svg class="sm-brand-logo" viewBox="0 0 100 100" role="img" aria-label="StyleMuse uygulama logosu"><defs><linearGradient id="smIconBg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#fffaf9"/><stop offset="1" stop-color="#e7c9f0"/></linearGradient><linearGradient id="smRibbon" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#f1b5ed"/><stop offset="1" stop-color="#a46acc"/></linearGradient></defs><rect x="1" y="1" width="98" height="98" rx="23" fill="url(#smIconBg)"/><path d="M47 31c-2-12 15-14 17-3 1 8-6 11-11 15L17 71c-5 4-2 9 4 9h60c6 0 9-5 4-9L53 44" fill="none" stroke="#60316f" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/><path d="M16 78c22 12 35-16 66-14-18 0-33 24-66 14" fill="url(#smRibbon)"/><path d="M78 17l3 8 8 3-8 3-3 8-3-8-8-3 8-3z" fill="#783b83"/></svg></div><div class="pill">✧ Stil asistanın</div></header>
 <main class="wrap"><section id="discover" class="sm-home">
 <div class="sm-home-hero"><span class="sm-kicker">STYLEMUSE AI · KİŞİSEL DOLABIN</span><h1>Stilini<br><em>yeniden keşfet.</em></h1><p>Kıyafetlerin bir arada, kombin fikirlerin elinin altında.</p><button type="button" onclick="tab('closet')">Dolabımı aç <span aria-hidden="true">↗</span></button><span class="sm-hero-art" aria-hidden="true">✦</span></div>
