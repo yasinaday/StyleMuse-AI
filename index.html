@@ -600,9 +600,10 @@ function suggest(){
  const base=useDress?[pick(dresses)]:[pick(tops),pick(bottoms)];
  const jacket=pick(outer);
  // Çanta isteğe bağlıdır: her öneride bulunması gerekmez.
- const bag=bags.length&&comboIndex%3===1?pick(bags):null;
+ const bag=bags.length&&comboIndex%3===1&&base.filter(Boolean).length>=1?pick(bags):null;
  lastCombo=[...base,jacket,bag].filter(Boolean);
  const slots=[...lastCombo.slice(0,4)];
+ // Dördüncü alan isteğe bağlıdır; çanta yoksa veya önerilmediyse boş kalır.
  while(slots.length<4)slots.push(null);
  let html='<div class="result-card"><h2>✦ Senin kombin fikrin</h2><p>'+ideas[a]+'</p><span class="chip">'+b+'</span>';
  if(lastCombo.length){
