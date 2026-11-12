@@ -103,7 +103,11 @@ class Store:
         # Tombstones and ledger survive expiry, preventing resurrection/retry.
         expired = [r[0] for r in db.execute('SELECT id FROM jobs WHERE expires<?',(time.time(),))]
         for jid in expired:
-            db.execute('UPDATE jobs SET original=NULL,result=NULL WHERE id=?',(jid,))
+            db.execute(
+                "UPDATE jobs SET original=NULL, result=CASE WHEN state='pending' "
+                "AND request_id LIKE 'tryon:%' THEN result ELSE NULL END WHERE id=?",
+                (jid,),
+            )
             db.execute('UPDATE claims SET image=NULL WHERE job=?',(jid,))
         used = db.execute('SELECT COALESCE(sum(COALESCE(length(original),0)+COALESCE(length(result),0)),0) FROM jobs').fetchone()[0]
         used += db.execute('SELECT COALESCE(sum(length(image)),0) FROM claims').fetchone()[0]

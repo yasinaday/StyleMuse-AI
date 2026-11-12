@@ -723,8 +723,8 @@ def create_app(settings=None, provider=None):
         with store.tx() as db:
             rows = db.execute(
                 "SELECT id FROM jobs WHERE owner=? AND request_id LIKE 'tryon:%' "
-                "AND state='pending' AND result IS NOT NULL AND expires>? LIMIT 2",
-                (who, time.time()),
+                "AND state='pending' AND result IS NOT NULL LIMIT 2",
+                (who,),
             ).fetchall()
         if len(rows) != 1:
             raise HTTPException(404, 'pending_tryon_not_found')
@@ -737,13 +737,13 @@ def create_app(settings=None, provider=None):
             raise HTTPException(503, 'inference_disabled')
         with store.tx() as db:
             row = db.execute('SELECT * FROM jobs WHERE id=? AND owner=?', (payload.job_id, who)).fetchone()
-            if not row or not row['request_id'].startswith('tryon:') or row['expires'] <= time.time():
+            if not row or not row['request_id'].startswith('tryon:') or (row['expires'] <= time.time() and row['state'] != 'pending'):
                 raise HTTPException(404, 'job_not_found')
             if row['state'] == 'done':
                 return json.loads(row['result'])
             if row['state'] == 'failed':
                 return {'job_id': payload.job_id, 'state': 'failed'}
-            if row['state'] != 'pending':
+            if row['state'] != 'pending' or not row['result']:
                 raise HTTPException(409, 'request_ambiguous_no_retry')
         try:
             url = provider.tryon_poll(json.loads(row['result'])['request_id'])
@@ -751,7 +751,7 @@ def create_app(settings=None, provider=None):
             from virtual_tryon import TryOnError
             if isinstance(exc, TryOnError) and str(exc) == 'generation_failed':
                 with store.tx() as db:
-                    changed = db.execute("UPDATE jobs SET state='failed' WHERE id=? AND state='pending'", (payload.job_id,)).rowcount
+                    changed = db.execute("UPDATE jobs SET state='failed',expires=max(expires,?) WHERE id=? AND state='pending'", (time.time() + s.session_ttl_seconds, payload.job_id)).rowcount
                     if changed:
                         db.execute('UPDATE guard SET busy=0')
                 return {'job_id': payload.job_id, 'state': 'failed'}
@@ -764,8 +764,8 @@ def create_app(settings=None, provider=None):
             raise HTTPException(502, 'invalid_result')
         result = {'job_id': payload.job_id, 'state': 'done', 'image': url}
         with store.tx() as db:
-            changed = db.execute("UPDATE jobs SET state=?,result=? WHERE id=? AND state='pending'",
-                       ('done', json.dumps(result), payload.job_id)).rowcount
+            changed = db.execute("UPDATE jobs SET state=?,result=?,expires=max(expires,?) WHERE id=? AND state='pending'",
+                       ('done', json.dumps(result), time.time() + s.session_ttl_seconds, payload.job_id)).rowcount
             if changed:
                 table = store._operation_table(db, 'tryon:' + payload.job_id)
                 db.execute(f"UPDATE {table} SET state='spent' WHERE id=? AND state='submitted'", ('tryon:' + payload.job_id,))

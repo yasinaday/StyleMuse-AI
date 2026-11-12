@@ -155,3 +155,16 @@ def test_pending_lookup_recovers_same_job_without_paid_submit(tmp_path, monkeypa
     assert c.post('/api/tryon/status', headers=HEADERS, json={'job_id': job}).json()['state'] == 'done'
     assert c.post('/api/tryon/pending', headers=HEADERS).status_code == 404
     assert provider.calls == 1
+
+
+def test_expired_pending_tryon_can_still_release_guard_after_result(tmp_path, monkeypatch):
+    c, provider, job = submitted(tmp_path, monkeypatch)
+    with sqlite3.connect(tmp_path/'db') as db:
+        db.execute('UPDATE jobs SET expires=0 WHERE id=?', (job,))
+    assert c.post('/api/tryon/pending', headers=HEADERS).json() == {'job_id': job}
+    status = c.post('/api/tryon/status', headers=HEADERS, json={'job_id': job})
+    assert status.json()['state'] == 'done'
+    assert c.post('/api/tryon/status', headers=HEADERS, json={'job_id': job}).json() == status.json()
+    with sqlite3.connect(tmp_path/'db') as db:
+        assert db.execute('SELECT busy FROM guard').fetchone()[0] == 0
+    assert provider.calls == 1
