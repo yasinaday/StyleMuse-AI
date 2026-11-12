@@ -786,12 +786,18 @@ function suggest(){
  const a=document.getElementById('occasion').value,b=document.getElementById('style').value,list=getItems();
  const by=c=>list.filter(x=>c.includes(x.category));
  const tops=by(['Üst giyim']),dresses=by(['Elbise']),bottoms=by(['Alt giyim']),outer=by(['Dış giyim']),bags=by(['Çanta']);
- const pick=(arr,offset=0)=>arr.length?arr[(comboIndex+offset)%arr.length]:null;
- const useDress=dresses.length&&(!tops.length||!bottoms.length);
- const base=useDress?[pick(dresses)]:[pick(tops),pick(bottoms)];
- const jacket=pick(outer);
- // Çanta isteğe bağlıdır: her öneride bulunması gerekmez.
- const bag=bags.length&&comboIndex%3===1&&base.filter(Boolean).length>=1?pick(bags):null;
+ const separates=Math.max(1,tops.length)*Math.max(1,bottoms.length);
+ const baseCount=dresses.length&&(!tops.length||!bottoms.length)?dresses.length:separates+dresses.length;
+ const jacketCount=Math.max(1,outer.length),bagCount=bags.length+1;
+ const count=baseCount*jacketCount*bagCount;
+ const index=comboIndex%count;
+ comboIndex=(index+1)%count;
+ const baseIndex=index%baseCount;
+ const useDress=dresses.length&&(!tops.length||!bottoms.length||baseIndex>=separates);
+ const base=useDress?[dresses[baseIndex-(baseCount===dresses.length?0:separates)]]
+  :[tops[baseIndex%Math.max(1,tops.length)],bottoms[Math.floor(baseIndex/Math.max(1,tops.length))]];
+ const jacket=outer[Math.floor(index/baseCount)%jacketCount];
+ const bag=bags[Math.floor(index/(baseCount*jacketCount))-1];
  lastCombo=[...base,jacket,bag].filter(Boolean);
  const slots=[...lastCombo.slice(0,4)];
  // Dördüncü alan isteğe bağlıdır; çanta yoksa veya önerilmediyse boş kalır.
