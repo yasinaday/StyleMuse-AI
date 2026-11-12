@@ -687,7 +687,7 @@ async function requestVirtualTryOn(){
  const items=orderedTryonItems(chosenTry.map(id=>getItems().find(x=>String(x.id)===String(id))).filter(Boolean));
  if(!isCompleteLook(items)){el.textContent='Önce üst ve alt giyim veya elbise seç.';return}
  const labels={top:'Üst giyim',dress:'Elbise',bottom:'Alt giyim',outer:'Dış giyim',bag:'Çanta',hat:'Şapka'};
- if(!confirm('Giydirme sırası: '+items.map(x=>labels[mannequinGroup(x)]||x.category).join(' → ')+'. Her aşama ayrı onaylanır. AI önceki parçaları değiştirebilir. Devam edilsin mi?'))return;
+ // Explicit AI dressing button click authorizes this selected outfit workflow.
  tryonBusy=true;const animation=null;setStageProgress('Giydirme hazırlanıyor…');let person=mannequinPhotoData;
  try{
   const health=await aiPost('/api/health',{});
@@ -699,7 +699,7 @@ async function requestVirtualTryOn(){
    const accessory=mannequinGroup(item);const inputs={person_image:person,clothing_image:item.image,request_id:crypto.randomUUID()};if(accessory==='bag'){inputs.garment_category='accessory';inputs.accessory_type='handbag';inputs.instructions='Add this handbag at realistic human scale: handbag body approximately 20–30 cm wide, no more than one quarter of the model torso width. Carry it naturally at the side, hand or shoulder. Preserve the model face, pose, top, bottoms and outerwear; do not enlarge the handbag, do not change clothing.'}else if(accessory==='hat'){inputs.garment_category='accessory';inputs.accessory_type='hat';inputs.instructions='Place this hat naturally on the model head at realistic head scale; preserve the face and existing outfit.'}
    const quote=await aiPost('/api/quote',{action:'tryon',inputs});
    if(quote.action!=='tryon'||!quote.quote_id||!Number.isFinite(quote.estimated_cost_usd)||quote.estimated_cost_usd<=0)throw Error('Geçersiz maliyet teklifi; ücretli işlem yapılmadı.');
-   if(!confirm((i+1)+'/'+items.length+' · '+step+' · '+quote.estimated_cost_usd.toFixed(4)+' USD. Önceki kıyafetler değişebilir. Bu aşamayı başlat?')){el.textContent='Durduruldu. Tamamlanan aşamalar ekranda kaldı.';break}
+   // Quoted cost ceiling remains enforced by the server; no extra browser confirmation.
    const job=await aiPost('/api/tryon',{...inputs,quote_id:quote.quote_id,confirmed:true,max_total_usd:quote.estimated_cost_usd});
    if(!job.job_id)throw Error('İş kimliği dönmedi; otomatik tekrar yapılmadı.');
    sessionStorage.setItem('sm-tryon-pending',job.job_id);
