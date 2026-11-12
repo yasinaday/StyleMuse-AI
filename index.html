@@ -468,13 +468,11 @@ const firstGenerated=aiParts.findIndex(p=>chosen.includes(p)&&p.generated);if(fi
 const escapeAi=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let aiBudget=null;
 function updateAiBudget(data){
- const valid=x=>typeof x==='number'&&Number.isFinite(x)&&x>=0;
- const remaining=null; // Historical ledger is not provider credit or an application spending limit.
- aiBudget={remaining};
- let el=document.getElementById('ai-budget');if(!el){el=document.createElement('p');el.id='ai-budget';el.setAttribute('role','status');document.getElementById('smart-photo').parentElement.appendChild(el)}
- el.textContent='Uygulama harcama tavanı yok. Her işlem için sunucu teklifi ve açık tek kullanımlık onay gerekir. Replicate için hesapla eşleşen, süreli manuel bakiye kaydı kullanılabilir (anlık değil; aşım riski var); fal.ai kredisi API ile kontrol edilir.'+(valid(data.spent_usd)?' · Başarılı işlem tahmini (fatura değil): '+data.spent_usd.toFixed(2)+' USD':'')+(valid(data.pending_usd)?' · Tarihsel/bekleyen tahmini: '+data.pending_usd.toFixed(2)+' USD':'');
+ // Bakiye bilgisi arka planda korunur; dolap sayfasında teknik maliyet kutusu gösterilmez.
+ aiBudget={remaining:null};
+ const el=document.getElementById('ai-budget');if(el)el.remove();
 }
-async function refreshAiBudget(){try{await aiPost('/api/health',{})}catch(e){updateAiBudget({remaining_usd:0});document.getElementById('ai-budget').textContent='Bütçe yenilenemedi; yeni ücretli işlem engellendi. Bağlantıyı kontrol et.';}}
+async function refreshAiBudget(){try{await aiPost('/api/health',{})}catch(e){updateAiBudget({remaining_usd:0});}}
 function selectAiPart(i,value){if(aiBusy||!aiParts[i])return;aiParts[i].selected=value;if(aiReviewPhase==='detail'&&!aiVisibleIndices().length)aiReviewPhase='selection';showAiParts()}
 function categoryAiPart(i,value){if(!aiBusy&&AI_CATEGORIES.includes(value))aiParts[i].category=value}
 function aiQualityNotice(p){
