@@ -1658,7 +1658,33 @@ async function saveVirtualTryOn(){if(!tryonComplete||!tryonResultUrl)return;cons
 function toggleTry(id){if(tryOnSelectionLocked())return;tryonRun=null;tryonComplete=false;tryonRecovered=false;setTryOnBusy(false);const items=getItems(),item=items.find(x=>String(x.id)===String(id));if(!item)return;const group=mannequinGroup(item);if(chosenTry.some(x=>String(x)===String(id))){chosenTry=chosenTry.filter(x=>String(x)!==String(id))}else{chosenTry=chosenTry.filter(x=>{const old=items.find(a=>String(a.id)===String(x));return old&&mannequinGroup(old)!==group&&!(group==='dress'&&['top','bottom'].includes(mannequinGroup(old)))&&!(mannequinGroup(old)==='dress'&&['top','bottom'].includes(group))});chosenTry.push(id)}renderTry()}
 function isCompleteLook(items){const groups=items.map(mannequinGroup);return groups.includes('dress')||groups.includes('top')&&groups.includes('bottom')}
 async function saveSelectedLook(){if(tryOnSelectionLocked())return;if(!tryonComplete||!tryonResultUrl){document.getElementById('mannequin-ai-status').textContent='Yalnızca manken üzerinde tamamlanmış kombin kaydedilebilir.';return}const items=getItems();const chosen=orderedTryonItems(chosenTry.map(id=>items.find(x=>String(x.id)===String(id))).filter(Boolean));const status=document.getElementById('mannequin-ai-status');if(!tryonRecovered&&!isCompleteLook(chosen)){status.textContent='Kombin için üst ve alt giyim ya da elbise seçmelisin.';return}const button=document.getElementById('tryon-save-selection');button.disabled=true;try{const looks=savedLooksCache.slice();looks.unshift({date:new Date().toLocaleDateString('tr-TR'),occasion:'Kombinim',images:tryonRecovered?[]:chosen.map(x=>x.image),itemIds:tryonRecovered?[]:chosen.map(x=>x.id),aiImage:tryonResultUrl,recoveredTryOn:tryonRecovered});await persistSavedLooks(looks);renderSaved();status.textContent=tryonRecovered?'Kurtarılan görsel Kombinler bölümüne kaydedildi.':'Giydirilmiş kombin Kombinler bölümüne kaydedildi.'}catch(e){status.textContent='Kombin kaydedilemedi: '+e.message}finally{button.disabled=tryOnSelectionLocked()}}
-function clearMannequin(){if(tryOnSelectionLocked())return;tryonRun=null;tryonComplete=false;tryonRecovered=false;setTryOnBusy(false);chosenTry=[];renderTry()}
+function clearMannequin(){
+ if(tryOnSelectionLocked())return;
+ tryonRun=null;
+ tryonResultUrl=null;
+ tryonComplete=false;
+ tryonRecovered=false;
+ chosenTry=[];
+ setTryOnBusy(false);
+ renderTry();
+ setStageProgress('Kombinin için kıyafet seç.');
+ document.getElementById('mannequin-ai-status').textContent='';
+ const preview=document.getElementById('mannequin-person');
+ const placeholder=document.getElementById('mannequin-placeholder');
+ if(!mannequinPhotoData||!mannequinPhotoUrl){
+  preview.removeAttribute('src');
+  preview.hidden=true;
+  placeholder.hidden=false;
+  void initReadyMannequin();
+  return;
+ }
+ if(mannequinPhotoUrl===mannequinPhotoData)preview.dataset.readyModel='';
+ else delete preview.dataset.readyModel;
+ preview.src=mannequinPhotoUrl;
+ preview.alt='Seçilen manken fotoğrafı';
+ preview.hidden=false;
+ placeholder.hidden=true;
+}
 function suggestMannequin(){
  if(tryOnSelectionLocked())return;tryonRun=null;tryonComplete=false;tryonRecovered=false;setTryOnBusy(false);
  const items=getItems().filter(x=>!isFootwearItem(x));
