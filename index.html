@@ -875,11 +875,11 @@ function initStylePicker(id){
  syncStylePickers.set(id,sync);
  select.addEventListener('change',sync);
  trigger.addEventListener('click',()=>{
-  stylePickerTitle.textContent=label.textContent;
+  stylePickerTitle.textContent=window.styleMuseSourceText?.(label)??label.textContent;
   stylePickerOptions.replaceChildren(...entries.map(({option})=>{
    const button=document.createElement('button');
    button.type='button';
-   button.textContent=option.textContent;
+   button.textContent=window.styleMuseSourceText?.(option)??option.textContent;
    button.disabled=option.disabled;
    button.setAttribute('aria-pressed',String(option.selected));
    button.addEventListener('click',()=>{
