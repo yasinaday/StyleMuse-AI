@@ -4,6 +4,7 @@ import secrets
 from dataclasses import dataclass
 import base64
 import hashlib
+import logging
 import json
 import time
 from io import BytesIO
@@ -11,7 +12,9 @@ from PIL import Image, ImageOps
 from math import sqrt
 from pydantic import BaseModel, Field, ConfigDict
 from store import Store, units
-from providers import is_footwear
+from providers import ProviderError, is_footwear
+
+logger = logging.getLogger('uvicorn.error')
 
 class TokenLoadRequest(BaseModel):
     model_config = ConfigDict(extra='forbid')
@@ -749,6 +752,8 @@ def create_app(settings=None, provider=None):
             store.finish_operation('detect:' + jid, success=False)
             if isinstance(exc, HTTPException) or not isinstance(exc, Exception):
                 raise
+            reason = str(exc) if isinstance(exc, ProviderError) else type(exc).__name__
+            logger.warning('Clothing detection failed (%s): %s', jid, reason)
             raise HTTPException(502, 'provider_failed_no_retry') from None
         finally:
             store.release()
