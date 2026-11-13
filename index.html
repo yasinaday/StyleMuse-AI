@@ -570,6 +570,10 @@ button.style-picker-trigger{
 .style-picker-trigger::after{content:'';width:7px;height:7px;flex:none;border:solid currentColor;border-width:0 1px 1px 0;transform:translateY(-2px) rotate(45deg)}
 select[data-style-picker][hidden]{display:none!important}
 #outfits .style-picker-trigger{font-size:clamp(12px,3.5vw,15px)}
+#style-profile-mannequin-note{margin:0 0 10px;font-size:13px;line-height:1.4;color:#70566e}
+#style-profile-form .profile-measures input[type="number"]{
+ box-sizing:border-box;height:44px;min-height:44px;padding:8px 13px;line-height:1.25;
+}
 #crop-modal{background:#35203cbe}
 #crop-modal .crop-panel{box-sizing:border-box;width:min(100%,460px);max-height:calc(100dvh - 24px);padding:14px;background:#fff8fc;color:#44234c;border:1px solid #e4cce2}
 #crop-modal .crop-panel h2{margin:0;font:700 22px/1.2 system-ui,sans-serif;color:#44234c}
@@ -762,6 +766,7 @@ html[dir="rtl"] #profile .sm-page-hero img{right:auto;left:0}
 </div></div><h2 class="profile-group-title">Kişisel</h2>
 <div class="profile-list">
  <details><summary><span>Stil Profilim</span></summary><form id="style-profile-form" class="profile-fields">
+ <p id="style-profile-mannequin-note">Bu profili kaydettiğinde hazır manken görünümün ten rengine, vücut tipine ve ölçülerine göre güncellenir.</p>
  <label for="profile-tone">Ten rengi</label><select id="profile-tone" name="profile-tone"><option value="">Seçiniz</option><option value="light">Açık</option><option value="medium">Orta</option><option value="deep">Koyu</option></select>
  <label for="profile-shape">Vücut tipi</label><select id="profile-shape" name="profile-shape"><option value="">Seçiniz</option><option value="straight">Dikdörtgen</option><option value="curved">Kum saati</option><option value="pear">Armut</option><option value="oval">Oval</option><option value="triangle">Ters üçgen</option></select>
  <div class="profile-measures"><label>Boy (cm)<input name="height" type="number" min="100" max="250" inputmode="numeric"></label><label>Kilo (kg)<input name="weight" type="number" min="25" max="350" inputmode="decimal" step="0.1"></label></div>
