@@ -640,8 +640,16 @@ html[dir="rtl"] #profile .sm-page-hero img{right:auto;left:0}
 #profile #profile-signin{margin:0}
 #google-signin-slot:not(:empty){flex-basis:100%}
 #profile-account-status:empty,#google-signin-slot:empty{display:none}
+#style-confirm{box-sizing:border-box;width:min(calc(100% - 32px),400px);max-height:85dvh;padding:22px;border:1px solid #ecd2e9;border-radius:24px;background:linear-gradient(145deg,#fff9fe,#f3e1f3);color:#48214e;box-shadow:0 18px 60px #331a4260}
+#style-confirm::backdrop{background:#29152c9e}
+#style-confirm header{display:block;padding:0;margin:0 0 14px;color:#713779;font-weight:750}
+#style-confirm h2{margin:0;color:#48214e;font:700 23px/1.2 system-ui,sans-serif}
+#style-confirm p{margin:10px 0 20px;color:#5e3b63;line-height:1.5}
+#style-confirm form>div{display:flex;flex-wrap:wrap;gap:9px}
+#style-confirm button{flex:1;min-height:44px;margin:0;padding:8px 12px;border-radius:12px;background:#ebd8ed;color:#522758}
+#style-confirm button[value="approve"]{background:linear-gradient(135deg,#522359,#814478);color:white}
 </style></head><body class="on-home"><header id="site-brand-header"><div class="brand"><svg class="home-dress" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 2v3L5 8l3 5-4 9h16l-4-9 3-5-5-3V2M8 13h8M10 2h4"/><path d="m21 2 .5 1.5L23 4l-1.5.5L21 6l-.5-1.5L19 4l1.5-.5Z"/></svg><span>StyleMuse AI</span></div><button class="home-pro" type="button" onclick="openHomePro()" aria-label="Stil Jetonu"><svg class="" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 7 4 4 5-7 5 7 4-4-3 13H6Z"/></svg><span>Stil Jetonu</span></button></header>
-<dialog id="profile-wallet" aria-labelledby="profile-wallet-title">
+<dialog id="style-confirm" aria-labelledby="style-confirm-title" aria-describedby="style-confirm-message"><form method="dialog"><header>✦ StyleMuse AI</header><h2 id="style-confirm-title">Stil Jetonu kullanımı</h2><p id="style-confirm-message"></p><div><button value="cancel" autofocus>Vazgeç</button><button value="approve">Onayla</button></div></form></dialog><dialog id="profile-wallet" aria-labelledby="profile-wallet-title">
  <div class="home-dialog-head"><h2 id="profile-wallet-title">Jeton Takibi</h2><button type="button" onclick="this.closest('dialog').close()" aria-label="Kapat">×</button></div>
  <p><strong id="wallet-token-count">0</strong> <span>Stil Jetonu</span></p>
  <h3>Alım ve kullanım geçmişi</h3>
@@ -760,6 +768,17 @@ const isAccessoryCategory=x=>typeof x==='string'&&['aksesuar','accessory','acces
 const normalizeAiCategory=x=>AI_CATEGORIES.includes(x)?x:(Object.hasOwn(AI_CATEGORY_MAP,x)?AI_CATEGORY_MAP[x]:null);
 const safeAiImage=x=>typeof x==='string'&&/^data:image\/(png|jpeg);base64,[A-Za-z0-9+/]+={0,2}$/.test(x);
 const safeAiId=x=>(typeof x==='string'&&x.length>0&&x.length<=200)||(Number.isSafeInteger(x)&&x>=0);
+function confirmStyleTokens(message){
+ const dialog=document.getElementById('style-confirm');
+ if(dialog.open)return Promise.resolve(false);
+ dialog.returnValue='cancel';
+ document.getElementById('style-confirm-message').textContent=message;
+ return new Promise(resolve=>{
+  const closed=()=>resolve(dialog.returnValue==='approve');
+  dialog.addEventListener('close',closed,{once:true});
+  try{dialog.showModal()}catch{dialog.removeEventListener('close',closed);resolve(false)}
+ });
+}
 async function analyzeClothes(){
  if(aiBusy)return;
  try{if(!await canUseStyleTokens()||aiBusy)return}catch{aiStatus('Jeton bakiyesi doğrulanamadı.');return;}
@@ -773,7 +792,7 @@ async function analyzeClothes(){
  const inputs={image:multiSource,request_id:crypto.randomUUID()};
  const quote=await aiPost('/api/quote',{action:'detect',inputs});
  if(quote.action!=='detect'||typeof quote.quote_id!=='string'||!quote.quote_id||typeof quote.estimated_cost_usd!=='number'||!Number.isFinite(quote.estimated_cost_usd)||quote.estimated_cost_usd<0)throw Error('Geçersiz maliyet teklifi. Ücretli istek yapılmadı.');
- if(!confirm('Fotoğrafın analiz için gönderilecek. Bu işlem 1 Stil Jetonu kullanır. Devam edilsin mi?')){aiStatus('Analiz iptal edildi; ücretli istek yapılmadı.');return;}
+ if(!await confirmStyleTokens('Fotoğrafın analiz için gönderilecek. Bu işlem 1 Stil Jetonu kullanır. Devam edilsin mi?')){aiStatus('Analiz iptal edildi; ücretli istek yapılmadı.');return;}
  aiStatus('✦ Fotoğraf analiz ediliyor…');
  const result=await aiPost('/api/detect',{...inputs,quote_id:quote.quote_id,confirmed:true,max_total_usd:quote.estimated_cost_usd});
  if(!result||!safeAiId(result.job_id)||!Array.isArray(result.items)||!result.items.length||result.items.some(x=>!x||!safeAiId(x.id)||!safeAiImage(x.preview)||(!normalizeAiCategory(x.category)&&!isFootwearCategory(x.category)))||new Set(result.items.map(x=>x.id)).size!==result.items.length)throw Error('Geçersiz tespit sonucu');
@@ -797,7 +816,7 @@ async function generateAiParts(){
  const quote=await aiPost('/api/quote',{action:'generate',inputs});
  if(quote.action!=='generate'||typeof quote.quote_id!=='string'||!quote.quote_id||typeof quote.estimated_cost_usd!=='number'||!Number.isFinite(quote.estimated_cost_usd)||quote.estimated_cost_usd<0)throw Error('Geçersiz maliyet teklifi. Ücretli istek yapılmadı.');
  if(!await canUseStyleTokens(chosen.length))return;
- if(!confirm(chosen.length+' ürün için '+chosen.length+' Stil Jetonu kullanılacak. Devam edilsin mi?'))return;
+ if(!await confirmStyleTokens(chosen.length+' ürün için '+chosen.length+' Stil Jetonu kullanılacak. Devam edilsin mi?'))return;
  chosen.forEach(p=>{p.status='Üretiliyor…';p.error=''});showAiParts();document.getElementById('ai-review')?.classList.add('ai-working');
  const result=await aiPost('/api/generate',{...inputs,quote_id:quote.quote_id,confirmed:true,max_total_usd:quote.estimated_cost_usd});
  if(aiJobId!==job)throw Error('İş değişti; eski sonuç uygulanmadı.');
@@ -1271,7 +1290,7 @@ async function requestVirtualTryOn(){
  const items=orderedTryonItems(chosenTry.map(id=>getItems().find(x=>String(x.id)===String(id))).filter(Boolean));
  if(!isCompleteLook(items)){el.textContent='Önce üst ve alt giyim veya elbise seç.';return}
  if(items.length>styleMuseAccount.balance){openHomePro();return;}
- if(!confirm(items.length+' parça için '+items.length+' Stil Jetonu kullanılacak. Devam edilsin mi?')||tryonBusy)return;
+ if(!await confirmStyleTokens(items.length+' parça için '+items.length+' Stil Jetonu kullanılacak. Devam edilsin mi?')||tryonBusy)return;
  const labels={top:'Üst giyim',dress:'Elbise',bottom:'Alt giyim',outer:'Dış giyim',bag:'Çanta',hat:'Şapka'};
  // Explicit AI dressing button click authorizes this selected outfit workflow.
  setTryOnBusy(true);setStageProgress('Giydirme hazırlanıyor…');let person=mannequinPhotoData;
