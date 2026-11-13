@@ -18,7 +18,20 @@
 .ai-piece.not-selected{opacity:.65}
 .ai-piece img{transition:transform .3s ease}
 .ai-piece:active img{transform:scale(1.035)}
-.ai-working .ai-model::before{content:'';position:absolute;z-index:2;inset:0;pointer-events:none;background:linear-gradient(to bottom,transparent 0%,#e7a5ec16 42%,#d88ad970 50%,#e7a5ec16 58%,transparent 100%);background-size:100% 80px;animation:sm-scan 2.5s linear infinite}
+#ai-upload .sm-analysis-photo{position:relative;overflow:hidden;margin:14px 0;border-radius:14px}
+body.ai-scanning .sm-analysis-photo::after,
+#tryon.tryon-scanning .sm-stage-photo:has(img:not([hidden]))::after,
+.ai-working .ai-model::before{
+ content:'';position:absolute;z-index:2;inset:0;pointer-events:none;
+ background:linear-gradient(180deg,transparent 0%,#ebc5f316 40%,#ecc5f34d 49%,#fff5ff66 50%,#ecc5f322 53%,transparent 100%);
+ animation:sm-photo-scan 2.8s linear infinite;
+}
+@keyframes sm-photo-scan{from{transform:translateY(-100%)}to{transform:translateY(100%)}}
+@media(prefers-reduced-motion:reduce){
+ body.ai-scanning .sm-analysis-photo::after,
+ #tryon.tryon-scanning .sm-stage-photo:has(img:not([hidden]))::after,
+ .ai-working .ai-model::before{animation:none;background:#d197dc22}
+}
 .ai-working .ai-model{box-shadow:0 0 0 2px #bb7cb9,0 0 35px #bf76c940}
 .ai-working .ai-review-head h2::after{content:'  ✧';animation:sm-glow 1.2s ease-in-out infinite alternate}
 .ai-generated img{filter:drop-shadow(0 8px 12px #71456a22)}
@@ -751,7 +764,7 @@ html[dir="rtl"] #profile .sm-page-hero img{right:auto;left:0}
  <button class="token-checkout" type="button" disabled>Satın al</button>
  <p class="token-note" role="status">Satın alma henüz kullanıma açık değil.</p>
 </dialog><dialog id="style-picker" aria-labelledby="style-picker-title"><header><h2 id="style-picker-title"></h2><button type="button" aria-label="Kapat">×</button></header><div id="style-picker-options"></div></dialog><main class="wrap"><section id="discover" class="home-reference"><div class="home-hero"><img class="home-model" src="assets/home/model.webp" alt="Beyaz ceketli kadın model"><div class="home-copy"><h1>Yapay Zekâ ile<br><span>Stilini Keşfet</span></h1><svg class="home-brush" viewBox="0 0 200 25" aria-hidden="true"><path d="M3 16Q17 28 70 15T196 4Q147 0 88 12T3 9" fill="#eea2cf"/></svg><p>Kıyafetlerini ayır, üzerinde dene,<br>rahat kombinler oluştur.</p></div></div><div class="home-cards"><button type="button" class="home-card home-card-separate" onclick="tab('closet');chooseAiPhoto()"><img src="assets/home/separate.webp" alt="" width="460" height="220"><strong>Kıyafetleri Ayır</strong><span>Tek fotoğraftan<br>birden fazla ürün çıkar</span></button><button type="button" class="home-card home-card-tryon" onclick="tab('tryon')"><img src="assets/home/tryon.webp" alt="" width="460" height="220"><strong>AI ile Giydir</strong><span>Kıyafetleri üzerinde dene</span></button><button type="button" class="home-card home-card-outfits" onclick="tab('outfits')"><img src="assets/home/outfits.webp" alt="" width="460" height="220"><strong>Kombin Önerileri</strong><span>Tarzına uygun kombinler oluştur</span></button><button type="button" class="home-card home-card-wardrobe" onclick="tab('closet')"><img src="assets/home/wardrobe.webp" alt="" width="460" height="220"><strong>Dolabını Oluştur</strong><span>Kendi kıyafet koleksiyonunu hazırla</span></button></div></section>
-<section id="closet" class="hide"><div class="sm-page-hero"><div class="sm-page-copy"><h1>Giysiler</h1><p>Dolabındaki parçaları düzenle ve yeni kıyafetler ekle.</p><span id="ward-count" class="count-pill">0 parça</span></div><img src="assets/home/wardrobe.webp" alt="" decoding="async"></div><div class="ward-add"><label id="category-label" for="category">Dolaba Kıyafet Ekleme</label><select id="category"><option>Üst giyim</option><option>Alt giyim</option><option>Elbise</option><option>Çanta</option><option>Dış giyim</option><option>Aksesuar</option></select><label for="photo" class="upload-button">＋ Fotoğraf seç ve dolabıma ekle</label><input id="photo" type="file" accept="image/*" style="display:none" onchange="addItem(event)"><small>Fotoğrafı seçince kıyafete odaklanacak şekilde kırpabilirsin. Yalnızca bu cihazda saklanır.</small></div><div class="ward-add"><b>✦ Tek fotoğraftan birden fazla kıyafet</b><button type="button" class="upload-button" onclick="chooseAiPhoto()">✦ Yapay zekâ ile kıyafetleri ayır</button><p class="hint">Yapay zekâ fotoğraftaki kıyafetleri bulur ve ayrı ayrı önerir. Kaydetmeden önce kontrol edebilirsin.</p><input id="smart-photo" type="file" accept="image/*" style="display:none" onchange="smartUpload(event)"><div id="ai-upload" hidden><img id="ai-upload-preview" alt="Seçtiğin fotoğrafın yerel önizlemesi" style="display:block;width:100%;max-height:340px;object-fit:contain;margin:14px 0"><div class="actions"><button id="ai-analyze" onclick="analyzeClothes()">AI ile analiz et</button></div></div></div><div id="filterbar" class="filters section"></div><div id="items" class="grid"></div><div id="ward-empty" class="empty"><div style="font-size:38px">♡</div><h2>Dolabın seni bekliyor</h2><p>İlk parçanı ekleyerek başlayabilirsin.</p></div></section>
+<section id="closet" class="hide"><div class="sm-page-hero"><div class="sm-page-copy"><h1>Giysiler</h1><p>Dolabındaki parçaları düzenle ve yeni kıyafetler ekle.</p><span id="ward-count" class="count-pill">0 parça</span></div><img src="assets/home/wardrobe.webp" alt="" decoding="async"></div><div class="ward-add"><label id="category-label" for="category">Dolaba Kıyafet Ekleme</label><select id="category"><option>Üst giyim</option><option>Alt giyim</option><option>Elbise</option><option>Çanta</option><option>Dış giyim</option><option>Aksesuar</option></select><label for="photo" class="upload-button">＋ Fotoğraf seç ve dolabıma ekle</label><input id="photo" type="file" accept="image/*" style="display:none" onchange="addItem(event)"><small>Fotoğrafı seçince kıyafete odaklanacak şekilde kırpabilirsin. Yalnızca bu cihazda saklanır.</small></div><div class="ward-add"><b>✦ Tek fotoğraftan birden fazla kıyafet</b><button type="button" class="upload-button" onclick="chooseAiPhoto()">✦ Yapay zekâ ile kıyafetleri ayır</button><p class="hint">Yapay zekâ fotoğraftaki kıyafetleri bulur ve ayrı ayrı önerir. Kaydetmeden önce kontrol edebilirsin.</p><input id="smart-photo" type="file" accept="image/*" style="display:none" onchange="smartUpload(event)"><div id="ai-upload" hidden><div class="sm-analysis-photo"><img id="ai-upload-preview" alt="Seçtiğin fotoğrafın yerel önizlemesi" style="display:block;width:100%;max-height:340px;object-fit:contain"></div><div class="actions"><button id="ai-analyze" onclick="analyzeClothes()">AI ile analiz et</button></div></div></div><div id="filterbar" class="filters section"></div><div id="items" class="grid"></div><div id="ward-empty" class="empty"><div style="font-size:38px">♡</div><h2>Dolabın seni bekliyor</h2><p>İlk parçanı ekleyerek başlayabilirsin.</p></div></section>
 <section id="outfits" class="hide"><div class="sm-page-hero"><div class="sm-page-copy"><h1>Kombinler</h1><p>Günün planına ve tarzına göre bir kombin oluştur.</p></div><img src="assets/home/outfits.webp" alt="" decoding="async"></div><div class="sm-outfit-filters"><div class="sm-filter-field"><label for="occasion">Bugünkü planın</label><select id="occasion"><option>Günlük</option><option>İş / Ofis</option><option>Akşam yemeği</option><option>Özel davet</option></select></div><div class="sm-filter-field"><label for="style">Hangi tarz?</label><select id="style"><option>Rahat ve şık</option><option>Minimal</option><option>Romantik</option><option>Modern klasik</option></select></div></div><div class="section"><button onclick="suggest()">Bana fikir ver ✦</button></div><div id="suggestion"></div><div id="savedOutfits" class="section"></div></section>
 <section id="tryon" class="hide"><div class="sm-page-hero"><div class="sm-page-copy"><h1>Mankenim</h1><p>Dolabından seç, manken üzerinde dene.</p></div><img src="assets/home/tryon.webp" alt="" decoding="async"></div><div class="mannequin-layout"><div class="mannequin-stage mannequin-photo-stage"><div class="sm-stage-grid"><div id="mannequin-selected" class="sm-stage-items" aria-label="Seçilen kıyafetler"></div><button type="button" class="secondary sm-stage-suggest" onclick="suggestMannequin()"><span>KOMBİN</span><span>ÖNER</span></button><button type="button" class="secondary sm-stage-clear" onclick="clearMannequin()">Temizle</button><div class="sm-stage-photo"><img id="mannequin-person" alt="Manken fotoğrafı" hidden><div id="mannequin-placeholder"><p>Manken hazırlanıyor…</p></div></div><div id="mannequin-image-label" class="mannequin-label sm-progress-track" role="status" aria-live="polite"><div id="mannequin-progress-fill" class="sm-progress-fill"></div><span id="mannequin-progress-text">Manken hazırlanıyor…</span></div></div></div><button type="button" id="tryon-save-selection" class="secondary sm-save-main" onclick="saveSelectedLook()">♡ Kombinimi kaydet</button><div class="mannequin-controls"><label class="secondary mannequin-upload"><span>＋ Kendi fotoğrafımı yükle</span><input type="file" accept="image/png,image/jpeg" id="mannequin-upload" onchange="setMannequinPhoto(event)" hidden></label><p id="mannequin-status" class="notice" aria-live="polite" hidden></p><button type="button" class="primary mannequin-ai-button" onclick="requestVirtualTryOn()">✦ Yapay zekâ ile gerçekçi giydir</button><p id="mannequin-ai-status" class="notice" role="status"></p><h2>Dolabımdan seç</h2><div id="try-choices" class="grid"></div></div></div></section>
 <section id="profile" class="hide">
@@ -973,6 +986,7 @@ async function analyzeClothes(){
  const quote=await aiPost('/api/quote',{action:'detect',inputs});
  if(quote.action!=='detect'||typeof quote.quote_id!=='string'||!quote.quote_id||typeof quote.estimated_cost_usd!=='number'||!Number.isFinite(quote.estimated_cost_usd)||quote.estimated_cost_usd<0)throw Error('Geçersiz maliyet teklifi. Ücretli istek yapılmadı.');
  if(!await confirmStyleTokens('Fotoğrafın analiz için gönderilecek. Bu işlem 1 Stil Jetonu kullanır. Devam edilsin mi?')){aiStatus('Analiz iptal edildi; ücretli istek yapılmadı.');return;}
+ document.body.classList.add('ai-scanning');
  aiStatus('✦ Fotoğraf analiz ediliyor…');
  const result=await aiPost('/api/detect',{...inputs,quote_id:quote.quote_id,confirmed:true,max_total_usd:quote.estimated_cost_usd});
  if(!result||!safeAiId(result.job_id)||!Array.isArray(result.items)||!result.items.length||result.items.some(x=>!x||!safeAiId(x.id)||!safeAiImage(x.preview)||(!normalizeAiCategory(x.category)&&!isFootwearCategory(x.category)))||new Set(result.items.map(x=>x.id)).size!==result.items.length)throw Error('Geçersiz tespit sonucu');
@@ -981,7 +995,7 @@ async function analyzeClothes(){
  aiJobId=result.job_id;aiParts=parts;aiReviewPhase='selection';showAiParts();
  aiStatus('✦ '+aiParts.length+' ürün tespit edildi.');
  }catch(e){aiJobId=null;aiParts=[];aiStatus(e.message+' Elle kırpma seçeneği kullanılabilir.');}
- finally{aiBusy=false;document.body.classList.remove('ai-busy','ai-detecting');if(aiParts.length)showAiParts();}
+ finally{aiBusy=false;document.body.classList.remove('ai-busy','ai-detecting','ai-scanning');if(aiParts.length)showAiParts();}
 }
 async function generateAiParts(){
  if(aiBusy)return;
@@ -1469,6 +1483,7 @@ function setTryOnBusy(busy){
  const locked=tryOnSelectionLocked();
  if(pending&&!busy)setStageProgress('Yarım kalan giydirme var.');
  section.setAttribute('aria-busy',String(busy));
+ if(!busy)section.classList.remove('tryon-scanning');
  section.classList.toggle('tryon-locked',locked);
  section.querySelectorAll('button, input[type="file"]').forEach(control=>{
   control.disabled=control===button?busy:locked||(control.id==='tryon-save-selection'&&!tryonComplete);
@@ -1486,6 +1501,7 @@ function showTryOnError(error){
   (pending?' Aynı giydirme işini kontrol et düğmesini kullan.':' Otomatik ücretli tekrar yapılmadı.');
 }
 async function recoverPendingTryOn(){
+ document.getElementById('tryon').classList.add('tryon-scanning');
  setStageProgress('Önceki giydirme kontrol ediliyor…');
  const el=document.getElementById('mannequin-ai-status');
  let job=sessionStorage.getItem('sm-tryon-pending');
@@ -1533,6 +1549,7 @@ function markRecoveredTryOn(){
  document.getElementById('mannequin-ai-status').textContent='Kurtarılan görseli Kombinler bölümüne kaydedebilirsin.';
 }
 async function pollVirtualTryOn(job,step){
+ document.getElementById('tryon').classList.add('tryon-scanning');
  const el=document.getElementById('mannequin-ai-status');
  const deadline=Date.now()+120000;
  let statusFailures=0;
@@ -1607,6 +1624,7 @@ async function requestVirtualTryOn(){
  finally{setTryOnBusy(false)}
 }
 async function runTryOnParts(){
+ document.getElementById('tryon').classList.add('tryon-scanning');
  const el=document.getElementById('mannequin-ai-status');
  const run=tryonRun;
  const labels={top:'Üst giyim',dress:'Elbise',bottom:'Alt giyim',outer:'Dış giyim',bag:'Çanta',hat:'Şapka'};
