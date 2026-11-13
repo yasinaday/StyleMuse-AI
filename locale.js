@@ -272,6 +272,10 @@ Geri yüklenemedi.|Could not restore the backup.|Wiederherstellung fehlgeschlage
 Paylaşım başlatılamadı.|Could not start sharing.|Teilen konnte nicht gestartet werden.|Не удалось начать отправку.|تعذّر بدء المشاركة.|Impossible de lancer le partage.|शेयर करना शुरू नहीं हो सका।|无法开始分享。|共有を開始できませんでした。
 Elle kırp|Crop manually|Manuell zuschneiden|Обрезать вручную|قص يدويًا|Recadrer manuellement|हाथ से काटें|手动裁剪|手動で切り抜く
 Ayrılabilecek kıyafet bulunamadı. Elle kırpma seçeneği kullanılabilir.|No clothing suitable for extraction was found. You can crop manually.|Keine geeignete Kleidung gefunden. Du kannst das Foto manuell zuschneiden.|Не найдено подходящей одежды. Фото можно обрезать вручную.|لم يُعثر على ملابس قابلة للفصل. يمكنك قص الصورة يدويًا.|Aucun vêtement à isoler n’a été trouvé. Tu peux recadrer la photo manuellement.|अलग करने लायक कपड़े नहीं मिले। फ़ोटो को हाथ से काट सकते हैं।|未找到可分离的衣物，可以手动裁剪。|分離できる服が見つかりませんでした。手動で切り抜けます。
+✦ Parçaları iyileştir|✦ Refine items|✦ Teile verbessern|✦ Улучшить вещи|✦ حسّن القطع|✦ Améliorer les articles|✦ कपड़े सुधारें|✦ 优化单品|✦ アイテムを補正
+Seçilen parçaları incele|Review selected items|Ausgewählte Teile prüfen|Проверить выбранные вещи|راجع القطع المحددة|Examiner les articles sélectionnés|चुने हुए कपड़े देखें|查看所选单品|選択したアイテムを確認
+Fotoğraf analizi · Ürün seçimi|Photo analysis · Select items|Fotoanalyse · Teile auswählen|Анализ фото · Выбор вещей|تحليل الصورة · اختيار القطع|Analyse photo · Sélection des articles|फ़ोटो विश्लेषण · कपड़े चुनें|照片分析 · 选择单品|写真分析 · アイテム選択
+Seçilen parçaların analizi|Review selected items|Ausgewählte Teile analysieren|Анализ выбранных вещей|تحليل القطع المحددة|Analyse des articles sélectionnés|चुने हुए कपड़ों का विश्लेषण|分析所选单品|選択したアイテムの分析
 `;
  const dictionary=new Map(phrases.trim().split('\n').map(line=>{const row=line.split('|');return [row[0],row]}));
  const field=document.getElementById('app-language');
