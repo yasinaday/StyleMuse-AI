@@ -1243,7 +1243,7 @@ function preferredMannequinBuild(profile){
  const proportionBand=proportion===null?null:proportion<20?0:proportion<25?1:2;
  return sizeBand===null?proportionBand:proportionBand===null?sizeBand:(2*sizeBand+proportionBand)/3;
 }
-function initReadyMannequin(){
+function initReadyMannequin(preserveResult=false){
  const key='sm-last-ready-model';
  let previous=null;
  try{previous=localStorage.getItem(key)}catch{}
@@ -1258,21 +1258,23 @@ function initReadyMannequin(){
  const candidates=matches.length>1?matches.filter(i=>String(i)!==previous):matches;
  const index=candidates[Math.floor(Math.random()*candidates.length)];
  try{localStorage.setItem(key,String(index))}catch{}
- void chooseReadyMannequin(index);
+ return chooseReadyMannequin(index,preserveResult);
 }
-async function chooseReadyMannequin(index){
- if(tryOnSelectionLocked())return;
+async function chooseReadyMannequin(index,preserveResult=false){
+ if(tryOnSelectionLocked()&&!preserveResult)return;
  const url=READY_MANNEQUINS[index];
  if(!url)return;
  const load=++readyModelLoad;
  const preview=document.getElementById('mannequin-person');
- preview.dataset.readyModel='';
- mannequinPhotoData=null;
- tryonResultUrl=null;
- tryonRun=null;
- tryonComplete=false;
- tryonRecovered=false;
- setStageProgress('Manken hazırlanıyor…');
+ if(!preserveResult){
+  preview.dataset.readyModel='';
+  mannequinPhotoData=null;
+  tryonResultUrl=null;
+  tryonRun=null;
+  tryonComplete=false;
+  tryonRecovered=false;
+  setStageProgress('Manken hazırlanıyor…');
+ }
  try{
   const response=await fetch(url,{signal:AbortSignal.timeout(15000)});
   if(!response.ok)throw Error('Manken fotoğrafı indirilemedi.');
@@ -1288,20 +1290,21 @@ async function chooseReadyMannequin(index){
    canvas.height=Math.round(bitmap.height*scale);
    canvas.getContext('2d').drawImage(bitmap,(bitmap.width-width)/2,0,width,bitmap.height,0,0,canvas.width,canvas.height);
   }finally{bitmap.close()}
-  if(load!==readyModelLoad||tryOnSelectionLocked())return;
+  if(load!==readyModelLoad||(!preserveResult&&tryOnSelectionLocked()))return;
   mannequinPhotoData=canvas.toDataURL('image/jpeg',.9);
   mannequinPhotoUrl=mannequinPhotoData;
+  if(preserveResult)return;
   preview.src=mannequinPhotoUrl;
   preview.hidden=false;
   document.getElementById('mannequin-placeholder').hidden=true;
   setStageProgress('Kombinin için kıyafet seç.');
  }catch(error){
-  if(load!==readyModelLoad||tryOnSelectionLocked()||tryonResultUrl)return;
+  if(preserveResult||load!==readyModelLoad||tryOnSelectionLocked()||tryonResultUrl)return;
   setStageProgress('Manken yüklenemedi. Kendi fotoğrafını yükleyebilirsin.');
   document.getElementById('mannequin-ai-status').textContent=error.message;
  }
 }
-function setStageProgress(message){const el=document.getElementById('mannequin-progress-text');const track=document.getElementById('mannequin-image-label');const fill=document.getElementById('mannequin-progress-fill');if(el)el.textContent=message;if(!track||!fill)return;const step=String(message).match(/(\d+)\s*\/\s*(\d+)/);const completed=/tamamlandı/i.test(message);const finished=/kombin hazır|sonuç hazır/i.test(message);const active=/hazırlanıyor|giydir|işleniyor|bekleniyor|tamamlandı/i.test(message);let progress=0;if(finished)progress=100;else if(step){const n=Number(step[1]),total=Number(step[2]);progress=total?Math.min(95,Math.round(((n-(completed?0:0.5))/total)*100)):0;}else if(active)progress=8;fill.style.width=progress+'%';track.classList.toggle('sm-progress-active',active||finished);track.setAttribute('aria-label',message)}
+function setStageProgress(message){const el=document.getElementById('mannequin-progress-text');const track=document.getElementById('mannequin-image-label');const fill=document.getElementById('mannequin-progress-fill');if(el)el.textContent=message;if(!track||!fill)return;const step=String(message).match(/(\d+)\s*\/\s*(\d+)/);const completed=/tamamlandı/i.test(message);const finished=/kombin hazır|sonuç hazır|giydirme sonucu kurtarıldı/i.test(message);const active=/hazırlanıyor|giydir|işleniyor|bekleniyor|tamamlandı/i.test(message);let progress=0;if(finished)progress=100;else if(step){const n=Number(step[1]),total=Number(step[2]);progress=total?Math.min(95,Math.round(((n-(completed?0:0.5))/total)*100)):0;}else if(active)progress=8;fill.style.width=progress+'%';track.classList.toggle('sm-progress-active',active||finished);track.setAttribute('aria-label',message)}
 let mannequinPhotoUrl=null;
 function setMannequinPhoto(e){const f=e.target.files&&e.target.files[0];if(!f||tryOnSelectionLocked())return;if(!['image/png','image/jpeg'].includes(f.type)||f.size>6*1024*1024){document.getElementById('mannequin-ai-status').textContent='En fazla 6 MB PNG veya JPEG fotoğraf seç.';return}const load=++readyModelLoad;mannequinPhotoData=null;tryonResultUrl=null;tryonRun=null;tryonComplete=false;tryonRecovered=false;const reader=new FileReader();reader.onload=()=>{if(load!==readyModelLoad||tryOnSelectionLocked())return;mannequinPhotoData=reader.result;if(mannequinPhotoUrl)URL.revokeObjectURL(mannequinPhotoUrl);mannequinPhotoUrl=URL.createObjectURL(f);setStageProgress('Fotoğraf hazır. Kıyafetlerini seç.');const img=document.getElementById('mannequin-person');delete img.dataset.readyModel;img.alt='Seçilen manken fotoğrafı';img.src=mannequinPhotoUrl;img.hidden=false;document.getElementById('mannequin-placeholder').hidden=true;document.getElementById('mannequin-ai-status').textContent='Fotoğraf hazır. Seçim ücretsizdir; her giydirme adımında ayrı 0,04 USD onayı gerekir.'};reader.onerror=()=>{document.getElementById('mannequin-ai-status').textContent='Fotoğraf okunamadı.'};reader.readAsDataURL(f)}
 let mannequinPhotoData=null,tryonResultUrl=null,tryonBusy=false,tryonRun=null,tryonComplete=false,tryonRecovered=false;
@@ -1451,16 +1454,31 @@ function orderedTryonItems(items){const dress=items.some(x=>mannequinGroup(x)===
 async function requestVirtualTryOn(){
  const el=document.getElementById('mannequin-ai-status');if(tryonBusy)return;
  if(sessionStorage.getItem('sm-tryon-pending'))return resumeVirtualTryOn();
- try{if(!await canUseStyleTokens()||tryonBusy)return}catch{el.textContent='Jeton bakiyesi doğrulanamadı.';return;}
- if(!mannequinPhotoData){el.textContent='Önce hazır manken veya kendi fotoğrafını seç.';return}
  const items=orderedTryonItems(chosenTry.map(id=>getItems().find(x=>String(x.id)===String(id))).filter(Boolean));
- if(!isCompleteLook(items)){el.textContent='Önce üst ve alt giyim veya elbise seç.';return}
- const matches=tryonRun?.base===mannequinPhotoData&&items.length===tryonRun.items.length&&items.every((item,i)=>item.id===tryonRun.items[i].id&&item.image===tryonRun.items[i].image);
- if(!matches)tryonRun=null;
- const remaining=items.length-(tryonRun?.index||0);
- if(remaining>styleMuseAccount.balance){openHomePro();return;}
+ if(!isCompleteLook(items)){
+  const message='Önce üst ve alt giyim veya elbise seç.';
+  setStageProgress(message);
+  el.textContent=message;
+  return;
+ }
  setTryOnBusy(true);
  try{
+  if(!mannequinPhotoData)await initReadyMannequin(true);
+  if(!mannequinPhotoData){
+   const message='Hazır manken yüklenemedi. Kendi fotoğrafını yükleyebilirsin.';
+   setStageProgress(message);
+   el.textContent=message;
+   return;
+  }
+  try{if(!await canUseStyleTokens())return}catch{
+   setStageProgress('Jeton bakiyesi doğrulanamadı.');
+   el.textContent='Jeton bakiyesi doğrulanamadı.';
+   return;
+  }
+  const matches=tryonRun?.base===mannequinPhotoData&&items.length===tryonRun.items.length&&items.every((item,i)=>item.id===tryonRun.items[i].id&&item.image===tryonRun.items[i].image);
+  if(!matches)tryonRun=null;
+  const remaining=items.length-(tryonRun?.index||0);
+  if(remaining>styleMuseAccount.balance){openHomePro();return;}
   if(!await confirmStyleTokens(remaining+' parça için '+remaining+' Stil Jetonu kullanılacak. Devam edilsin mi?'))return;
   if(!tryonRun)tryonRun={items,base:mannequinPhotoData,index:0,image:null};
   tryonComplete=false;tryonRecovered=false;
