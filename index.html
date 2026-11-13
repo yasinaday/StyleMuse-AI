@@ -562,6 +562,8 @@ body:not(.on-home) main :is(button,input,select,.upload-button):focus-visible{ou
 /* Compact wardrobe actions and decorative page illustrations. */
 .sm-page-hero img{pointer-events:none}
 #closet .ward-add{padding:8px 0!important;margin:0!important;border-radius:0}
+#closet .ward-add:has(> #smart-photo){padding-bottom:3px!important}
+#closet .ward-add + .ward-add:has(> #category){padding-top:3px!important}
 #closet .ward-add>.hint{margin:5px 0 0!important}
 #closet .ward-add>.upload-button{width:100%;margin:4px 0 0}
 #style-picker{width:min(420px,calc(100% - 32px));max-height:calc(100dvh - 32px);padding:16px;background:#fff8fc;color:#44234c;border:1px solid #e4cce2;border-radius:22px;box-shadow:0 16px 50px #44234c45}
