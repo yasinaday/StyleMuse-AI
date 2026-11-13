@@ -37,6 +37,7 @@ class Store:
             CREATE TABLE IF NOT EXISTS manual_provider_credit(id TEXT PRIMARY KEY, account TEXT NOT NULL, amount INTEGER NOT NULL CHECK(amount>=0), recorded REAL NOT NULL, expires REAL NOT NULL, evidence TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS manual_provider_debits(operation TEXT PRIMARY KEY, snapshot TEXT NOT NULL REFERENCES manual_provider_credit(id), amount INTEGER NOT NULL CHECK(amount>=0));
             CREATE TABLE IF NOT EXISTS payment_quotes(id TEXT PRIMARY KEY, owner TEXT NOT NULL, session TEXT NOT NULL, digest TEXT NOT NULL, amount INTEGER NOT NULL, expires REAL NOT NULL, action TEXT NOT NULL, used INTEGER NOT NULL CHECK(used IN (0,1)));
+            CREATE TABLE IF NOT EXISTS style_tokens(owner TEXT PRIMARY KEY, balance INTEGER NOT NULL CHECK(balance>=0));
             INSERT OR IGNORE INTO guard VALUES(1,0);
             ''')
         os.chmod(p, 0o600)
@@ -193,6 +194,15 @@ class Store:
         with self.tx() as db:
             return self._manual_credit(db, account)
 
+    def grant_admin_tokens(self, owner):
+        with self.tx() as db:
+            db.execute('INSERT OR IGNORE INTO style_tokens VALUES(?,5)', (owner,))
+
+    def style_balance(self, owner):
+        with self.tx() as db:
+            row = db.execute('SELECT balance FROM style_tokens WHERE owner=?', (owner,)).fetchone()
+            return row['balance'] if row else 0
+
     def mark_submitted(self, operation, *, manual_credit_id=None):
         # Durable BEFORE the POST; persistence failure prevents submission.
         with self.tx() as db:
@@ -208,6 +218,12 @@ class Store:
             changed = db.execute(f"UPDATE {table} SET state='submitted' WHERE id=? AND state='reserved'", (operation,)).rowcount
             if changed != 1:
                 raise RuntimeError('operation_not_reserved')
+            owner = db.execute(f'SELECT owner FROM {table} WHERE id=?', (operation,)).fetchone()['owner']
+            if owner and owner.startswith('google:'):
+                debit = db.execute('UPDATE style_tokens SET balance=balance-1 WHERE owner=? AND balance>0', (owner,))
+                if debit.rowcount != 1:
+                    from fastapi import HTTPException
+                    raise HTTPException(402, 'style_tokens_empty')
 
     def finish_operation(self, operation, *, success):
         with self.tx() as db:
