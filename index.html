@@ -626,8 +626,20 @@ html[dir="rtl"] #profile .sm-page-hero img{right:auto;left:0}
 #profile-edit-status:empty{display:none}
 .profile-backup-actions{display:grid;gap:8px}
 #backup-status:empty{display:none}
+#profile .profile-identity{display:grid;grid-template-columns:auto minmax(0,1fr) clamp(42px,17vw,94px);gap:clamp(7px,3vw,14px)}
+.profile-brand-mark{width:100%;height:auto;color:#fff0fb;filter:drop-shadow(0 3px 8px #3c164b66)}
+#profile .profile-wallet-link{display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin:4px 0 0;padding:4px 0;background:none;color:#fff4fc;box-shadow:none;text-align:start;font-size:12px;min-height:32px}
+#profile-wallet{width:min(90vw,400px);max-height:80dvh;padding:18px;border:1px solid #e7c9e4;border-radius:22px;background:#fff7fc;color:#52285b}
+#profile-wallet::backdrop{background:#29152c88}
+#profile-wallet h2{margin:0;color:#52285b}
 </style></head><body class="on-home"><header id="site-brand-header"><div class="brand"><svg class="home-dress" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 2v3L5 8l3 5-4 9h16l-4-9 3-5-5-3V2M8 13h8M10 2h4"/><path d="m21 2 .5 1.5L23 4l-1.5.5L21 6l-.5-1.5L19 4l1.5-.5Z"/></svg><span>StyleMuse AI</span></div><button class="home-pro" type="button" onclick="openHomePro()" aria-label="Stil Jetonu"><svg class="" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 7 4 4 5-7 5 7 4-4-3 13H6Z"/></svg><span>Stil Jetonu</span></button></header>
-<dialog id="home-pro" aria-labelledby="token-title">
+<dialog id="profile-wallet" aria-labelledby="profile-wallet-title">
+ <div class="home-dialog-head"><h2 id="profile-wallet-title">Jeton Takibi</h2><button type="button" onclick="this.closest('dialog').close()" aria-label="Kapat">×</button></div>
+ <p><strong>0</strong> <span>Stil Jetonu</span></p>
+ <h3>Alım ve kullanım geçmişi</h3>
+ <p>Henüz jeton hareketi yok.</p>
+ <p>Google Play satın alma henüz açık değil.</p>
+</dialog><dialog id="home-pro" aria-labelledby="token-title">
  <div class="home-dialog-head"><span class="token-mark" aria-hidden="true">✦</span><button type="button" onclick="this.closest('dialog').close()" aria-label="Kapat">×</button></div>
  <h2 id="token-title">Stil Jetonu</h2>
  <p>Uygulama ücretsiz. Yapay zekâ işlemleri jetonla kullanılır.</p>
@@ -648,7 +660,7 @@ html[dir="rtl"] #profile .sm-page-hero img{right:auto;left:0}
 <section id="tryon" class="hide"><div class="sm-page-hero"><div class="sm-page-copy"><h1>Mankenim</h1><p>Dolabından seç, manken üzerinde dene.</p></div><img src="assets/home/tryon.webp" alt="" decoding="async"></div><div class="mannequin-layout"><div class="mannequin-stage mannequin-photo-stage"><div class="sm-stage-grid"><div id="mannequin-selected" class="sm-stage-items" aria-label="Seçilen kıyafetler"></div><button type="button" class="secondary sm-stage-suggest" onclick="suggestMannequin()"><span>KOMBİN</span><span>ÖNER</span></button><button type="button" class="secondary sm-stage-clear" onclick="clearMannequin()">Temizle</button><div class="sm-stage-photo"><img id="mannequin-person" alt="Manken fotoğrafı" hidden><div id="mannequin-placeholder"><p>Manken hazırlanıyor…</p></div></div><div id="mannequin-image-label" class="mannequin-label sm-progress-track" role="status" aria-live="polite"><div id="mannequin-progress-fill" class="sm-progress-fill"></div><span id="mannequin-progress-text">Manken hazırlanıyor…</span></div></div></div><button type="button" id="tryon-save-selection" class="secondary sm-save-main" onclick="saveSelectedLook()">♡ Kombinimi kaydet</button><div class="mannequin-controls"><label class="secondary mannequin-upload"><span>＋ Kendi fotoğrafımı yükle</span><input type="file" accept="image/png,image/jpeg" id="mannequin-upload" onchange="setMannequinPhoto(event)" hidden></label><p id="mannequin-status" class="notice" aria-live="polite" hidden></p><button type="button" class="primary mannequin-ai-button" onclick="requestVirtualTryOn()">✦ Yapay zekâ ile gerçekçi giydir</button><p id="mannequin-ai-status" class="notice" role="status"></p><h2>Dolabımdan seç</h2><div id="try-choices" class="grid"></div></div></div></section>
 <section id="profile" class="hide">
 <div class="profile-card">
- <div class="profile-identity"><button type="button" class="profile-avatar-button" aria-label="Profil fotoğrafını değiştir" onclick="document.getElementById('profile-photo').click()"><img id="profile-avatar" src="assets/profile-avatar.webp" alt="" width="82" height="82"><span aria-hidden="true">✎</span></button><input id="profile-photo" type="file" accept="image/*" hidden onchange="changeProfilePhoto(this)"><div><h1 id="profile-display-name">Profil</h1><span class="profile-plan">Ücretsiz plan</span></div></div>
+ <div class="profile-identity"><button type="button" class="profile-avatar-button" aria-label="Profil fotoğrafını değiştir" onclick="document.getElementById('profile-photo').click()"><img id="profile-avatar" src="assets/profile-avatar.webp" alt="" width="82" height="82"><span aria-hidden="true">✎</span></button><input id="profile-photo" type="file" accept="image/*" hidden onchange="changeProfilePhoto(this)"><div><h1 id="profile-display-name">Profil</h1><span class="profile-plan">Ücretsiz plan</span><button class="profile-wallet-link" type="button" onclick="document.getElementById('profile-wallet').showModal()" aria-haspopup="dialog"><strong id="profile-token-count">0</strong> <span>Stil Jetonu</span> <span aria-hidden="true">›</span></button></div><svg class="profile-brand-mark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 2v3L5 8l3 5-4 9h16l-4-9 3-5-5-3V2M8 13h8M10 2h4"/><path d="m21 2 .5 1.5L23 4l-1.5.5L21 6l-.5-1.5L19 4l1.5-.5Z"/></svg></div>
  <button class="profile-tokens" type="button" onclick="openHomePro()">✦ <span>Stil Jetonu Al</span></button>
 </div>
 <h2 class="profile-group-title">Kişisel</h2>
