@@ -189,6 +189,87 @@ Google Play satın alma henüz açık değil.|Google Play purchases are not avai
 Jeton bakiyesi doğrulanamadı.|Could not verify token balance.|Token-Guthaben konnte nicht geprüft werden.|Не удалось проверить баланс токенов.|تعذّر التحقق من رصيد الرموز.|Impossible de vérifier le solde de jetons.|टोकन शेष की पुष्टि नहीं हो सकी।|无法验证点数余额。|トークン残高を確認できませんでした。
 Fotoğraf açılamadı|Could not open the photo|Foto konnte nicht geöffnet werden|Не удалось открыть фото|تعذّر فتح الصورة|Impossible d’ouvrir la photo|फ़ोटो नहीं खुल सकी|无法打开照片|写真を開けませんでした
 Önce üst ve alt giyim veya elbise seç.|Choose a top and bottoms or a dress first.|Wähle zuerst ein Ober- und Unterteil oder ein Kleid.|Сначала выберите верх и низ или платье.|اختاري قطعة علوية وسفلية أو فستانًا أولًا.|Choisis d’abord un haut et un bas ou une robe.|पहले ऊपर और नीचे के कपड़े या एक ड्रेस चुनें।|请先选择上装和下装，或选择连衣裙。|先に上下の服かワンピースを選んでください。
+6 haneli doğrulama kodu|6-digit verification code|6-stelliger Bestätigungscode|6-значный код|رمز تحقق من 6 أرقام|Code de vérification à 6 chiffres|6 अंकों का सत्यापन कोड|6 位验证码|6 桁の確認コード
+E-posta kodu gönder|Email a code|Code per E-Mail senden|Отправить код по почте|أرسل الرمز بالبريد|Envoyer le code par e-mail|कोड ईमेल करें|通过邮件发送验证码|メールでコードを送信
+Jeton Yükle|Add tokens|Token aufladen|Пополнить токены|شحن الرموز|Recharger les jetons|टोकन जोड़ें|充值点数|トークンを追加
+Jetonları yükle|Load tokens|Token aufladen|Пополнить баланс|أضف الرموز|Ajouter les jetons|टोकन लोड करें|充值点数|トークンをチャージ
+Jetonlar yüklendi.|Tokens added.|Token aufgeladen.|Токены добавлены.|تمت إضافة الرموز.|Jetons ajoutés.|टोकन जुड़ गए।|点数已充值。|トークンを追加しました。
+Doğrulama kodu gönderilemedi.|Could not send the verification code.|Bestätigungscode konnte nicht gesendet werden.|Не удалось отправить код.|تعذّر إرسال رمز التحقق.|Impossible d’envoyer le code.|सत्यापन कोड भेजा नहीं जा सका।|无法发送验证码。|確認コードを送信できませんでした。
+Kod geçersiz veya süresi dolmuş.|The code is invalid or expired.|Der Code ist ungültig oder abgelaufen.|Код неверен или истёк.|الرمز غير صالح أو منتهي الصلاحية.|Le code est invalide ou expiré.|कोड अमान्य है या उसकी अवधि समाप्त हो गई है।|验证码无效或已过期。|コードが無効か期限切れです。
+Yeni kod istemeden önce bekle.|Wait before requesting another code.|Warte, bevor du einen neuen Code anforderst.|Подождите перед запросом нового кода.|انتظر قبل طلب رمز جديد.|Attends avant de demander un autre code.|नया कोड माँगने से पहले प्रतीक्षा करें।|请稍后再请求新验证码。|新しいコードをリクエストする前にお待ちください。
+Sunucuda e-posta gönderimi henüz ayarlanmadı.|Email delivery is not configured on the server.|Der E-Mail-Versand ist auf dem Server noch nicht eingerichtet.|Отправка почты на сервере ещё не настроена.|لم يُضبط إرسال البريد على الخادم بعد.|L’envoi d’e-mails n’est pas encore configuré sur le serveur.|सर्वर पर ईमेल भेजने की व्यवस्था अभी नहीं हुई है।|服务器尚未配置邮件发送。|サーバーのメール送信がまだ設定されていません。
+Canlı bakiye doğrulanamadı|Live balance could not be verified|Aktueller Kontostand konnte nicht geprüft werden|Не удалось проверить текущий баланс|تعذّر التحقق من الرصيد الحالي|Solde en temps réel non vérifié|लाइव शेष की पुष्टि नहीं हुई|无法核实实时余额|現在の残高を確認できませんでした
+Son kontrol ettiğin kredi|Last balance you checked|Zuletzt geprüftes Guthaben|Последний проверенный баланс|آخر رصيد تحققت منه|Dernier solde consulté|पिछला जाँचा गया शेष|上次查询的余额|最後に確認した残高
+Bakiye kaydı okunamadı.|Could not read the saved balance.|Gespeichertes Guthaben konnte nicht gelesen werden.|Не удалось прочитать сохранённый баланс.|تعذّرت قراءة الرصيد المحفوظ.|Impossible de lire le solde enregistré.|सहेजा गया शेष पढ़ा नहीं जा सका।|无法读取已保存的余额。|保存済みの残高を読み込めませんでした。
+Yedekten geri yükle ↑|Restore from backup ↑|Aus Sicherung wiederherstellen ↑|Восстановить из копии ↑|استعد من النسخة الاحتياطية ↑|Restaurer depuis la sauvegarde ↑|बैकअप से पुनर्स्थापित करें ↑|从备份恢复 ↑|バックアップから復元 ↑
+Yedek geri yüklendi.|Backup restored.|Sicherung wiederhergestellt.|Резервная копия восстановлена.|تمت استعادة النسخة الاحتياطية.|Sauvegarde restaurée.|बैकअप बहाल हुआ।|备份已恢复。|バックアップを復元しました。
+Yedek yazılamadı.|Could not write the backup.|Sicherung konnte nicht gespeichert werden.|Не удалось записать резервную копию.|تعذّر حفظ النسخة الاحتياطية.|Impossible d’écrire la sauvegarde.|बैकअप लिखा नहीं जा सका।|无法写入备份。|バックアップを書き込めませんでした。
+Bağlantı kesildi.|Connection lost.|Verbindung unterbrochen.|Соединение прервано.|انقطع الاتصال.|Connexion interrompue.|कनेक्शन टूट गया।|连接已断开。|接続が切れました。
+Sunucu zamanında yanıt vermedi.|The server did not respond in time.|Der Server hat nicht rechtzeitig geantwortet.|Сервер не ответил вовремя.|لم يستجب الخادم في الوقت المحدد.|Le serveur n’a pas répondu à temps.|सर्वर ने समय पर जवाब नहीं दिया।|服务器响应超时。|サーバーの応答がタイムアウトしました。
+Yapay zekâ işlemi tamamlanamadı.|The AI operation could not be completed.|Der KI-Vorgang konnte nicht abgeschlossen werden.|Не удалось завершить операцию ИИ.|تعذّر إكمال عملية الذكاء الاصطناعي.|Impossible de terminer l’opération IA.|एआई प्रक्रिया पूरी नहीं हो सकी।|无法完成 AI 操作。|AI 処理を完了できませんでした。
+Yapay zekâ şu anda kullanılamıyor.|AI is currently unavailable.|KI ist derzeit nicht verfügbar.|ИИ сейчас недоступен.|الذكاء الاصطناعي غير متاح حاليًا.|L’IA est indisponible pour le moment.|एआई अभी उपलब्ध नहीं है।|AI 暂不可用。|現在 AI を利用できません。
+Oturum kapatılamadı.|Could not sign out.|Abmelden fehlgeschlagen.|Не удалось выйти.|تعذّر تسجيل الخروج.|Impossible de se déconnecter.|साइन आउट नहीं हो सका।|无法退出登录。|ログアウトできませんでした。
+Profil bölümünden oturum aç.|Sign in from Profile.|Melde dich im Profil an.|Войдите через раздел профиля.|سجّل الدخول من الملف الشخصي.|Connecte-toi depuis le profil.|प्रोफ़ाइल से साइन इन करें।|请在个人资料页登录。|プロフィールからログインしてください。
+Fotoğraf okunamadı.|Could not read the photo.|Das Foto konnte nicht gelesen werden.|Не удалось прочитать фото.|تعذّرت قراءة الصورة.|Impossible de lire la photo.|फ़ोटो पढ़ी नहीं जा सकी।|无法读取照片。|写真を読み込めませんでした。
+Kombin seçildi.|Outfit selected.|Outfit ausgewählt.|Образ выбран.|تم اختيار الإطلالة.|Tenue sélectionnée.|पहनावा चुना गया।|已选择搭配。|コーデを選択しました。
+Kombin parçalarını incele|Review outfit pieces|Outfit-Teile prüfen|Проверьте вещи образа|راجع قطع الإطلالة|Vérifier les pièces de la tenue|पहनावे के कपड़े देखें|检查搭配单品|コーデのアイテムを確認
+Kombin parçalarını ayır|Separate outfit pieces|Outfit-Teile trennen|Разделить вещи образа|افصل قطع الإطلالة|Séparer les pièces de la tenue|पहनावे के कपड़े अलग करें|拆分搭配单品|コーデのアイテムを分離
+Seçtiğin fotoğrafın yerel önizlemesi|Local preview of your selected photo|Lokale Vorschau des gewählten Fotos|Локальный предпросмотр выбранного фото|معاينة محلية للصورة المحددة|Aperçu local de la photo sélectionnée|चुनी फ़ोटो का स्थानीय पूर्वावलोकन|所选照片的本地预览|選択した写真のローカルプレビュー
+Yüklediğin kombin fotoğrafı|Your uploaded outfit photo|Dein hochgeladenes Outfit-Foto|Загруженное фото образа|صورة الإطلالة التي رفعتها|Photo de tenue importée|अपलोड की गई पहनावे की फ़ोटो|已上传的搭配照片|アップロードしたコーデ写真
+Tespit edilen parçalar|Detected items|Erkannte Teile|Распознанные вещи|القطع المكتشفة|Pièces détectées|पहचाने गए कपड़े|识别出的单品|検出されたアイテム
+Ürün|Item|Artikel|Вещь|قطعة|Article|उत्पाद|单品|アイテム
+Üretilen ürün|Generated item|Erstellter Artikel|Созданная вещь|القطعة المنشأة|Article généré|बनाया गया उत्पाद|生成的单品|生成されたアイテム
+⤢ Büyüt|⤢ Enlarge|⤢ Vergrößern|⤢ Увеличить|⤢ تكبير|⤢ Agrandir|⤢ बड़ा करें|⤢ 放大|⤢ 拡大
+Boş kombin alanı|Empty outfit slot|Leerer Outfit-Platz|Пустое место в образе|خانة إطلالة فارغة|Emplacement de tenue vide|खाली पहनावा स्थान|空搭配栏|空のコーデ枠
+Boş kıyafet alanı|Empty clothing slot|Leerer Kleidungsplatz|Пустое место для одежды|خانة ملابس فارغة|Emplacement de vêtement vide|खाली कपड़ा स्थान|空衣物栏|空の衣服枠
+Kategori doğrulanmadı|Category not verified|Kategorie nicht bestätigt|Категория не подтверждена|لم تُتحقق الفئة|Catégorie non vérifiée|श्रेणी की पुष्टि नहीं हुई|分类未验证|カテゴリは未確認です
+Maske çok küçük|Mask too small|Maske zu klein|Маска слишком мала|القناع صغير جدًا|Masque trop petit|मास्क बहुत छोटा है|蒙版太小|マスクが小さすぎます
+Maske kalitesi düşük — elle kontrol et|Low mask quality — check manually|Geringe Maskenqualität – manuell prüfen|Низкое качество маски — проверьте вручную|جودة القناع منخفضة، افحصه يدويًا|Masque de faible qualité — vérifier manuellement|मास्क की गुणवत्ता कम है, खुद जाँचें|蒙版质量较低，请手动检查|マスクの品質が低いため手動で確認してください
+Geçersiz tespit sonucu|Invalid detection result|Ungültiges Erkennungsergebnis|Недействительный результат распознавания|نتيجة اكتشاف غير صالحة|Résultat de détection invalide|पहचान का परिणाम अमान्य है|识别结果无效|検出結果が無効です
+Geçersiz üretim sonucu|Invalid generation result|Ungültiges Erstellungsergebnis|Недействительный результат генерации|نتيجة إنشاء غير صالحة|Résultat de génération invalide|बनाया गया परिणाम अमान्य है|生成结果无效|生成結果が無効です
+Geçersiz sonuç adresi.|Invalid result URL.|Ungültige Ergebnis-URL.|Недействительный адрес результата.|عنوان النتيجة غير صالح.|Adresse du résultat invalide.|नतीजे का पता अमान्य है।|结果地址无效。|結果のURLが無効です。
+Fotoğraf hazır. Kıyafetlerini seç.|Photo ready. Choose your clothes.|Foto bereit. Wähle deine Kleidung.|Фото готово. Выберите одежду.|الصورة جاهزة، اختر ملابسك.|Photo prête. Choisis tes vêtements.|फ़ोटो तैयार है। कपड़े चुनें।|照片已就绪，请选择衣物。|写真が用意できました。服を選んでください。
+Fotoğraf seçmelisin|Choose a photo|Wähle ein Foto|Выберите фото|اختر صورة|Choisis une photo|फ़ोटो चुनें|请选择照片|写真を選んでください
+Görsel çok büyük.|The image is too large.|Das Bild ist zu groß.|Изображение слишком большое.|الصورة كبيرة جدًا.|L’image est trop grande.|तस्वीर बहुत बड़ी है।|图片过大。|画像が大きすぎます。
+İşin durumu doğrulanamadı.|Could not verify job status.|Auftragsstatus konnte nicht geprüft werden.|Не удалось проверить статус задания.|تعذّر التحقق من حالة المهمة.|Impossible de vérifier l’état de la tâche.|कार्य की स्थिति की पुष्टि नहीं हुई।|无法确认任务状态。|処理状況を確認できませんでした。
+Önceki giydirme kontrol ediliyor…|Checking the previous try-on…|Vorherige Anprobe wird geprüft…|Проверяем предыдущую примерку…|جارٍ التحقق من التجربة السابقة…|Vérification de l’essayage précédent…|पिछला ट्राई-ऑन जाँचा जा रहा है…|正在检查上次试穿…|前の試着を確認中…
+Önceki iş doğrulanamadı.|Could not verify the previous job.|Vorheriger Auftrag konnte nicht geprüft werden.|Не удалось проверить предыдущее задание.|تعذّر التحقق من المهمة السابقة.|Impossible de vérifier la tâche précédente.|पिछले कार्य की पुष्टि नहीं हुई।|无法确认上一个任务。|前の処理を確認できませんでした。
+Sağlayıcı giydirme işini tamamlayamadı.|The provider could not finish the try-on.|Der Anbieter konnte die Anprobe nicht abschließen.|Сервис не завершил примерку.|تعذّر على المزوّد إكمال التجربة.|Le fournisseur n’a pas terminé l’essayage.|सेवा ट्राई-ऑन पूरा नहीं कर सकी।|服务商未能完成试穿。|サービスが試着を完了できませんでした。
+Sağlayıcı iki dakika içinde sonuç döndürmedi.|The provider did not return a result within two minutes.|Der Anbieter lieferte innerhalb von zwei Minuten kein Ergebnis.|Сервис не вернул результат за две минуты.|لم يُرجع المزوّد نتيجة خلال دقيقتين.|Le fournisseur n’a pas répondu dans les deux minutes.|सेवा ने दो मिनट में नतीजा नहीं दिया।|服务商未在两分钟内返回结果。|サービスが2分以内に結果を返しませんでした。
+Stil Jetonu kalmadı.|No Style Tokens left.|Keine Style-Token mehr verfügbar.|Токены стиля закончились.|نفدت رموز الأناقة.|Il ne reste plus de jetons Style.|स्टाइल टोकन खत्म हो गए।|风格点数已用完。|スタイルトークンがありません。
+Kombin kaydı başarısız|Outfit save failed|Outfit konnte nicht gespeichert werden|Не удалось сохранить образ|تعذّر حفظ الإطلالة|Échec de l’enregistrement de la tenue|पहनावा सहेजा नहीं गया|保存搭配失败|コーデの保存に失敗しました
+Kombin kaydı iptal edildi|Outfit save canceled|Speichern des Outfits abgebrochen|Сохранение образа отменено|أُلغي حفظ الإطلالة|Enregistrement de la tenue annulé|पहनावा सहेजना रद्द हुआ|已取消保存搭配|コーデの保存を中止しました
+Parçayı kaydet ve devam et|Save item and continue|Teil speichern und fortfahren|Сохранить вещь и продолжить|احفظ القطعة وتابع|Enregistrer l’article et continuer|कपड़ा सहेजें और जारी रखें|保存单品并继续|アイテムを保存して続ける
+{n} kayıtlı kombin|{n} saved outfits|{n} gespeicherte Outfits|Сохранённых образов: {n}|الإطلالات المحفوظة: {n}|Tenues enregistrées : {n}|{n} सहेजे गए पहनावे|{n} 套已保存搭配|保存済みのコーデ {n} 件
+{n} kıyafet|{n} garments|{n} Kleidungsstücke|Предметов одежды: {n}|قطع الملابس: {n}|Vêtements : {n}|{n} कपड़े|{n} 件衣物|衣服 {n} 点
+{n} parça kaydedildi|{n} items saved|{n} Teile gespeichert|Сохранено вещей: {n}|القطع المحفوظة: {n}|Articles enregistrés : {n}|{n} कपड़े सहेजे गए|已保存 {n} 件单品|{n} 点を保存しました
+{n} jeton için kod e-postana gönderildi.|A code for {n} tokens was emailed to you.|Ein Code für {n} Token wurde dir per E-Mail gesendet.|Код для {n} токенов отправлен на почту.|أُرسل رمز شحن {n} من الرموز إلى بريدك.|Un code pour {n} jetons t’a été envoyé par e-mail.|{n} टोकन का कोड ईमेल पर भेजा गया।|已通过邮件发送 {n} 个点数的验证码。|{n} トークンのコードをメールで送信しました。
+Bu kayıtlı kombini kaldırmak istiyor musun?|Remove this saved outfit?|Dieses gespeicherte Outfit entfernen?|Удалить сохранённый образ?|هل تريد حذف هذه الإطلالة المحفوظة؟|Supprimer cette tenue enregistrée ?|यह सहेजा गया पहनावा हटाएँ?|删除这套已保存的搭配？|保存済みのコーデを削除しますか？
+Bu kıyafeti dolabından silmek istiyor musun?|Remove this garment from your wardrobe?|Dieses Teil aus deiner Garderobe entfernen?|Удалить эту вещь из гардероба?|هل تريد حذف هذه القطعة من خزانتك؟|Retirer ce vêtement de ton dressing ?|यह कपड़ा अपनी अलमारी से हटाएँ?|从衣橱中删除这件衣物？|この服をワードローブから削除しますか？
+Kıyafetler cihazındaki tarayıcıda tutulur. Tarayıcı verilerini silersen kayıtlar kaybolabilir.|Clothes are stored in this browser. Clearing browser data may erase them.|Kleidung wird im Browser gespeichert. Beim Löschen der Browserdaten können die Einträge verloren gehen.|Вещи хранятся в браузере. При удалении данных браузера записи могут исчезнуть.|تُحفظ الملابس في المتصفح. قد تفقدها عند مسح بياناته.|Les vêtements sont stockés dans le navigateur. Effacer ses données peut supprimer les enregistrements.|कपड़े ब्राउज़र में सहेजे जाते हैं। ब्राउज़र डेटा मिटाने से रिकॉर्ड खो सकते हैं।|衣物保存在浏览器中。清除浏览器数据可能会删除记录。|服はブラウザーに保存されます。ブラウザーデータを消去すると記録が失われることがあります。
+Fotoğrafın analiz için gönderilecek. Bu işlem 1 Stil Jetonu kullanır. Devam edilsin mi?|Your photo will be sent for analysis. This uses 1 Style Token. Continue?|Dein Foto wird zur Analyse gesendet. Dies kostet 1 Style-Token. Fortfahren?|Фото будет отправлено на анализ. Будет списан 1 токен стиля. Продолжить?|ستُرسل صورتك للتحليل مقابل رمز أناقة واحد. هل تريد المتابعة؟|Ta photo sera envoyée pour analyse. Cela coûte 1 jeton Style. Continuer ?|विश्लेषण के लिए फ़ोटो भेजी जाएगी। इसमें 1 स्टाइल टोकन लगेगा। जारी रखें?|照片将发送进行分析，需消耗 1 个风格点数。继续吗？|写真を分析のため送信します。1 スタイルトークンを使用します。続けますか？
+Analiz iptal edildi; ücretli istek yapılmadı.|Analysis canceled before submitting a paid request.|Analyse vor dem kostenpflichtigen Auftrag abgebrochen.|Анализ отменён до отправки платного запроса.|أُلغي التحليل قبل إرسال طلب مدفوع.|Analyse annulée avant l’envoi de la demande payante.|भुगतान वाला अनुरोध भेजने से पहले विश्लेषण रद्द हुआ।|已在提交付费请求前取消分析。|有料リクエストの送信前に分析を中止しました。
+Kalan parçalarla devam edebilirsin.|You can continue with the remaining items.|Du kannst mit den übrigen Teilen fortfahren.|Можно продолжить с оставшимися вещами.|يمكنك المتابعة مع القطع المتبقية.|Tu peux continuer avec les pièces restantes.|बाकी कपड़ों के साथ जारी रख सकते हैं।|可以继续试穿剩余单品。|残りのアイテムで続けられます。
+Aynı giydirme işini kontrol et düğmesini kullan.|Use the button to check the pending try-on.|Nutze die Schaltfläche, um die offene Anprobe zu prüfen.|Проверьте ожидающую примерку с помощью кнопки.|استخدم زر التحقق من التجربة المعلقة.|Utilise le bouton pour vérifier l’essayage en attente.|बाकी ट्राई-ऑन जाँचने वाला बटन दबाएँ।|使用按钮查看待完成的试穿。|ボタンから保留中の試着を確認してください。
+Otomatik ücretli tekrar yapılmadı.|No paid retry was made automatically.|Es wurde kein kostenpflichtiger Versuch automatisch wiederholt.|Автоматической платной попытки не было.|لم تُجرَ إعادة محاولة مدفوعة تلقائيًا.|Aucun nouvel essai payant n’a été lancé automatiquement.|भुगतान वाला प्रयास अपने आप नहीं दोहराया गया।|未自动进行付费重试。|有料の再試行は自動では行われませんでした。
+Elle kırpma seçeneği kullanılabilir.|You can crop the photo manually.|Du kannst das Foto manuell zuschneiden.|Можно обрезать фото вручную.|يمكنك قص الصورة يدويًا.|Tu peux recadrer la photo manuellement.|फ़ोटो को हाथ से काट सकते हैं।|可以手动裁剪照片。|写真を手動で切り抜けます。
+{n}/{m} parça giydirildi.|{n}/{m} items tried on.|{n}/{m} Teile anprobiert.|Примерено {n}/{m} вещей.|تمت تجربة {n} من {m} قطع.|{n}/{m} pièces essayées.|{m} में से {n} कपड़े पहनाए गए।|已试穿 {n}/{m} 件单品。|{n}/{m} 点を試着しました。
+{n} ürün dolabına kaydedildi.|{n} items saved to your wardrobe.|{n} Teile in deiner Garderobe gespeichert.|В гардероб сохранено вещей: {n}.|تم حفظ {n} قطع في خزانتك.|{n} articles enregistrés dans ton dressing.|{n} कपड़े अलमारी में सहेजे गए।|已将 {n} 件单品保存到衣橱。|{n} 点をワードローブに保存しました。
+{n} kıyafet dolabına kaydedildi.|{n} garments saved to your wardrobe.|{n} Kleidungsstücke in deiner Garderobe gespeichert.|В гардероб сохранено вещей: {n}.|تم حفظ {n} قطع في خزانتك.|{n} vêtements enregistrés dans ton dressing.|{n} कपड़े अलमारी में सहेजे गए।|已将 {n} 件衣物保存到衣橱。|{n} 点の服をワードローブに保存しました。
+Beyaz ceketli kadın model|Woman wearing a white jacket|Frau in weißer Jacke|Женщина в белом жакете|امرأة ترتدي سترة بيضاء|Femme portant une veste blanche|सफ़ेद जैकेट पहने महिला|穿白色夹克的女模特|白いジャケットを着た女性
+Örn. 0.92|e.g. 0.92|z. B. 0,92|Напр. 0,92|مثال: 0.92|Ex. 0,92|जैसे 0.92|例如 0.92|例：0.92
+Fotoğraf 25 MB sınırını aşıyor.|The photo exceeds 25 MB.|Das Foto überschreitet 25 MB.|Фото превышает 25 МБ.|تتجاوز الصورة 25 ميغابايت.|La photo dépasse 25 Mo.|फ़ोटो 25 एमबी से बड़ी है।|照片超过 25 MB。|写真が25 MBを超えています。
+En fazla 6 MB PNG veya JPEG fotoğraf seç.|Choose a PNG or JPEG up to 6 MB.|Wähle ein PNG- oder JPEG-Foto bis 6 MB.|Выберите фото PNG или JPEG до 6 МБ.|اختر صورة PNG أو JPEG بحجم لا يتجاوز 6 ميغابايت.|Choisis une photo PNG ou JPEG de 6 Mo maximum.|6 एमबी तक की PNG या JPEG फ़ोटो चुनें।|请选择不超过 6 MB 的 PNG 或 JPEG 照片。|6 MB以下のPNGまたはJPEG写真を選んでください。
+Yalnızca PNG veya JPEG fotoğraf kullanılabilir.|Only PNG and JPEG photos are supported.|Nur PNG- und JPEG-Fotos werden unterstützt.|Поддерживаются только PNG и JPEG.|تُقبل صور PNG أو JPEG فقط.|Seules les photos PNG ou JPEG sont acceptées.|केवल PNG या JPEG फ़ोटो इस्तेमाल कर सकते हैं।|仅支持 PNG 和 JPEG 照片。|PNGまたはJPEGの写真を使用してください。
+Seçilen manken fotoğrafı|Selected mannequin photo|Ausgewähltes Modellfoto|Выбранное фото модели|صورة العارضة المحددة|Photo du mannequin sélectionnée|चुनी हुई मॉडल फ़ोटो|所选模特照片|選択したモデルの写真
+Kıyafet türü {n}|Clothing type {n}|Kleidungstyp {n}|Тип одежды {n}|نوع الملابس {n}|Type de vêtement {n}|कपड़े का प्रकार {n}|衣物类型 {n}|服の種類 {n}
+Kıyafet parçası {n}|Garment {n}|Kleidungsstück {n}|Вещь {n}|قطعة ملابس {n}|Vêtement {n}|कपड़ा {n}|衣物 {n}|衣服 {n}
+{n} Stil Jetonu|{n} Style Tokens|{n} Style-Token|Токены стиля: {n}|رموز الأناقة: {n}|{n} jetons Style|{n} स्टाइल टोकन|{n} 个风格点数|{n} スタイルトークン
+{n} parça için {m} Stil Jetonu kullanılacak. Devam edilsin mi?|Use {m} Style Tokens for {n} items. Continue?|{m} Style-Token für {n} Teile verwenden. Fortfahren?|Использовать {m} токенов для {n} вещей. Продолжить?|سيُستخدم {m} من رموز الأناقة لـ {n} قطع. هل تتابع؟|Utiliser {m} jetons Style pour {n} pièces. Continuer ?|{n} कपड़ों के लिए {m} स्टाइल टोकन लगेंगे। जारी रखें?|为 {n} 件单品使用 {m} 个风格点数。继续吗？|{n} 点に {m} スタイルトークンを使います。続けますか？
+{n} ürün için {m} Stil Jetonu kullanılacak. Devam edilsin mi?|Use {m} Style Tokens for {n} products. Continue?|{m} Style-Token für {n} Artikel verwenden. Fortfahren?|Использовать {m} токенов для {n} товаров. Продолжить?|سيُستخدم {m} من رموز الأناقة لـ {n} منتجات. هل تتابع؟|Utiliser {m} jetons Style pour {n} articles. Continuer ?|{n} उत्पादों के लिए {m} स्टाइल टोकन लगेंगे। जारी रखें?|为 {n} 件商品使用 {m} 个风格点数。继续吗？|{n} 点の商品に {m} スタイルトークンを使います。続けますか？
+Üretim başarısız.|Generation failed.|Erstellung fehlgeschlagen.|Не удалось создать изображение.|تعذّر إنشاء الصورة.|La génération a échoué.|तस्वीर बन नहीं सकी।|生成失败。|生成に失敗しました。
+Geri yüklenemedi.|Could not restore the backup.|Wiederherstellung fehlgeschlagen.|Не удалось восстановить резервную копию.|تعذّرت استعادة النسخة الاحتياطية.|Impossible de restaurer la sauvegarde.|बैकअप बहाल नहीं हो सका।|无法恢复备份。|バックアップを復元できませんでした。
+Paylaşım başlatılamadı.|Could not start sharing.|Teilen konnte nicht gestartet werden.|Не удалось начать отправку.|تعذّر بدء المشاركة.|Impossible de lancer le partage.|शेयर करना शुरू नहीं हो सका।|无法开始分享。|共有を開始できませんでした。
 `;
  const dictionary=new Map(phrases.trim().split('\n').map(line=>{const row=line.split('|');return [row[0],row]}));
  const field=document.getElementById('app-language');
@@ -197,20 +278,33 @@ Fotoğraf açılamadı|Could not open the photo|Foto konnte nicht geöffnet werd
  let language='tr';
  try{language=localStorage.getItem('sm-language')||'tr'}catch{}
  if(!languages.includes(language))language='tr';
+ const templates=[...dictionary].filter(([key])=>key.includes('{n}')).map(([key,row])=>{
+  const slots=[];
+  const source=key.split(/(\{[nm]\})/).map(part=>{
+   if(part==='{n}'||part==='{m}'){slots.push(part);return '(\\d+)';}
+   return part.replace(/[.*+?^$(){}|[\]\\]/g,'\\$&');
+  }).join('');
+  return {regex:new RegExp('^'+source+'$'),slots,row};
+ });
  function translateSegment(value){
   const trimmed=value.trim();
+  const index=languages.indexOf(language);
   const row=dictionary.get(trimmed);
-  if(row)return value.replace(trimmed,row[languages.indexOf(language)]||trimmed);
-  const numbered=trimmed.match(/^(✦ )?(\d+)( .+)$/);
-  if(!numbered)return value;
-  const template=(numbered[1]||'')+'{n}'+numbered[3];
-  const pattern=dictionary.get(template)?.[languages.indexOf(language)];
-  return pattern?value.replace(trimmed,pattern.replace('{n}',new Intl.NumberFormat(language).format(Number(numbered[2])))):value;
+  if(row)return value.replace(trimmed,row[index]||trimmed);
+  for(const {regex,slots,row} of templates){
+   const match=regex.exec(trimmed);
+   if(!match)continue;
+   const format=new Intl.NumberFormat(language);
+   const numbers=new Map(slots.map((slot,i)=>[slot,format.format(Number(match[i+1]))]));
+   return value.replace(trimmed,row[index].replace(/\{[nm]\}/g,slot=>numbers.get(slot)??slot));
+  }
+  return value;
  }
  const translate=value=>{
   if(language==='tr')return value;
-  const trimmed=value.trim();
-  return dictionary.has(trimmed)?translateSegment(value):value.split(' · ').map(translateSegment).join(' · ');
+  const whole=translateSegment(value);
+  if(whole!==value)return whole;
+  return value.split(/( · |\n)/).map(translateSegment).join('');
  };
  window.styleMuseSourceText=element=>Array.from(element.childNodes,node=>node.nodeType===Node.TEXT_NODE?(originals.get(node)?.original??node.data):node.textContent).join('');
  const observer=new MutationObserver(records=>{
