@@ -271,7 +271,7 @@ class RealProviders:
         if before_submit is not None:
             before_submit()
         job = self._json('POST', 'https://api.replicate.com/v1/predictions', self.replicate_token,
-                         body, {'Cancel-After': '40s'})
+                         body, {'Cancel-After': '90s'})
         job_id = job.get('id')
         if not isinstance(job_id, str) or not job_id.isalnum() or len(job_id) > 100:
             raise ProviderError('Invalid prediction identifier')
