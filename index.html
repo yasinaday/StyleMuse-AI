@@ -747,7 +747,24 @@ html[dir="rtl"] #profile .sm-page-hero img{right:auto;left:0}
 </div></section></main>
 <nav class="nav" aria-label="Ana menü"><button type="button" data-tab="discover" class="active"><span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 11 9-8 9 8M5 10v11h5v-7h4v7h5V10"/></svg></span>Keşfet</button><button type="button" data-tab="closet"><span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 3-6 4 3 5 3-2v11h8V10l3 2 3-5-6-4a4 4 0 0 1-8 0Z"/></svg></span>Giysiler</button><button type="button" data-tab="outfits"><span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 2 3 7 7 3-7 3-3 7-3-7-7-3 7-3Z"/></svg></span>Kombinler</button><button type="button" data-tab="tryon"><span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 2h4v4l4 3-2 5 4 6H4l4-6-2-5 4-3ZM8 14h8M12 20v3M8 23h8"/></svg></span>Mankenim</button><button type="button" data-tab="profile"><span><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="7" r="4"/><path d="M4 22v-3a8 8 0 0 1 16 0v3Z"/></svg></span>Profil</button></nav>
 <div id="smart-modal" class="smart-modal" role="dialog" aria-modal="true" aria-label="Kombin parçalarını ayır"><div class="smart-panel"><h2>✦ Parçaları ayır</h2><p class="smart-note">Bu sürüm fotoğrafı yaklaşık bölgelere ayırır; gerçek yapay zekâ ile kıyafet tanıma değildir. Kaydetmeden önce parçaları kontrol et.</p><div id="smart-grid" class="smart-grid"></div><div class="actions"><button class="secondary" onclick="closeSmart()">Vazgeç</button><button onclick="saveSmart()">Seçilenleri kaydet ✓</button></div><p class="smart-progress" id="smart-status"></p></div></div><div id="crop-modal" class="crop-modal" role="dialog" aria-modal="true" aria-label="Kıyafet fotoğrafını kırp"><div class="crop-panel"><h2>Fotoğrafı düzenle ✂</h2><p>Kıyafeti ortaya getir. Parmağınla kaydır, alttan büyüt.</p><canvas id="crop-canvas" width="600" height="600"></canvas><div id="crop-category-field" hidden><label for="crop-category">Kategori</label><select id="crop-category"><option>Üst giyim</option><option>Alt giyim</option><option>Elbise</option><option>Çanta</option><option>Dış giyim</option><option>Aksesuar</option><option>Diğer</option></select></div><label for="crop-scale">Yakınlaştır</label><input id="crop-scale" type="range" min="1" max="4" step=".05" value="1" oninput="cropScale=Number(this.value);drawCrop()"><div class="actions"><button class="secondary" onclick="closeCrop()">Vazgeç</button><button onclick="saveCrop()">Kırp ve kaydet ✓</button></div><p class="crop-help">Yalnızca seçtiğin alan kaydedilir. Arka plan otomatik silinmez.</p></div></div><div id="zoom-overlay" class="zoom-overlay" role="dialog" aria-modal="true" aria-label="Fotoğrafı büyüt" onclick="closeZoom()"><button class="zoom-close" aria-label="Kapat" onclick="closeZoom()">×</button><img id="zoom-image" alt="Büyütülmüş kıyafet fotoğrafı" onclick="event.stopPropagation()"></div><script>
-function openHomePro(){document.getElementById("home-pro").showModal()}
+const tokenDialog=document.getElementById('home-pro');
+function isTokenDialogBackdrop(event){
+ if(event.target!==tokenDialog)return false;
+ const {left,right,top,bottom}=tokenDialog.getBoundingClientRect();
+ return event.clientX<left||event.clientX>=right||event.clientY<top||event.clientY>=bottom;
+}
+let tokenTapStartedOutside=false;
+tokenDialog.addEventListener('pointerdown',event=>{
+ tokenTapStartedOutside=isTokenDialogBackdrop(event);
+});
+tokenDialog.addEventListener('click',event=>{
+ if(tokenTapStartedOutside&&isTokenDialogBackdrop(event))tokenDialog.close();
+ tokenTapStartedOutside=false;
+});
+function openHomePro(){
+ tokenTapStartedOutside=false;
+ tokenDialog.showModal();
+}
 
 function renderHomeRecent(){const target=document.getElementById('sm-home-recent');if(!target)return;const items=typeof getItems==='function'?getItems():[];target.replaceChildren();if(!items.length){const p=document.createElement('p');p.className='sm-recent-empty';p.textContent='Dolabın henüz boş. İlk kıyafetini ekleyerek başla.';target.append(p);return;}items.slice(-6).reverse().forEach(item=>{const card=document.createElement('div');card.className='sm-recent-item';const img=document.createElement('img');img.src=item.image;img.alt=item.category||'Kıyafet';img.loading='lazy';const label=document.createElement('span');label.textContent=item.category||'Kıyafet';card.append(img,label);target.append(card);});}
 function tab(id){document.body.classList.toggle('on-home',id==='discover');if(id==='discover')renderHomeRecent();if(id==='tryon'){renderTry();setTryOnBusy(tryonBusy);}if(id==='outfits')renderSaved();if(id==='profile'){renderProfile();void refreshStyleMuseAccount().catch(()=>{});}document.querySelectorAll('main section').forEach(x=>x.classList.add('hide'));document.getElementById(id).classList.remove('hide');document.querySelectorAll('.nav button').forEach(x=>x.classList.toggle('active',x.dataset.tab===id));scrollTo(0,0)}
