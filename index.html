@@ -649,6 +649,37 @@ html[dir="rtl"] #profile .sm-page-hero img{right:auto;left:0}
 #style-confirm button{flex:1;min-height:44px;margin:0;padding:8px 12px;border-radius:12px;background:#ebd8ed;color:#522758}
 #style-confirm button[hidden]{display:none!important}
 #style-confirm button[value="approve"]{background:linear-gradient(135deg,#522359,#814478);color:white}
+</style><style>
+#ai-review:not(.ai-focused) .ai-review-panel {
+  display:flex;
+  flex-direction:column;
+  box-sizing:border-box;
+  max-height:calc(100dvh - 24px);
+}
+#ai-review:not(.ai-focused) .ai-review-panel > :not(.ai-stage) {flex:none}
+#ai-review:not(.ai-focused) .ai-stage {
+  display:grid;
+  flex:0 1 auto;
+  min-height:0;
+  grid-template-rows:minmax(0,1fr);
+  grid-template-columns:125px minmax(0,1fr);
+}
+#ai-review:not(.ai-focused) .ai-rail {
+  direction:rtl;
+  display:flex;
+  overflow-y:auto;
+  overscroll-behavior-y:contain;
+  scrollbar-gutter:stable;
+  scrollbar-width:thin;
+  scrollbar-color:#a96799 #f6e9f1;
+}
+#ai-review:not(.ai-focused) .ai-piece {
+  direction:ltr;
+  flex:none;
+  max-width:none;
+}
+#ai-review:not(.ai-focused) .ai-model {height:auto}
+#ai-review:not(.ai-focused) .ai-review-actions > button[disabled]:not(:first-child) {display:none}
 </style></head><body class="on-home"><header id="site-brand-header"><div class="brand"><svg class="home-dress" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 2v3L5 8l3 5-4 9h16l-4-9 3-5-5-3V2M8 13h8M10 2h4"/><path d="m21 2 .5 1.5L23 4l-1.5.5L21 6l-.5-1.5L19 4l1.5-.5Z"/></svg><span>StyleMuse AI</span></div><button class="home-pro" type="button" onclick="openHomePro()" aria-label="Stil Jetonu"><svg class="" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 7 4 4 5-7 5 7 4-4-3 13H6Z"/></svg><span>Stil Jetonu</span></button></header>
 <dialog id="style-confirm" aria-labelledby="style-confirm-title" aria-describedby="style-confirm-message"><form method="dialog"><header>✦ StyleMuse AI</header><h2 id="style-confirm-title">Stil Jetonu kullanımı</h2><p id="style-confirm-message"></p><div><button id="style-confirm-cancel" value="cancel" autofocus>Vazgeç</button><button id="style-confirm-approve" value="approve">Onayla</button></div></form></dialog><dialog id="profile-wallet" aria-labelledby="profile-wallet-title">
  <div class="home-dialog-head"><h2 id="profile-wallet-title">Jeton Takibi</h2><button type="button" onclick="this.closest('dialog').close()" aria-label="Kapat">×</button></div>
@@ -868,9 +899,11 @@ const visibleIndices=aiVisibleIndices();if(aiReviewPhase==='detail'&&!visibleInd
 const budgetText=selectionCount+' ürün seçili';
 const pos=visibleIndices.indexOf(aiActiveIndex);
 const productNav=aiReviewPhase==='detail'&&visibleIndices.length>1?'<nav class="ai-product-nav" aria-label="Seçili ürünler arasında gezin"><button type="button" onclick="navigateAiPart(-1)"'+(pos<=0?' disabled':'')+'>Önceki ürün</button><span aria-live="polite">'+(pos+1)+' / '+visibleIndices.length+'</span><button type="button" onclick="navigateAiPart(1)"'+(pos===visibleIndices.length-1?' disabled':'')+'>Sonraki ürün</button></nav>':'';
+const railScroll=aiReviewPhase==='selection'?modal.querySelector('.ai-rail')?.scrollTop:0;
 modal.innerHTML='<div class="crop-panel ai-review-panel" aria-busy="'+aiBusy+'"><div class="ai-review-head"><h2>✦ '+(aiReviewPhase==='selection'?'Fotoğraf analizi · Ürün seçimi':'Seçilen parçaların analizi')+'</h2><button class="secondary" onclick="closeAiReview()" aria-label="Kapat"'+disabled+'>✕</button></div><p class="hint">'+(aiReviewPhase==='selection'?'Fotoğrafın tamamındaki tespitler aşağıda. Yalnızca incelemek istediğin kıyafetleri işaretle.':'Yalnızca seçtiğin parçaları incele. Kategori ve maske sınırlarını kontrol et. Üretimden önce hatalı maskeleri düzelt.')+'</p><p class="ai-review-budget" role="status">'+escapeAi(budgetText)+'</p>'+productNav+'<div class="ai-stage"><div class="ai-rail" id="ai-cards" aria-label="Tespit edilen parçalar"></div><div class="ai-model"><img id="ai-original" alt="Yüklediğin kombin fotoğrafı"></div></div><div class="ai-review-actions">'+(aiReviewPhase==='selection'?'<button onclick="startAiDetailReview()"'+(aiBusy||!selectionCount?' disabled':'')+'>Seçtiğim '+selectionCount+' parçayı incele</button>':'<button class="secondary" onclick="backAiSelection()"'+disabled+'>← Ürün seçimine dön</button>')+'<button id="ai-generate" onclick="generateAiParts()"'+(aiReviewPhase!=='detail'||aiBusy||!aiParts.some(p=>p.selected&&!p.generated)?' disabled':'')+'>✦ Parçaları bütünleştir</button><button onclick="saveAiParts()"'+(aiBusy||!aiParts.some(p=>p.selected&&p.generated&&p.review==='accepted')?' disabled':'')+'>✓ Seçilen üretilmiş ürünleri kaydet</button><button class="secondary" onclick="if(!aiBusy){closeAiReview();openMultiCrop()}"'+disabled+'>Elle kırp</button></div></div>';
 document.getElementById('ai-original').src=safeAiImage(multiSource)?multiSource:'';
 document.getElementById('ai-cards').innerHTML=aiParts.map((p,i)=>'<div class="ai-piece'+(!p.selected?' not-selected':'')+(p.generated?' ai-generated':'')+'"><label class="ai-piece-select"><input aria-label="'+escapeAi(p.category)+' parçasını seç" type="checkbox" '+(p.selected?'checked':'')+disabled+' onchange="selectAiPart('+i+',this.checked)"><img src="'+(safeAiImage(p.image)?p.image:'')+'" alt="Kıyafet parçası '+(i+1)+'"></label><select aria-label="Kıyafet türü '+(i+1)+'"'+disabled+' onchange="categoryAiPart('+i+',this.value)">'+AI_CATEGORIES.map(c=>'<option '+(c===p.category?'selected':'')+'>'+c+'</option>').join('')+'</select><small role="status">'+escapeAi(p.status||'Tespit edildi')+'</small>'+aiQualityNotice(p)+(p.generated?'<div class="ai-comparison"><p>Fotoğraftan ayrılan parça</p><img src="'+(safeAiImage(p.originalPreview)?p.originalPreview:'')+'" alt="Orijinal kıyafet maskesi"><p>Sonucu fotoğrafla karşılaştır.</p><button onclick="reviewAiPart('+i+',\'accepted\')"'+(p.saved?' disabled':'')+disabled+'>'+(p.saved?'✓ Dolaba kaydedildi':'Kabul et ve kaydet')+'</button><button onclick="reviewAiPart('+i+',\'rejected\')"'+(p.saved?' disabled':'')+disabled+'>Reddet</button><small role="status">'+(p.saved?'Dolaba kaydedildi':p.review==='accepted'?'Kabul edildi':p.review==='rejected'?'Reddedildi — kaydedilmez':'İnceleme bekliyor — kaydedilmez')+'</small></div>':'')+'</div>' ).join('');
+if(railScroll)modal.querySelector('.ai-rail').scrollTop=railScroll;
 modal.querySelectorAll('.ai-piece').forEach((card,i)=>{card.classList.toggle('ai-active',i===aiActiveIndex);card.hidden=aiReviewPhase==='detail'&&(!aiParts[i].selected||i!==aiActiveIndex);});
 modal.querySelectorAll('button').forEach(b=>b.disabled=aiBusy||b.disabled);modal.classList.toggle('ai-working',aiBusy);
 }
