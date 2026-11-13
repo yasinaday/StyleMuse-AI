@@ -581,17 +581,25 @@ html[dir="rtl"] .sm-page-copy,html[dir="rtl"] .home-copy{text-align:start}
 html[dir="rtl"] .home-model{right:auto;left:0}
 html[dir="rtl"] .sm-page-hero img{right:auto;left:2%}
 html[dir="rtl"] #profile .sm-page-hero img{right:auto;left:0}
+.token-packs label{position:relative}
+.token-pack-detail{display:grid;flex:1;gap:3px}
+.token-pack-detail small{font-size:12px;color:#f9e6f6}
+.token-pack-detail small [data-token-price]{font-weight:500}
+.token-packs .token-best{border-color:#f5d68e;margin-top:16px}
+.token-best-badge{position:absolute;inset-block-start:-10px;inset-inline-end:10px;padding:2px 8px;border-radius:20px;background:#f5d68e;color:#452449;font-size:11px;font-weight:750}
 </style></head><body class="on-home"><header id="site-brand-header"><button class="home-icon" type="button" aria-label="Menüyü aç" aria-controls="home-menu" aria-expanded="false" onclick="toggleHomeMenu()"><svg class="" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18"/></svg></button><div class="brand"><svg class="home-dress" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 2v3L5 8l3 5-4 9h16l-4-9 3-5-5-3V2M8 13h8M10 2h4"/><path d="m21 2 .5 1.5L23 4l-1.5.5L21 6l-.5-1.5L19 4l1.5-.5Z"/></svg><span>StyleMuse AI</span></div><button class="home-pro" type="button" onclick="openHomePro()" aria-label="Stil Jetonu"><svg class="" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 7 4 4 5-7 5 7 4-4-3 13H6Z"/></svg><span>Stil Jetonu</span></button><button class="home-icon" type="button" aria-label="Profil" onclick="tab('profile')"><svg class="" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="7" r="4"/><path d="M4 22v-3a8 8 0 0 1 16 0v3Z"/></svg></button></header>
 <dialog id="home-menu" aria-label="Gezinme menüsü"><div class="home-dialog-head"><strong>StyleMuse AI</strong><button type="button" onclick="closeHomeMenu()" aria-label="Menüyü kapat">×</button></div><button type="button" onclick="closeHomeMenu();tab('discover')">Keşfet</button><button type="button" onclick="closeHomeMenu();tab('closet')">Giysiler</button><button type="button" onclick="closeHomeMenu();tab('outfits')">Kombinler</button><button type="button" onclick="closeHomeMenu();tab('tryon')">Mankenim</button><button type="button" onclick="closeHomeMenu();tab('profile')">Profil</button></dialog><dialog id="home-pro" aria-labelledby="token-title">
  <div class="home-dialog-head"><span class="token-mark" aria-hidden="true">✦</span><button type="button" onclick="this.closest('dialog').close()" aria-label="Kapat">×</button></div>
  <h2 id="token-title">Stil Jetonu</h2>
  <p>Uygulama ücretsiz. Yapay zekâ işlemleri jetonla kullanılır.</p>
- <div class="token-rate"><strong>1 jeton = 1 yapay zekâ işlemi</strong><span data-token-price="1"></span></div>
+ <div class="token-rate"><strong>1 jeton = 1 yapay zekâ işlemi</strong><span data-token-price="40"></span></div>
  <fieldset class="token-packs">
   <legend>Jeton paketi seç</legend>
-  <label><input type="radio" name="token-pack" value="1" checked><strong>1 jeton</strong><span data-token-price="1"></span></label>
-  <label><input type="radio" name="token-pack" value="10"><strong>10 jeton</strong><span data-token-price="10"></span></label>
-  <label><input type="radio" name="token-pack" value="25"><strong>25 jeton</strong><span data-token-price="25"></span></label>
+  <label><input type="radio" name="token-pack" value="10" checked><span class="token-pack-detail"><strong>10 jeton</strong><small><span data-token-price="40"></span> <span>/ jeton</span></small></span><span data-token-price="400"></span></label>
+  <label><input type="radio" name="token-pack" value="25"><span class="token-pack-detail"><strong>25 jeton</strong><small><span data-token-price="39"></span> <span>/ jeton</span></small></span><span data-token-price="975"></span></label>
+  <label><input type="radio" name="token-pack" value="50"><span class="token-pack-detail"><strong>50 jeton</strong><small><span data-token-price="38"></span> <span>/ jeton</span></small></span><span data-token-price="1900"></span></label>
+  <label><input type="radio" name="token-pack" value="100"><span class="token-pack-detail"><strong>100 jeton</strong><small><span data-token-price="37"></span> <span>/ jeton</span></small></span><span data-token-price="3700"></span></label>
+  <label class="token-best"><input type="radio" name="token-pack" value="200"><span class="token-pack-detail"><strong>200 jeton</strong><small><span data-token-price="36"></span> <span>/ jeton</span></small></span><span data-token-price="7200"></span><span class="token-best-badge">En iyi teklif</span></label>
  </fieldset>
  <button class="token-checkout" type="button" disabled>Satın al</button>
  <p class="token-note" role="status">Satın alma henüz kullanıma açık değil.</p>

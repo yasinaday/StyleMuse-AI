@@ -15,6 +15,11 @@ Uygulama ücretsiz. Yapay zekâ işlemleri jetonla kullanılır.|The app is free
 Jeton paketi seç|Choose a token pack|Tokenpaket wählen|Выберите пакет токенов|اختر باقة رموز|Choisir un lot de jetons|टोकन पैक चुनें|选择点数包|トークンパックを選択
 1 jeton|1 token|1 Token|1 токен|رمز واحد|1 jeton|1 टोकन|1 点|1 トークン
 10 jeton|10 tokens|10 Token|10 токенов|10 رموز|10 jetons|10 टोकन|10 点|10 トークン
+50 jeton|50 tokens|50 Token|50 токенов|50 رمزًا|50 jetons|50 टोकन|50 点|50 トークン
+100 jeton|100 tokens|100 Token|100 токенов|100 رمز|100 jetons|100 टोकन|100 点|100 トークン
+200 jeton|200 tokens|200 Token|200 токенов|200 رمز|200 jetons|200 टोकन|200 点|200 トークン
+/ jeton|/ token|/ Token|/ токен|/ رمز|/ jeton|/ टोकन|/ 点|/ トークン
+En iyi teklif|Best offer|Bestes Angebot|Лучшее предложение|أفضل عرض|Meilleure offre|सबसे अच्छा ऑफ़र|最佳优惠|最もお得
 25 jeton|25 tokens|25 Token|25 токенов|25 رمزًا|25 jetons|25 टोकन|25 点|25 トークン
 Satın al|Buy|Kaufen|Купить|شراء|Acheter|खरीदें|购买|購入
 Satın alma henüz kullanıma açık değil.|Purchases are not available yet.|Käufe sind noch nicht verfügbar.|Покупки пока недоступны.|الشراء غير متاح بعد.|Les achats ne sont pas encore disponibles.|खरीदारी अभी उपलब्ध नहीं है।|购买功能尚未开放。|購入はまだ利用できません。
@@ -172,7 +177,7 @@ Seçilenleri kaydet ✓|Save selected ✓|Auswahl speichern ✓|Сохранит
   document.documentElement.dir=language==='ar'?'rtl':'ltr';
   field.value=language;
   const dollars=new Intl.NumberFormat(language,{style:'currency',currency:'USD',currencyDisplay:'code'});
-  document.querySelectorAll('[data-token-price]').forEach(el=>{el.textContent=dollars.format(Number(el.dataset.tokenPrice)*40/100)});
+  document.querySelectorAll('[data-token-price]').forEach(el=>{el.textContent=dollars.format(Number(el.dataset.tokenPrice)/100)});
   localize(document.body);
   observe();
  }
