@@ -130,6 +130,65 @@ Menüyü kapat|Close menu|Menü schließen|Закрыть меню|أغلق ال
 Ana menü|Main menu|Hauptmenü|Главное меню|القائمة الرئيسية|Menu principal|मुख्य मेनू|主菜单|メインメニュー
 ✦ Parçaları ayır|✦ Extract items|✦ Teile freistellen|✦ Выделить вещи|✦ افصل القطع|✦ Isoler les articles|✦ कपड़े अलग करें|✦ 提取服装|✦ 服を切り出す
 Seçilenleri kaydet ✓|Save selected ✓|Auswahl speichern ✓|Сохранить выбранное ✓|احفظ المحدد ✓|Enregistrer la sélection ✓|चुने हुए सहेजें ✓|保存所选 ✓|選択した服を保存 ✓
+Açık|Light|Hell|Светлый|فاتح|Clair|हल्का|浅色|明るい
+Orta|Medium|Mittel|Средний|متوسط|Moyen|मध्यम|中色|標準
+Koyu|Deep|Dunkel|Тёмный|داكن|Foncé|गहरा|深色|濃い
+Armut|Pear|Birne|Груша|كمثري|Poire|नाशपाती|梨形|洋ナシ型
+Dikdörtgen|Rectangle|Rechteck|Прямоугольник|مستطيل|Rectangle|आयताकार|矩形|長方形
+Kum saati|Hourglass|Sanduhr|Песочные часы|ساعة رملية|Sablier|घंटाघर|沙漏形|砂時計型
+Oval|Oval|Oval|Овал|بيضاوي|Ovale|अंडाकार|椭圆形|楕円形
+Ters üçgen|Inverted triangle|Umgekehrtes Dreieck|Перевёрнутый треугольник|مثلث مقلوب|Triangle inversé|उल्टा त्रिकोण|倒三角形|逆三角形
+Seçiniz|Select|Auswählen|Выберите|اختر|Sélectionner|चुनें|请选择|選択してください
+Daha fazla kategori|More categories|Weitere Kategorien|Другие категории|المزيد من الفئات|Plus de catégories|और श्रेणियाँ|更多分类|その他のカテゴリ
+Kişisel|Personal|Persönlich|Личные данные|شخصي|Personnel|व्यक्तिगत|个人|個人設定
+Veriler|Data|Daten|Данные|البيانات|Données|डेटा|数据|データ
+Yönetim|Administration|Verwaltung|Управление|الإدارة|Administration|प्रशासन|管理|管理
+Veri yedekleme|Data backup|Datensicherung|Резервное копирование|نسخ البيانات احتياطيًا|Sauvegarde des données|डेटा बैकअप|数据备份|データのバックアップ
+Oturum aç|Sign in|Anmelden|Войти|تسجيل الدخول|Se connecter|साइन इन करें|登录|ログイン
+Çıkış yap|Sign out|Abmelden|Выйти|تسجيل الخروج|Se déconnecter|साइन आउट करें|退出登录|ログアウト
+Görünüm|Appearance|Darstellung|Внешний вид|المظهر|Apparence|दिखावट|外观|外観
+Onayla|Confirm|Bestätigen|Подтвердить|تأكيد|Confirmer|पुष्टि करें|确认|確認
+Stil Jetonu kullanımı|Use Style Tokens|Style-Token verwenden|Использование токенов стиля|استخدام رموز الأناقة|Utiliser des jetons Style|स्टाइल टोकन का उपयोग|使用风格点数|スタイルトークンの使用
+Manken fotoğrafı|Mannequin photo|Modellfoto|Фото модели|صورة العارضة|Photo du mannequin|मॉडल की फ़ोटो|模特照片|モデルの写真
+Fotoğrafı büyüt|Enlarge photo|Foto vergrößern|Увеличить фото|تكبير الصورة|Agrandir la photo|फ़ोटो बड़ी करें|放大照片|写真を拡大
+Büyütmek için dokun|Tap to enlarge|Zum Vergrößern tippen|Нажмите для увеличения|اضغط للتكبير|Toucher pour agrandir|बड़ा करने के लिए टैप करें|轻触放大|タップして拡大
+Büyütülmüş kıyafet fotoğrafı|Enlarged clothing photo|Vergrößertes Kleidungsfoto|Увеличенное фото одежды|صورة مكبرة للملابس|Photo agrandie du vêtement|कपड़े की बड़ी फ़ोटो|放大的服装照片|拡大した衣服の写真
+Profil fotoğrafını değiştir|Change profile photo|Profilfoto ändern|Изменить фото профиля|تغيير صورة الملف الشخصي|Modifier la photo de profil|प्रोफ़ाइल फ़ोटो बदलें|更改头像|プロフィール写真を変更
+Seçilen kıyafetler|Selected clothes|Ausgewählte Kleidung|Выбранная одежда|الملابس المحددة|Vêtements sélectionnés|चुने हुए कपड़े|已选衣物|選択した服
+Kıyafet|Clothing|Kleidung|Одежда|ملابس|Vêtement|कपड़ा|衣物|衣服
+Şapka|Hat|Hut|Головной убор|قبعة|Chapeau|टोपी|帽子|帽子
+Kıyafet fotoğrafını kırp|Crop clothing photo|Kleidungsfoto zuschneiden|Обрезать фото одежды|قص صورة الملابس|Recadrer la photo du vêtement|कपड़े की फ़ोटो काटें|裁剪服装照片|服の写真を切り抜く
+Kıyafeti ortaya getir. Parmağınla kaydır, alttan büyüt.|Center the garment. Drag the photo and use the slider to zoom.|Kleidung zentrieren. Foto verschieben und mit dem Regler vergrößern.|Расположите одежду по центру. Перемещайте фото и меняйте масштаб ползунком.|وسّط قطعة الملابس. حرّك الصورة واستخدم شريط التكبير.|Centre le vêtement. Déplace la photo et zoome avec le curseur.|कपड़े को बीच में रखें। फ़ोटो खिसकाएँ और स्लाइडर से ज़ूम करें।|将衣物置于中央，拖动照片并用滑块缩放。|服を中央に置き、写真をドラッグしてスライダーで拡大します。
+Yalnızca seçtiğin alan kaydedilir. Arka plan otomatik silinmez.|Only the selected area is saved. The background stays in the photo.|Nur der ausgewählte Bereich wird gespeichert. Der Hintergrund bleibt erhalten.|Сохранится только выбранная область. Фон останется на фото.|تُحفظ المنطقة المحددة فقط، وتبقى الخلفية في الصورة.|Seule la zone sélectionnée est enregistrée. Le fond reste sur la photo.|केवल चुना क्षेत्र सहेजा जाएगा। पृष्ठभूमि फ़ोटो में रहेगी।|仅保存所选区域，照片背景会保留。|選択範囲だけが保存され、背景は写真に残ります。
+Yapay zekâ fotoğraftaki kıyafetleri bulur ve ayrı ayrı önerir. Kaydetmeden önce kontrol edebilirsin.|AI finds garments in the photo and suggests them individually. Review them before saving.|KI erkennt die Kleidung im Foto und schlägt sie einzeln vor. Prüfe sie vor dem Speichern.|ИИ находит одежду на фото и предлагает её по отдельности. Проверьте вещи перед сохранением.|يعثر الذكاء الاصطناعي على الملابس في الصورة ويقترحها كلًا على حدة. يمكنك مراجعتها قبل الحفظ.|L’IA repère les vêtements sur la photo et les propose séparément. Vérifie-les avant de les enregistrer.|एआई फ़ोटो में कपड़े पहचानकर अलग-अलग सुझाता है। सहेजने से पहले उन्हें देख लें।|AI 会识别照片中的衣物并分别推荐，保存前可逐件检查。|AIが写真の服を見つけて個別に提案します。保存前に確認できます。
+Fotoğrafı seçince kıyafete odaklanacak şekilde kırpabilirsin. Yalnızca bu cihazda saklanır.|After choosing a photo, crop it around the garment. It is stored only on this device.|Schneide das gewählte Foto um das Kleidungsstück zu. Es bleibt auf diesem Gerät.|Выбрав фото, обрежьте его по одежде. Фото хранится только на этом устройстве.|بعد اختيار الصورة، قصّها حول قطعة الملابس. تُحفظ على هذا الجهاز فقط.|Après avoir choisi une photo, recadre-la autour du vêtement. Elle est stockée uniquement sur cet appareil.|फ़ोटो चुनकर उसे कपड़े के आसपास काटें। वह केवल इस डिवाइस पर रहेगी।|选好照片后可围绕衣物裁剪。照片仅存储在此设备上。|写真を選んだら服に合わせて切り抜けます。写真はこの端末にのみ保存されます。
+Sunucu kontrol ediliyor…|Checking the server…|Server wird geprüft…|Проверяем сервер…|جارٍ التحقق من الخادم…|Vérification du serveur…|सर्वर जाँचा जा रहा है…|正在检查服务器…|サーバーを確認中…
+Hazırlanıyor…|Preparing…|Wird vorbereitet…|Подготовка…|جارٍ التحضير…|Préparation…|तैयारी हो रही है…|正在准备…|準備中…
+Gönderiliyor…|Sending…|Wird gesendet…|Отправка…|جارٍ الإرسال…|Envoi…|भेजा जा रहा है…|正在发送…|送信中…
+Sonuç bekleniyor…|Waiting for the result…|Warte auf das Ergebnis…|Ожидаем результат…|بانتظار النتيجة…|En attente du résultat…|नतीजे की प्रतीक्षा…|正在等待结果…|結果を待機中…
+Sağlayıcıdan sonuç bekleniyor.|Waiting for the provider’s result.|Warte auf das Ergebnis des Anbieters.|Ожидаем результат от сервиса.|بانتظار نتيجة مزود الخدمة.|En attente du résultat du fournisseur.|सेवा के नतीजे की प्रतीक्षा है।|正在等待服务商返回结果。|サービスからの結果を待っています。
+Sonuç hazır · Görseli kontrol et|Result ready · Review the image|Ergebnis fertig · Bild prüfen|Результат готов · Проверьте изображение|النتيجة جاهزة · راجع الصورة|Résultat prêt · Vérifie l’image|नतीजा तैयार · तस्वीर देखें|结果已就绪 · 检查图片|結果ができました · 画像を確認
+Giydirme sonucu kurtarıldı.|Try-on result recovered.|Anprobe-Ergebnis wiederhergestellt.|Результат примерки восстановлен.|تم استرجاع نتيجة التجربة.|Résultat d’essayage récupéré.|ट्राई-ऑन का नतीजा मिल गया।|已恢复试穿结果。|試着結果を復元しました。
+Yarım kalan giydirme var.|A try-on is still pending.|Eine Anprobe steht noch aus.|Примерка ещё не завершена.|هناك تجربة لم تكتمل بعد.|Un essayage est en attente.|एक ट्राई-ऑन बाकी है।|有一项试穿尚未完成。|未完了の試着があります。
+Kalan parçaları giydir|Try on remaining items|Restliche Teile anprobieren|Примерить оставшиеся вещи|جرّب القطع المتبقية|Essayer les pièces restantes|बाकी कपड़े पहनाकर देखें|试穿剩余单品|残りの服を試着
+Aynı giydirme işini kontrol et|Check the pending try-on|Offene Anprobe prüfen|Проверить текущую примерку|تحقق من التجربة المعلقة|Vérifier l’essayage en attente|बाकी ट्राई-ऑन जाँचें|查看待完成的试穿|保留中の試着を確認
+Önceki parça|Previous item|Vorheriges Teil|Предыдущая вещь|القطعة السابقة|Pièce précédente|पिछला कपड़ा|上一件|前のアイテム
+Bekleyen parça|Pending item|Ausstehendes Teil|Вещь в ожидании|القطعة المعلقة|Pièce en attente|बाकी कपड़ा|待处理单品|処理待ちのアイテム
+✦ Fotoğraf analiz ediliyor…|✦ Analyzing photo…|✦ Foto wird analysiert…|✦ Анализируем фото…|✦ جارٍ تحليل الصورة…|✦ Analyse de la photo…|✦ फ़ोटो का विश्लेषण हो रहा है…|✦ 正在分析照片…|✦ 写真を分析中…
+Fotoğraf hazırlanıyor…|Preparing photo…|Foto wird vorbereitet…|Подготовка фото…|جارٍ تجهيز الصورة…|Préparation de la photo…|फ़ोटो तैयार हो रही है…|正在准备照片…|写真を準備中…
+Üretiliyor…|Generating…|Wird erstellt…|Создание…|جارٍ الإنشاء…|Création…|बनाया जा रहा है…|正在生成…|生成中…
+Üretildi|Generated|Erstellt|Создано|تم الإنشاء|Créé|बन गया|已生成|生成済み
+Henüz kayıt yok.|No entries yet.|Noch keine Einträge.|Записей пока нет.|لا توجد سجلات بعد.|Aucune entrée pour l’instant.|अभी कोई रिकॉर्ड नहीं है।|暂无记录。|記録はまだありません。
+Alım ve kullanım geçmişi|Purchase and usage history|Kauf- und Nutzungsverlauf|История покупок и использования|سجل الشراء والاستخدام|Historique des achats et de l’utilisation|खरीद और उपयोग का इतिहास|购买及使用记录|購入と利用の履歴
+Henüz jeton hareketi yok.|No token activity yet.|Noch keine Token-Aktivität.|Операций с токенами пока нет.|لا توجد حركات للرموز بعد.|Aucun mouvement de jetons pour l’instant.|अभी कोई टोकन गतिविधि नहीं है।|暂无点数变动。|トークンの利用履歴はまだありません。
+Google Play satın alma henüz açık değil.|Google Play purchases are not available yet.|Google-Play-Käufe sind noch nicht verfügbar.|Покупки в Google Play пока недоступны.|عمليات الشراء عبر Google Play غير متاحة بعد.|Les achats Google Play ne sont pas encore disponibles.|Google Play पर खरीदारी अभी उपलब्ध नहीं है।|Google Play 购买尚未开放。|Google Playでの購入はまだ利用できません。
+{n} parça|{n} items|{n} Teile|Вещей: {n}|القطع: {n}|{n} pièces|{n} कपड़े|{n} 件|{n} 点
+{n} parça seçildi.|{n} items selected.|{n} Teile ausgewählt.|Выбрано вещей: {n}.|القطع المحددة: {n}.|{n} pièces sélectionnées.|{n} कपड़े चुने गए।|已选择 {n} 件。|{n} 点を選択しました。
+{n} ürün seçili|{n} products selected|{n} Produkte ausgewählt|Выбрано товаров: {n}|المنتجات المحددة: {n}|{n} articles sélectionnés|{n} उत्पाद चुने गए|已选择 {n} 件商品|{n} 点の商品を選択
+✦ {n} ürün tespit edildi.|✦ {n} items detected.|✦ {n} Teile erkannt.|✦ Обнаружено вещей: {n}.|✦ القطع المكتشفة: {n}.|✦ {n} articles détectés.|✦ {n} कपड़े मिले।|✦ 已识别 {n} 件衣物。|✦ {n} 点を検出しました。
+Jeton bakiyesi doğrulanamadı.|Could not verify token balance.|Token-Guthaben konnte nicht geprüft werden.|Не удалось проверить баланс токенов.|تعذّر التحقق من رصيد الرموز.|Impossible de vérifier le solde de jetons.|टोकन शेष की पुष्टि नहीं हो सकी।|无法验证点数余额。|トークン残高を確認できませんでした。
+Fotoğraf açılamadı|Could not open the photo|Foto konnte nicht geöffnet werden|Не удалось открыть фото|تعذّر فتح الصورة|Impossible d’ouvrir la photo|फ़ोटो नहीं खुल सकी|无法打开照片|写真を開けませんでした
+Önce üst ve alt giyim veya elbise seç.|Choose a top and bottoms or a dress first.|Wähle zuerst ein Ober- und Unterteil oder ein Kleid.|Сначала выберите верх и низ или платье.|اختاري قطعة علوية وسفلية أو فستانًا أولًا.|Choisis d’abord un haut et un bas ou une robe.|पहले ऊपर और नीचे के कपड़े या एक ड्रेस चुनें।|请先选择上装和下装，或选择连衣裙。|先に上下の服かワンピースを選んでください。
 `;
  const dictionary=new Map(phrases.trim().split('\n').map(line=>{const row=line.split('|');return [row[0],row]}));
  const field=document.getElementById('app-language');
@@ -138,12 +197,22 @@ Seçilenleri kaydet ✓|Save selected ✓|Auswahl speichern ✓|Сохранит
  let language='tr';
  try{language=localStorage.getItem('sm-language')||'tr'}catch{}
  if(!languages.includes(language))language='tr';
- const translate=value=>{
+ function translateSegment(value){
   const trimmed=value.trim();
   const row=dictionary.get(trimmed);
-  if(!row||language==='tr')return value;
-  return value.replace(trimmed,row[languages.indexOf(language)]||trimmed);
+  if(row)return value.replace(trimmed,row[languages.indexOf(language)]||trimmed);
+  const numbered=trimmed.match(/^(✦ )?(\d+)( .+)$/);
+  if(!numbered)return value;
+  const template=(numbered[1]||'')+'{n}'+numbered[3];
+  const pattern=dictionary.get(template)?.[languages.indexOf(language)];
+  return pattern?value.replace(trimmed,pattern.replace('{n}',new Intl.NumberFormat(language).format(Number(numbered[2])))):value;
+ }
+ const translate=value=>{
+  if(language==='tr')return value;
+  const trimmed=value.trim();
+  return dictionary.has(trimmed)?translateSegment(value):value.split(' · ').map(translateSegment).join(' · ');
  };
+ window.styleMuseSourceText=element=>Array.from(element.childNodes,node=>node.nodeType===Node.TEXT_NODE?(originals.get(node)?.original??node.data):node.textContent).join('');
  const observer=new MutationObserver(records=>{
   observer.disconnect();
   for(const record of records){
