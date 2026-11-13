@@ -532,6 +532,10 @@ body:not(.on-home) main :is(button,input,select,.upload-button):focus-visible{ou
 #tryon .sm-stage-suggest{background:#ead0ed!important;color:#51265a!important}
 #tryon #mannequin-ai-status:empty{display:none}
 #tryon .sm-save-main{margin-block:8px 14px}
+#tryon :is(.sm-save-main,.mannequin-upload,.mannequin-ai-button){
+ box-sizing:border-box;display:flex;align-items:center;justify-content:center;
+ min-height:48px;padding:8px 12px;line-height:1.25;text-align:center;
+}
 @media(max-width:600px){
  #tryon .mannequin-stage{max-height:max(290px,calc(100dvh - 245px))!important}
 }
