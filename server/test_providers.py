@@ -72,10 +72,21 @@ class MaskTests(unittest.TestCase):
             p.extract_items(photo, [{'input': {'text': 'top'}, 'masks': [[[[1]]]], 'scores': [0.9]}])
 
 
+def detector_schema():
+    types = {'image': 'string', 'prompts': 'array', 'confidence_threshold': 'number',
+             'visualize': 'boolean', 'offset_masks': 'boolean', 'split_output': 'boolean',
+             'concat_input': 'boolean', 'backbone_output': 'boolean'}
+    properties = {key: {'type': value} for key, value in types.items()}
+    properties['prompts']['items'] = {'type': 'string'}
+    properties['offset_masks']['default'] = False
+    return {'id': p.SAM_VERSION, 'openapi_schema': {'components': {'schemas': {
+        'Input': {'required': ['image', 'prompts'], 'properties': properties}}}}}
+
+
 class DetectTests(unittest.TestCase):
     def test_schema_verified_before_single_submit_then_bounded_poll(self):
         self.assertTrue(hasattr(p, 'RealProviders'), 'missing Replicate adapter')
-        schema = json.loads(Path('/opt/stylemuse-ai/model-schema-current.json').read_text())
+        schema = detector_schema()
         seen = []
         result = {'input': {'text': 'jacket'}, 'scores': [.9], 'masks': [[[[0, 0, 0], [0, 1, 1], [0, 1, 0]]]]}
         def handler(req):
@@ -83,7 +94,7 @@ class DetectTests(unittest.TestCase):
             if '/versions/' in req.url.path:
                 return httpx.Response(200, json=schema)
             if req.method == 'POST':
-                self.assertEqual(req.headers['cancel-after'], '40s')
+                self.assertEqual(req.headers['cancel-after'], '90s')
                 payload = json.loads(req.content)
                 self.assertEqual(payload['version'], p.SAM_VERSION)
                 self.assertEqual([json.loads(x)['text'] for x in payload['input']['prompts']], list(p.CATEGORIES))
@@ -133,7 +144,7 @@ class GenerateTests(unittest.TestCase):
 
 class LifecycleTests(unittest.TestCase):
     def test_poll_exhaustion_cancels_once_for_both_providers(self):
-        schema = json.loads(Path('/opt/stylemuse-ai/model-schema-current.json').read_text())
+        schema = detector_schema()
         for provider in ('replicate', 'fal'):
             with self.subTest(provider=provider):
                 seen = []
@@ -177,7 +188,7 @@ class TelemetryTests(unittest.TestCase):
         self.assertTrue(hasattr(p.RealProviders, 'from_env'), 'missing inert environment bootstrap')
         from unittest.mock import patch
         events, seen = [], []
-        schema = json.loads(Path('/opt/stylemuse-ai/model-schema-current.json').read_text())
+        schema = detector_schema()
         def handler(req):
             seen.append(req)
             if '/versions/' in req.url.path:
