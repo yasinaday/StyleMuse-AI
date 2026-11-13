@@ -270,6 +270,8 @@ Kıyafet parçası {n}|Garment {n}|Kleidungsstück {n}|Вещь {n}|قطعة م�
 Üretim başarısız.|Generation failed.|Erstellung fehlgeschlagen.|Не удалось создать изображение.|تعذّر إنشاء الصورة.|La génération a échoué.|तस्वीर बन नहीं सकी।|生成失败。|生成に失敗しました。
 Geri yüklenemedi.|Could not restore the backup.|Wiederherstellung fehlgeschlagen.|Не удалось восстановить резервную копию.|تعذّرت استعادة النسخة الاحتياطية.|Impossible de restaurer la sauvegarde.|बैकअप बहाल नहीं हो सका।|无法恢复备份。|バックアップを復元できませんでした。
 Paylaşım başlatılamadı.|Could not start sharing.|Teilen konnte nicht gestartet werden.|Не удалось начать отправку.|تعذّر بدء المشاركة.|Impossible de lancer le partage.|शेयर करना शुरू नहीं हो सका।|无法开始分享。|共有を開始できませんでした。
+Elle kırp|Crop manually|Manuell zuschneiden|Обрезать вручную|قص يدويًا|Recadrer manuellement|हाथ से काटें|手动裁剪|手動で切り抜く
+Ayrılabilecek kıyafet bulunamadı. Elle kırpma seçeneği kullanılabilir.|No clothing suitable for extraction was found. You can crop manually.|Keine geeignete Kleidung gefunden. Du kannst das Foto manuell zuschneiden.|Не найдено подходящей одежды. Фото можно обрезать вручную.|لم يُعثر على ملابس قابلة للفصل. يمكنك قص الصورة يدويًا.|Aucun vêtement à isoler n’a été trouvé. Tu peux recadrer la photo manuellement.|अलग करने लायक कपड़े नहीं मिले। फ़ोटो को हाथ से काट सकते हैं।|未找到可分离的衣物，可以手动裁剪。|分離できる服が見つかりませんでした。手動で切り抜けます。
 `;
  const dictionary=new Map(phrases.trim().split('\n').map(line=>{const row=line.split('|');return [row[0],row]}));
  const field=document.getElementById('app-language');
