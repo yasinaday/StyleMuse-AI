@@ -996,7 +996,9 @@ tokenConfirmForm.addEventListener('submit',async event=>{
  finally{button.disabled=false}
 });
 function renderStyleMuseAccount(data){
+ const previousNameKey=profileNameKey();
  styleMuseAccount=data;
+ if(previousNameKey!==profileNameKey()||document.getElementById('profile-name-actions').hidden)resetProfileName();
  if(data?.user?.admin!==true){
   tokenLoadId=null;
   document.getElementById('token-confirm-form').reset();
@@ -1075,13 +1077,21 @@ async function canUseStyleTokens(required=1){
  openHomePro();
  return false;
 }
+function profileNameKey(){
+ const user=styleMuseAccount?.user;
+ return user?.id?'sm-name:'+user.provider+':'+user.id:'sm-name';
+}
+function savedProfileName(){
+ const user=styleMuseAccount?.user;
+ return localStorage.getItem(profileNameKey())||(user?.name?.trim()||user?.email?.split('@')[0]||'').slice(0,60);
+}
 function refreshProfileName(){
- const name=styleMuseAccount?.user?.name||localStorage.getItem('sm-name')||'';
+ const name=savedProfileName();
  document.getElementById('profile-display-name').textContent=name||'Profil';
 }
 function resetProfileName(){
  const field=document.getElementById('name');
- field.value=localStorage.getItem('sm-name')||'';
+ field.value=savedProfileName();
  document.getElementById('profile-name-actions').hidden=true;
 }
 async function changeProfilePhoto(input){
@@ -1110,11 +1120,13 @@ function initProfileEditing(){
  refreshProfileName();
  const photo=localStorage.getItem('sm-profile-photo');
  if(photo?.startsWith('data:image/jpeg;base64,'))document.getElementById('profile-avatar').src=photo;
- field.addEventListener('input',()=>{actions.hidden=field.value.trim()===(localStorage.getItem('sm-name')||'')});
+ field.addEventListener('input',()=>{actions.hidden=field.value.trim()===savedProfileName()});
  field.addEventListener('keydown',event=>{if(event.key==='Escape')resetProfileName()});
  document.getElementById('profile-name-form').addEventListener('submit',event=>{
   event.preventDefault();
-  localStorage.setItem('sm-name',field.value.trim());
+  const name=field.value.trim();
+  if(name)localStorage.setItem(profileNameKey(),name);
+  else localStorage.removeItem(profileNameKey());
   resetProfileName();
   refreshProfileName();
  });
