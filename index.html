@@ -587,7 +587,7 @@ html[dir="rtl"] #profile .sm-page-hero img{right:auto;left:0}
 .token-pack-detail small [data-token-price]{font-weight:500}
 .token-packs .token-best{border-color:#f5d68e;margin-top:16px}
 .token-best-badge{position:absolute;inset-block-start:-10px;inset-inline-end:10px;padding:2px 8px;border-radius:20px;background:#f5d68e;color:#452449;font-size:11px;font-weight:750}
-body:not(.on-home):has(#profile:not(.hide)){background:#faf8f4;color:#302c29}
+
 #profile{color:#302c29;padding-bottom:14px}
 .profile-card,.profile-list{background:#fff;border:1px solid #ebe7e1;border-radius:19px}
 .profile-card{padding:17px;margin:2px 0 15px}
@@ -607,6 +607,24 @@ body:not(.on-home):has(#profile:not(.hide)){background:#faf8f4;color:#302c29}
 .profile-measures input{width:100%}
 #profile .profile-admin .result-card{margin:10px 0!important}
 #style-profile-status:empty{display:none}
+#profile{color:#49234d}
+#profile .profile-card{background:radial-gradient(ellipse at 96% 0,#ab6a9c 0,transparent 58%),linear-gradient(135deg,#512660,#7a437e);border-color:#9d649e;box-shadow:0 10px 24px #6d31752b}
+#profile .profile-identity h1{color:#fff8ff}
+#profile .profile-plan{background:#fff2fa26;color:#fff7fc}
+#profile .profile-tokens{background:#391a44}
+#profile .profile-list{background:#fff8fcdc;border-color:#ead4ea}
+#profile .profile-group-title{color:#79527d}
+#profile .profile-list details+details{border-color:#ead8ea}
+#profile .profile-list summary::after{color:#98619a}
+#profile .profile-avatar-button{position:relative;flex:none;width:82px;height:82px;padding:0;border-radius:50%;background:#43244b;border:0;box-shadow:none}
+.profile-avatar-button span{position:absolute;inset-inline-end:0;bottom:0;background:#f6e6f6;color:#542b60;border-radius:50%;width:26px;height:26px;display:grid;place-items:center}
+.profile-name-row{display:flex;gap:7px;align-items:center}
+.profile-name-row input{flex:1;min-width:0}
+#profile-name-actions{display:flex;gap:5px;flex:none}
+#profile-name-actions[hidden]{display:none}
+#profile-name-actions button{min-width:40px;min-height:40px;padding:6px;background:#63356e;color:#fff;border-radius:10px}
+#profile-name-actions button:last-child{background:#efddee;color:#63356e}
+#profile-edit-status:empty{display:none}
 </style></head><body class="on-home"><header id="site-brand-header"><button class="home-icon" type="button" aria-label="Menüyü aç" aria-controls="home-menu" aria-expanded="false" onclick="toggleHomeMenu()"><svg class="" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18"/></svg></button><div class="brand"><svg class="home-dress" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 2v3L5 8l3 5-4 9h16l-4-9 3-5-5-3V2M8 13h8M10 2h4"/><path d="m21 2 .5 1.5L23 4l-1.5.5L21 6l-.5-1.5L19 4l1.5-.5Z"/></svg><span>StyleMuse AI</span></div><button class="home-pro" type="button" onclick="openHomePro()" aria-label="Stil Jetonu"><svg class="" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 7 4 4 5-7 5 7 4-4-3 13H6Z"/></svg><span>Stil Jetonu</span></button><button class="home-icon" type="button" aria-label="Profil" onclick="tab('profile')"><svg class="" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="7" r="4"/><path d="M4 22v-3a8 8 0 0 1 16 0v3Z"/></svg></button></header>
 <dialog id="home-menu" aria-label="Gezinme menüsü"><div class="home-dialog-head"><strong>StyleMuse AI</strong><button type="button" onclick="closeHomeMenu()" aria-label="Menüyü kapat">×</button></div><button type="button" onclick="closeHomeMenu();tab('discover')">Keşfet</button><button type="button" onclick="closeHomeMenu();tab('closet')">Giysiler</button><button type="button" onclick="closeHomeMenu();tab('outfits')">Kombinler</button><button type="button" onclick="closeHomeMenu();tab('tryon')">Mankenim</button><button type="button" onclick="closeHomeMenu();tab('profile')">Profil</button></dialog><dialog id="home-pro" aria-labelledby="token-title">
  <div class="home-dialog-head"><span class="token-mark" aria-hidden="true">✦</span><button type="button" onclick="this.closest('dialog').close()" aria-label="Kapat">×</button></div>
@@ -629,7 +647,7 @@ body:not(.on-home):has(#profile:not(.hide)){background:#faf8f4;color:#302c29}
 <section id="tryon" class="hide"><div class="sm-page-hero"><div class="sm-page-copy"><h1>Mankenim</h1><p>Dolabından seç, manken üzerinde dene.</p></div><img src="assets/home/tryon.webp" alt="" decoding="async"></div><div class="mannequin-layout"><div class="mannequin-stage mannequin-photo-stage"><div class="sm-stage-grid"><div id="mannequin-selected" class="sm-stage-items" aria-label="Seçilen kıyafetler"></div><button type="button" class="secondary sm-stage-suggest" onclick="suggestMannequin()"><span>KOMBİN</span><span>ÖNER</span></button><button type="button" class="secondary sm-stage-clear" onclick="clearMannequin()">Temizle</button><div class="sm-stage-photo"><img id="mannequin-person" alt="Manken fotoğrafı" hidden><div id="mannequin-placeholder"><p>Manken hazırlanıyor…</p></div></div><div id="mannequin-image-label" class="mannequin-label sm-progress-track" role="status" aria-live="polite"><div id="mannequin-progress-fill" class="sm-progress-fill"></div><span id="mannequin-progress-text">Manken hazırlanıyor…</span></div></div></div><button type="button" id="tryon-save-selection" class="secondary sm-save-main" onclick="saveSelectedLook()">♡ Kombinimi kaydet</button><div class="mannequin-controls"><label class="secondary mannequin-upload"><span>＋ Kendi fotoğrafımı yükle</span><input type="file" accept="image/png,image/jpeg" id="mannequin-upload" onchange="setMannequinPhoto(event)" hidden></label><p id="mannequin-status" class="notice" aria-live="polite" hidden></p><button type="button" class="primary mannequin-ai-button" onclick="requestVirtualTryOn()">✦ Yapay zekâ ile gerçekçi giydir</button><p id="mannequin-ai-status" class="notice" role="status"></p><h2>Dolabımdan seç</h2><div id="try-choices" class="grid"></div></div></div></section>
 <section id="profile" class="hide">
 <div class="profile-card">
- <div class="profile-identity"><img src="assets/profile-avatar.webp" alt="" width="82" height="82"><div><h1 id="profile-display-name">Profil</h1><span class="profile-plan">Ücretsiz plan</span></div></div>
+ <div class="profile-identity"><button type="button" class="profile-avatar-button" aria-label="Profil fotoğrafını değiştir" onclick="document.getElementById('profile-photo').click()"><img id="profile-avatar" src="assets/profile-avatar.webp" alt="" width="82" height="82"><span aria-hidden="true">✎</span></button><input id="profile-photo" type="file" accept="image/*" hidden onchange="changeProfilePhoto(this)"><div><h1 id="profile-display-name">Profil</h1><span class="profile-plan">Ücretsiz plan</span></div></div>
  <button class="profile-tokens" type="button" onclick="openHomePro()">✦ <span>Stil Jetonu Al</span></button>
 </div>
 <h2 class="profile-group-title">Kişisel</h2>
@@ -642,7 +660,7 @@ body:not(.on-home):has(#profile:not(.hide)){background:#faf8f4;color:#302c29}
  <label for="favorite">En sevdiğin tarz</label><select id="favorite" onchange="localStorage.setItem('sm-style',this.value)"><option>Rahat ve şık</option><option>Minimal</option><option>Romantik</option><option>Modern klasik</option></select>
  <button class="profile-tokens" type="submit">Kaydet</button><p id="style-profile-status" role="status"></p>
  </form></details>
- <details><summary><span>Bilgilerim</span></summary><div class="profile-fields"><label for="name">Nasıl hitap edelim?</label><input id="name" placeholder="Adın" oninput="localStorage.setItem('sm-name',this.value);refreshProfileName()"><p id="profile-stats"></p></div></details>
+ <details><summary><span>Bilgilerim</span></summary><div class="profile-fields"><label for="name">Nasıl hitap edelim?</label><form id="profile-name-form"><div class="profile-name-row"><input id="name" placeholder="Adın" maxlength="60"><div id="profile-name-actions" hidden><button type="submit" aria-label="Kaydet" title="Kaydet">✓</button><button type="button" aria-label="Vazgeç" title="Vazgeç" onclick="resetProfileName()">×</button></div></div></form><p id="profile-edit-status" role="status"></p><p id="profile-stats"></p></div></details>
 </div>
 <h2 class="profile-group-title">Görünüm</h2>
 <div class="profile-list"><details><summary><span>Uygulama dili</span></summary><div class="profile-fields"><label for="app-language">Uygulama dili</label>
@@ -919,8 +937,48 @@ function readStyleProfile(){
  try{return JSON.parse(localStorage.getItem('sm-style-profile'))||{}}catch{return {}}
 }
 function refreshProfileName(){
- const name=document.getElementById('name').value.trim();
+ const name=localStorage.getItem('sm-name')||'';
  document.getElementById('profile-display-name').textContent=name||'Profil';
+}
+function resetProfileName(){
+ const field=document.getElementById('name');
+ field.value=localStorage.getItem('sm-name')||'';
+ document.getElementById('profile-name-actions').hidden=true;
+}
+async function changeProfilePhoto(input){
+ const file=input.files?.[0];
+ if(!file)return;
+ input.disabled=true;
+ const status=document.getElementById('profile-edit-status');
+ try{
+  if(!file.type.startsWith('image/')||file.size>15*1024*1024)throw Error();
+  const bitmap=await createImageBitmap(file);
+  const canvas=document.createElement('canvas');
+  canvas.width=canvas.height=320;
+  const size=Math.min(bitmap.width,bitmap.height);
+  try{canvas.getContext('2d').drawImage(bitmap,(bitmap.width-size)/2,(bitmap.height-size)/2,size,size,0,0,320,320)}finally{bitmap.close()}
+  const photo=canvas.toDataURL('image/jpeg',.86);
+  localStorage.setItem('sm-profile-photo',photo);
+  document.getElementById('profile-avatar').src=photo;
+  status.textContent='';
+ }catch{status.textContent='Profil fotoğrafı kaydedilemedi. 15 MB altında bir görsel seç.';status.scrollIntoView({block:'nearest'})}
+ finally{input.value='';input.disabled=false}
+}
+function initProfileEditing(){
+ const field=document.getElementById('name');
+ const actions=document.getElementById('profile-name-actions');
+ resetProfileName();
+ refreshProfileName();
+ const photo=localStorage.getItem('sm-profile-photo');
+ if(photo?.startsWith('data:image/jpeg;base64,'))document.getElementById('profile-avatar').src=photo;
+ field.addEventListener('input',()=>{actions.hidden=field.value.trim()===(localStorage.getItem('sm-name')||'')});
+ field.addEventListener('keydown',event=>{if(event.key==='Escape')resetProfileName()});
+ document.getElementById('profile-name-form').addEventListener('submit',event=>{
+  event.preventDefault();
+  localStorage.setItem('sm-name',field.value.trim());
+  resetProfileName();
+  refreshProfileName();
+ });
 }
 function initStyleProfile(){
  const form=document.getElementById('style-profile-form');
@@ -1112,5 +1170,5 @@ function renderProviderBalance(){const input=document.getElementById('sm-replica
 function saveProviderBalance(){const el=document.getElementById('sm-replicate-credit');if(!el||el.value.trim()===''||!Number.isFinite(Number(el.value))||Number(el.value)<0||Number(el.value)>100000){alert('Geçerli bir USD tutarı gir.');return;}localStorage.setItem('sm-replicate-credit-note',JSON.stringify({amount:Number(el.value),at:new Date().toISOString()}));renderProviderBalance();}
 function renderProfile(){renderProviderBalance();refreshProfileName();document.getElementById('profile-stats').textContent=getItems().length+' kıyafet · '+savedLooksCache.filter(validLook).length+' kayıtlı kombin'}
 async function exportData(){const keys=['sm-items','sm-combos','sm-name','sm-style'],data={version:1,exported:new Date().toISOString()};keys.forEach(k=>data[k]=localStorage.getItem(k));data['sm-items']=JSON.stringify(getItems());const url=URL.createObjectURL(new Blob([JSON.stringify(data)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='stylemuse-yedek.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
-document.querySelector('.nav').addEventListener('click',function(event){const button=event.target.closest('button[data-tab]');if(!button)return;event.preventDefault();try{tab(button.dataset.tab)}catch(err){console.error('StyleMuse navigation',err);document.querySelectorAll('main section').forEach(section=>section.classList.toggle('hide',section.id!==button.dataset.tab));document.querySelectorAll('.nav button').forEach(item=>item.classList.toggle('active',item===button));document.body.classList.toggle('on-home',button.dataset.tab==='discover');window.scrollTo(0,0)}});try{document.getElementById('name').value=localStorage.getItem('sm-name')||'';document.getElementById('favorite').value=localStorage.getItem('sm-style')||'Rahat ve şık';render();renderSaved();renderHomeRecent();loadWardrobe();loadSavedLooks();initStyleProfile();initReadyMannequin();}catch(err){console.error('StyleMuse init',err)}
+document.querySelector('.nav').addEventListener('click',function(event){const button=event.target.closest('button[data-tab]');if(!button)return;event.preventDefault();try{tab(button.dataset.tab)}catch(err){console.error('StyleMuse navigation',err);document.querySelectorAll('main section').forEach(section=>section.classList.toggle('hide',section.id!==button.dataset.tab));document.querySelectorAll('.nav button').forEach(item=>item.classList.toggle('active',item===button));document.body.classList.toggle('on-home',button.dataset.tab==='discover');window.scrollTo(0,0)}});try{document.getElementById('name').value=localStorage.getItem('sm-name')||'';document.getElementById('favorite').value=localStorage.getItem('sm-style')||'Rahat ve şık';render();renderSaved();renderHomeRecent();loadWardrobe();loadSavedLooks();initProfileEditing();initStyleProfile();initReadyMannequin();}catch(err){console.error('StyleMuse init',err)}
 </script><script src="locale.js" defer></script></body></html>
