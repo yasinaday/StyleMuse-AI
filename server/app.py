@@ -747,7 +747,7 @@ def create_app(settings=None, provider=None):
             return public_result(jid,result)
         except BaseException as exc:
             store.finish_operation('detect:' + jid, success=False)
-            if not isinstance(exc, Exception):
+            if isinstance(exc, HTTPException) or not isinstance(exc, Exception):
                 raise
             raise HTTPException(502, 'provider_failed_no_retry') from None
         finally:
@@ -800,7 +800,7 @@ def create_app(settings=None, provider=None):
         except BaseException as exc:
             for i in pending:
                 store.finish_operation('generate:' + payload.job_id + ':' + i, success=False)
-            if not isinstance(exc, Exception):
+            if isinstance(exc, HTTPException) or not isinstance(exc, Exception):
                 raise
             raise HTTPException(502,'provider_failed_no_retry') from None
         finally:
@@ -837,9 +837,17 @@ def create_app(settings=None, provider=None):
                 db.execute('UPDATE jobs SET state=?,result=? WHERE id=?',
                            ('pending', json.dumps({'request_id': rid}), jid))
             return {'job_id': jid, 'state': 'pending'}
-        except Exception:
+        except Exception as exc:
+            from virtual_tryon import TryOnError
             store.finish_operation(operation, success=False)
             store.release()
+            if isinstance(exc, HTTPException):
+                raise
+            if isinstance(exc, TryOnError) and str(exc) in {
+                'tryon_provider_http_400', 'tryon_provider_http_401', 'tryon_provider_http_402',
+                'tryon_provider_http_403', 'tryon_provider_http_422', 'tryon_provider_http_429',
+            }:
+                raise HTTPException(502, str(exc)) from None
             raise HTTPException(502, 'provider_failed_no_retry') from None
 
     @app.post('/api/tryon/pending')

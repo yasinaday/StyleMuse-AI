@@ -4,6 +4,7 @@ IMPORTANT: Call submit() only after the authenticated server has atomically
 claimed a single-use quote/consent and checked the current fal credit balance.
 Do not retry ambiguous POST failures: they may already have been billed.
 """
+import logging
 import re
 import time
 from urllib.parse import urlsplit
@@ -54,6 +55,12 @@ class VirtualTryOn:
             if not isinstance(result, dict):
                 raise ValueError()
             return result
+        except httpx.HTTPStatusError as error:
+            status = error.response.status_code
+            logging.getLogger(__name__).warning("fal try-on %s returned HTTP %s", method, status)
+            if method == "POST" and status in (400, 401, 402, 403, 422, 429):
+                raise TryOnError(f"tryon_provider_http_{status}") from None
+            raise TryOnError("provider_request_failed") from None
         except (httpx.HTTPError, ValueError):
             raise TryOnError("provider_request_failed") from None
 
