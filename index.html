@@ -101,7 +101,7 @@ button{background:#292522;border-radius:9px}button.secondary{background:#f0ece6;
 .ai-generated img{height:280px;width:100%;object-fit:contain}
 .ai-generated select{font-size:15px;padding:10px}
 .ai-comparison p{font-size:14px}.ai-comparison button{min-height:48px;font-size:15px;padding:12px;margin:4px 0}
-.ai-comparison small{display:block;font-size:14px}.ai-generated .ai-piece-select::after{content:'fal.ai — üretilen ürün';display:block;font-weight:650;padding:8px 0}
+.ai-comparison small{display:block;font-size:14px}.ai-generated .ai-piece-select::after{content:'Üretilen ürün';display:block;font-weight:650;padding:8px 0}
 .ai-review-budget{font-size:14px;color:#563449;background:#f1e9ed;padding:12px;border-radius:12px}
 /* Focused review keeps the source and result complete without repeating the outfit. */
 .ai-product-nav{display:none}
@@ -749,7 +749,7 @@ async function aiRequest(path,payload,timeout=120000){
  if(url.protocol!=='https:')throw Error('HTTPS gerekli.');
  const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),timeout);
  let response,result;try{response=await fetch(url,{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload),signal:controller.signal});result=await response.json()}catch(error){if(controller.signal.aborted)throw Error("Sunucu zamanında yanıt vermedi.");throw error}finally{clearTimeout(timer)}
- if(!response.ok){const detail=result?.detail??result?.error;const code=typeof detail==='string'?detail:detail?.code;if(code==='provider_failed_no_retry')throw Error('Yapay zekâ sağlayıcısı işlemi tamamlayamadı. İşlem durumu doğrulanamadı.');if(code==='tryon_provider_http_400'||code==='tryon_provider_http_422')throw Error('fal.ai giydirme isteğini reddetti. Görsel veya istek biçimi sunucuda kontrol edilmeli.');if(code==='tryon_provider_http_401'||code==='tryon_provider_http_403')throw Error('fal.ai sunucu yetkisini doğrulayamadı.');if(code==='tryon_provider_http_402')throw Error('fal.ai kredi bakiyesi yetersiz.');if(code==='tryon_provider_http_429')throw Error('fal.ai istek sınırına ulaştı.');if(code==='style_tokens_empty'){openHomePro();void refreshStyleMuseAccount().catch(()=>{});throw Error('Stil Jetonu kalmadı.')}if(code==='busy_or_ambiguous'){const error=Error('Sunucuda önceki bir AI işlemi hâlâ bekliyor veya sonucu belirsiz.');error.code=code;throw error}const provider=(path==='/api/detect'||(path==='/api/quote'&&payload.action==='detect'))?'Replicate':'fal.ai';if(code==='paid_inference_not_authorized')throw Error('Bu oturum GitHub sahibi olarak doğrulanmadı. Profilim bölümünden GitHub ile yeniden giriş yap. Ücretli istek yapılmadı.');if(code==='provider_credit_unavailable')throw Error(provider+' gerçek kredi bakiyesi doğrulanamadı; ücretli işlem engellendi. Replicate kullanımı için güncel bakiye kaydı sunucuya girilmeli.');if(code==='provider_credit_insufficient')throw Error(provider+' gerçek kredi bakiyesi bu işlem için yetersiz; ücretli işlem yapılmadı.');if(code==='quote_invalid_or_expired'||code==='cost_confirmation_required')throw Error('Maliyet teklifi geçersiz, kullanılmış veya süresi dolmuş. Yeni teklif ve açık onay gerekir; otomatik tekrar yapılmadı.');if(response.status===401||(response.status===403&&['paid_inference_not_authorized','oauth_account_not_allowed'].includes(code))){aiSessionPromise=null;updateGithubStatus({authenticated:false});}const error=Error(typeof detail==='string'?detail.slice(0,600):'Sunucu hatası: '+JSON.stringify(detail??response.status).slice(0,600));error.code=code;throw error;}
+ if(!response.ok){const detail=result?.detail??result?.error;const code=typeof detail==='string'?detail:detail?.code;if(code==='provider_failed_no_retry'||code?.startsWith('tryon_provider_http_'))throw Error('Yapay zekâ işlemi tamamlanamadı.');if(code==='style_tokens_empty'){openHomePro();void refreshStyleMuseAccount().catch(()=>{});throw Error('Stil Jetonu kalmadı.')}if(code==='busy_or_ambiguous'){const error=Error('Sunucuda önceki bir AI işlemi hâlâ bekliyor veya sonucu belirsiz.');error.code=code;throw error}if(code==='paid_inference_not_authorized')throw Error('Profil bölümünden oturum aç.');if(code==='provider_credit_unavailable'||code==='provider_credit_insufficient')throw Error('Yapay zekâ hizmeti şu anda kullanılamıyor. Daha sonra tekrar dene.');if(code==='quote_invalid_or_expired'||code==='cost_confirmation_required')throw Error('Maliyet teklifi geçersiz, kullanılmış veya süresi dolmuş. Yeni teklif ve açık onay gerekir; otomatik tekrar yapılmadı.');if(response.status===401||(response.status===403&&['paid_inference_not_authorized','oauth_account_not_allowed'].includes(code))){aiSessionPromise=null;updateGithubStatus({authenticated:false});}const error=Error(typeof detail==='string'?detail.slice(0,600):'Sunucu hatası: '+JSON.stringify(detail??response.status).slice(0,600));error.code=code;throw error;}
  if(path==='/api/session'||path==='/api/health')updateGithubStatus(result);
  if(path==='/api/health')updateAiBudget(result);
  return result;
@@ -760,12 +760,6 @@ const isAccessoryCategory=x=>typeof x==='string'&&['aksesuar','accessory','acces
 const normalizeAiCategory=x=>AI_CATEGORIES.includes(x)?x:(Object.hasOwn(AI_CATEGORY_MAP,x)?AI_CATEGORY_MAP[x]:null);
 const safeAiImage=x=>typeof x==='string'&&/^data:image\/(png|jpeg);base64,[A-Za-z0-9+/]+={0,2}$/.test(x);
 const safeAiId=x=>(typeof x==='string'&&x.length>0&&x.length<=200)||(Number.isSafeInteger(x)&&x>=0);
-function manualCreditNotice(quote){
- const c=quote.provider_credit;
- if(c?.source!=='manual_non_realtime')return '';
- if(typeof c.available_usd!=='number'||!Number.isFinite(c.available_usd)||c.available_usd<0||typeof c.recorded_at!=='number'||!Number.isFinite(c.recorded_at))throw Error('Geçersiz manuel bakiye bilgisi. Ücretli istek yapılmadı.');
- return ' Replicate manuel bakiye kaydı: '+c.available_usd.toFixed(6)+' USD; sunucu kayıt zamanı: '+new Date(c.recorded_at*1000).toISOString()+'. Anlık değil, API ile doğrulanmadı; başka kullanım ve tahmin farkları nedeniyle bakiye aşım riski var. Uygulama genel harcama tavanı yok.';
-}
 async function analyzeClothes(){
  if(aiBusy)return;
  try{if(!await canUseStyleTokens()||aiBusy)return}catch{aiStatus('Jeton bakiyesi doğrulanamadı.');return;}
@@ -774,17 +768,17 @@ async function analyzeClothes(){
  aiBusy=true;aiStatus('Sunucu kontrol ediliyor…');document.body.classList.add('ai-busy','ai-detecting');
  try{
  const health=await aiPost('/api/health',{});
- if(health.authenticated!==true)throw Error('Yetkisiz: GitHub sahibi olarak giriş yapmalısın. Ücretli istek yapılmadı.');
+ if(health.authenticated!==true)throw Error('Profil bölümünden oturum aç.');
  if(health.status!=='ok'||health.enabled!==true)throw Error('AI üretimi kapalı veya hazır değil. Ücretli istek yapılmadı.');
  const inputs={image:multiSource,request_id:crypto.randomUUID()};
  const quote=await aiPost('/api/quote',{action:'detect',inputs});
  if(quote.action!=='detect'||typeof quote.quote_id!=='string'||!quote.quote_id||typeof quote.estimated_cost_usd!=='number'||!Number.isFinite(quote.estimated_cost_usd)||quote.estimated_cost_usd<0)throw Error('Geçersiz maliyet teklifi. Ücretli istek yapılmadı.');
- if(!confirm('Fotoğrafın kıyafet analizi için sunucuya gönderilecek. Tahmini maliyet: '+quote.estimated_cost_usd.toFixed(6)+' USD (fatura garantisi değil).'+manualCreditNotice(quote)+' Bu tek işlem onaylansın mı?')){aiStatus('Analiz iptal edildi; ücretli istek yapılmadı.');return;}
+ if(!confirm('Fotoğrafın analiz için gönderilecek. Bu işlem 1 Stil Jetonu kullanır. Devam edilsin mi?')){aiStatus('Analiz iptal edildi; ücretli istek yapılmadı.');return;}
  aiStatus('✦ Fotoğraf analiz ediliyor…');
  const result=await aiPost('/api/detect',{...inputs,quote_id:quote.quote_id,confirmed:true,max_total_usd:quote.estimated_cost_usd});
  if(!result||!safeAiId(result.job_id)||!Array.isArray(result.items)||!result.items.length||result.items.some(x=>!x||!safeAiId(x.id)||!safeAiImage(x.preview)||(!normalizeAiCategory(x.category)&&!isFootwearCategory(x.category)))||new Set(result.items.map(x=>x.id)).size!==result.items.length)throw Error('Geçersiz tespit sonucu');
  await refreshAiBudget();
- const parts=result.items.filter(x=>!isFootwearCategory(x.category)&&!isAccessoryCategory(x.category)).map(x=>({id:x.id,image:x.preview,category:normalizeAiCategory(x.category),providerCategory:x.category,mask_quality:x.mask_quality,quality_warnings:x.quality_warnings,category_verified:x.category_verified===true,selected:false,generated:false,status:'SAM 3 ile bulundu · seçim bekliyor'}));
+ const parts=result.items.filter(x=>!isFootwearCategory(x.category)&&!isAccessoryCategory(x.category)).map(x=>({id:x.id,image:x.preview,category:normalizeAiCategory(x.category),providerCategory:x.category,mask_quality:x.mask_quality,quality_warnings:x.quality_warnings,category_verified:x.category_verified===true,selected:false,generated:false,status:'Yapay zekâ ile bulundu · seçim bekliyor'}));
  aiJobId=result.job_id;aiParts=parts;aiReviewPhase='selection';showAiParts();
  aiStatus('✦ '+aiParts.length+' ürün tespit edildi.');
  }catch(e){aiJobId=null;aiParts=[];aiStatus(e.message+' Elle kırpma seçeneği kullanılabilir.');}
@@ -802,7 +796,8 @@ async function generateAiParts(){
  const inputs={job_id:job,item_ids:chosen.map(x=>x.id)};
  const quote=await aiPost('/api/quote',{action:'generate',inputs});
  if(quote.action!=='generate'||typeof quote.quote_id!=='string'||!quote.quote_id||typeof quote.estimated_cost_usd!=='number'||!Number.isFinite(quote.estimated_cost_usd)||quote.estimated_cost_usd<0)throw Error('Geçersiz maliyet teklifi. Ücretli istek yapılmadı.');
- if(!confirm(chosen.length+' seçili ürün için tahmini toplam maliyet: '+quote.estimated_cost_usd.toFixed(6)+' USD (fatura garantisi değil). Yalnızca bu üretim işlemi onaylansın mı?'))return;
+ if(!await canUseStyleTokens(chosen.length))return;
+ if(!confirm(chosen.length+' ürün için '+chosen.length+' Stil Jetonu kullanılacak. Devam edilsin mi?'))return;
  chosen.forEach(p=>{p.status='Üretiliyor…';p.error=''});showAiParts();document.getElementById('ai-review')?.classList.add('ai-working');
  const result=await aiPost('/api/generate',{...inputs,quote_id:quote.quote_id,confirmed:true,max_total_usd:quote.estimated_cost_usd});
  if(aiJobId!==job)throw Error('İş değişti; eski sonuç uygulanmadı.');
@@ -843,7 +838,7 @@ const visibleIndices=aiVisibleIndices();if(aiReviewPhase==='detail'&&!visibleInd
 const budgetText=selectionCount+' ürün seçili';
 const pos=visibleIndices.indexOf(aiActiveIndex);
 const productNav=aiReviewPhase==='detail'&&visibleIndices.length>1?'<nav class="ai-product-nav" aria-label="Seçili ürünler arasında gezin"><button type="button" onclick="navigateAiPart(-1)"'+(pos<=0?' disabled':'')+'>Önceki ürün</button><span aria-live="polite">'+(pos+1)+' / '+visibleIndices.length+'</span><button type="button" onclick="navigateAiPart(1)"'+(pos===visibleIndices.length-1?' disabled':'')+'>Sonraki ürün</button></nav>':'';
-modal.innerHTML='<div class="crop-panel ai-review-panel" aria-busy="'+aiBusy+'"><div class="ai-review-head"><h2>✦ '+(aiReviewPhase==='selection'?'Fotoğraf analizi · Ürün seçimi':'Seçilen parçaların analizi')+'</h2><button class="secondary" onclick="closeAiReview()" aria-label="Kapat"'+disabled+'>✕</button></div><p class="hint">'+(aiReviewPhase==='selection'?'Fotoğrafın tamamındaki tespitler aşağıda. Yalnızca incelemek istediğin kıyafetleri işaretle.':'Yalnızca seçtiğin parçaları incele. Kategori ve maske sınırlarını kontrol et. Hatalı maskeleri fal.ai ile üretme.')+'</p><p class="ai-review-budget" role="status">'+escapeAi(budgetText)+'</p>'+productNav+'<div class="ai-stage"><div class="ai-rail" id="ai-cards" aria-label="Tespit edilen parçalar"></div><div class="ai-model"><img id="ai-original" alt="Yüklediğin kombin fotoğrafı"></div></div><div class="ai-review-actions">'+(aiReviewPhase==='selection'?'<button onclick="startAiDetailReview()"'+(aiBusy||!selectionCount?' disabled':'')+'>Seçtiğim '+selectionCount+' parçayı incele</button>':'<button class="secondary" onclick="backAiSelection()"'+disabled+'>← Ürün seçimine dön</button>')+'<button id="ai-generate" onclick="generateAiParts()"'+(aiReviewPhase!=='detail'||aiBusy||!aiParts.some(p=>p.selected&&!p.generated)?' disabled':'')+'>✦ fal.ai ile parçaları bütünleştir</button><button onclick="saveAiParts()"'+(aiBusy||!aiParts.some(p=>p.selected&&p.generated&&p.review==='accepted')?' disabled':'')+'>✓ Seçilen üretilmiş ürünleri kaydet</button><button class="secondary" onclick="if(!aiBusy){closeAiReview();openMultiCrop()}"'+disabled+'>Elle kırp</button></div></div>';
+modal.innerHTML='<div class="crop-panel ai-review-panel" aria-busy="'+aiBusy+'"><div class="ai-review-head"><h2>✦ '+(aiReviewPhase==='selection'?'Fotoğraf analizi · Ürün seçimi':'Seçilen parçaların analizi')+'</h2><button class="secondary" onclick="closeAiReview()" aria-label="Kapat"'+disabled+'>✕</button></div><p class="hint">'+(aiReviewPhase==='selection'?'Fotoğrafın tamamındaki tespitler aşağıda. Yalnızca incelemek istediğin kıyafetleri işaretle.':'Yalnızca seçtiğin parçaları incele. Kategori ve maske sınırlarını kontrol et. Üretimden önce hatalı maskeleri düzelt.')+'</p><p class="ai-review-budget" role="status">'+escapeAi(budgetText)+'</p>'+productNav+'<div class="ai-stage"><div class="ai-rail" id="ai-cards" aria-label="Tespit edilen parçalar"></div><div class="ai-model"><img id="ai-original" alt="Yüklediğin kombin fotoğrafı"></div></div><div class="ai-review-actions">'+(aiReviewPhase==='selection'?'<button onclick="startAiDetailReview()"'+(aiBusy||!selectionCount?' disabled':'')+'>Seçtiğim '+selectionCount+' parçayı incele</button>':'<button class="secondary" onclick="backAiSelection()"'+disabled+'>← Ürün seçimine dön</button>')+'<button id="ai-generate" onclick="generateAiParts()"'+(aiReviewPhase!=='detail'||aiBusy||!aiParts.some(p=>p.selected&&!p.generated)?' disabled':'')+'>✦ Parçaları bütünleştir</button><button onclick="saveAiParts()"'+(aiBusy||!aiParts.some(p=>p.selected&&p.generated&&p.review==='accepted')?' disabled':'')+'>✓ Seçilen üretilmiş ürünleri kaydet</button><button class="secondary" onclick="if(!aiBusy){closeAiReview();openMultiCrop()}"'+disabled+'>Elle kırp</button></div></div>';
 document.getElementById('ai-original').src=safeAiImage(multiSource)?multiSource:'';
 document.getElementById('ai-cards').innerHTML=aiParts.map((p,i)=>'<div class="ai-piece'+(!p.selected?' not-selected':'')+(p.generated?' ai-generated':'')+'"><label class="ai-piece-select"><input aria-label="'+escapeAi(p.category)+' parçasını seç" type="checkbox" '+(p.selected?'checked':'')+disabled+' onchange="selectAiPart('+i+',this.checked)"><img src="'+(safeAiImage(p.image)?p.image:'')+'" alt="Kıyafet parçası '+(i+1)+'"></label><select aria-label="Kıyafet türü '+(i+1)+'"'+disabled+' onchange="categoryAiPart('+i+',this.value)">'+AI_CATEGORIES.map(c=>'<option '+(c===p.category?'selected':'')+'>'+c+'</option>').join('')+'</select><small role="status">'+escapeAi(p.status||'Tespit edildi')+'</small>'+aiQualityNotice(p)+(p.generated?'<div class="ai-comparison"><p>Fotoğraftan ayrılan parça</p><img src="'+(safeAiImage(p.originalPreview)?p.originalPreview:'')+'" alt="Orijinal kıyafet maskesi"><p>Sonucu fotoğrafla karşılaştır.</p><button onclick="reviewAiPart('+i+',\'accepted\')"'+(p.saved?' disabled':'')+disabled+'>'+(p.saved?'✓ Dolaba kaydedildi':'Kabul et ve kaydet')+'</button><button onclick="reviewAiPart('+i+',\'rejected\')"'+(p.saved?' disabled':'')+disabled+'>Reddet</button><small role="status">'+(p.saved?'Dolaba kaydedildi':p.review==='accepted'?'Kabul edildi':p.review==='rejected'?'Reddedildi — kaydedilmez':'İnceleme bekliyor — kaydedilmez')+'</small></div>':'')+'</div>' ).join('');
 modal.querySelectorAll('.ai-piece').forEach((card,i)=>{card.classList.toggle('ai-active',i===aiActiveIndex);card.hidden=aiReviewPhase==='detail'&&(!aiParts[i].selected||i!==aiActiveIndex);});
@@ -1074,9 +1069,9 @@ function chooseAiPhoto(){
   else aiStatus('Fotoğraf seçmek için ayırma düğmesine tekrar dokun.');
  }).catch(()=>aiStatus('Jeton bakiyesi doğrulanamadı.'));
 }
-async function canUseStyleTokens(){
+async function canUseStyleTokens(required=1){
  const data=await refreshStyleMuseAccount();
- if(data.balance>0)return true;
+ if(data.balance>=required)return true;
  openHomePro();
  return false;
 }
@@ -1262,6 +1257,8 @@ async function requestVirtualTryOn(){
  if(!mannequinPhotoData){el.textContent='Önce hazır manken veya kendi fotoğrafını seç.';return}
  const items=orderedTryonItems(chosenTry.map(id=>getItems().find(x=>String(x.id)===String(id))).filter(Boolean));
  if(!isCompleteLook(items)){el.textContent='Önce üst ve alt giyim veya elbise seç.';return}
+ if(items.length>styleMuseAccount.balance){openHomePro();return;}
+ if(!confirm(items.length+' parça için '+items.length+' Stil Jetonu kullanılacak. Devam edilsin mi?')||tryonBusy)return;
  const labels={top:'Üst giyim',dress:'Elbise',bottom:'Alt giyim',outer:'Dış giyim',bag:'Çanta',hat:'Şapka'};
  // Explicit AI dressing button click authorizes this selected outfit workflow.
  setTryOnBusy(true);setStageProgress('Giydirme hazırlanıyor…');let person=mannequinPhotoData;
