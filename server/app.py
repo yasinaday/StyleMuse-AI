@@ -13,6 +13,19 @@ from pydantic import BaseModel, Field, ConfigDict
 from store import Store, units
 from providers import is_footwear
 
+class TokenLoadRequest(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    amount: int = Field(strict=True, ge=1, le=10000)
+
+class TokenLoadConfirmation(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    request_id: str = Field(pattern=r'^[A-Za-z0-9_-]{32}$')
+    code: str = Field(pattern=r'^[0-9]{6}$')
+
+class GoogleLogin(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    credential: str = Field(min_length=1, max_length=8192)
+
 class GenerateRequest(BaseModel):
     model_config = ConfigDict(extra='forbid')
     job_id: str = Field(min_length=1,max_length=128)
@@ -237,6 +250,7 @@ def create_app(settings=None, provider=None):
     oauth_states = {}
     oauth_active = {}
     authorized = {}
+    google_client_id = os.environ.get("STYLEMUSE_GOOGLE_CLIENT_ID", "").strip()
 
     def oauth_configured():
         from urllib.parse import urlsplit
@@ -259,6 +273,8 @@ def create_app(settings=None, provider=None):
 
     def identity_status(token):
         identity = authorized.get(token)
+        if identity and identity['provider'] != 'github':
+            return {'authenticated': True, 'identity': None}
         return {'authenticated': identity is not None, 'identity': identity}
 
     @app.middleware('http')
@@ -424,6 +440,115 @@ def create_app(settings=None, provider=None):
         response.headers['set-cookie'] += '; Partitioned'
         return response
 
+    token_code_key = os.environ.get('STYLEMUSE_TOKEN_CODE_SECRET', '').encode()
+    smtp_user = os.environ.get('STYLEMUSE_SMTP_USER', '')
+    smtp_password = os.environ.get('STYLEMUSE_SMTP_PASSWORD', '')
+    smtp_host = os.environ.get('STYLEMUSE_SMTP_HOST', 'smtp.gmail.com')
+
+    def token_admin(request):
+        exact_origin(request)
+        token = request.cookies.get(cookie_name, '')
+        with session_lock:
+            entry = sessions.get(token)
+            user = authorized.get(token)
+            if not entry or entry[1] <= time.monotonic() or not user or user.get('provider') != 'google' or user.get('admin') is not True or user.get('email', '').casefold() != 'adysoft2000@gmail.com':
+                raise HTTPException(403, 'token_load_admin_only')
+            return 'google:' + user['id']
+
+    def token_code_digest(request_id, code):
+        import hmac
+        return hmac.new(token_code_key, (request_id + ':' + code).encode(), hashlib.sha256).hexdigest()
+
+    @app.post('/api/admin/tokens/request')
+    def request_admin_tokens(payload: TokenLoadRequest, request: Request):
+        from email.message import EmailMessage
+        import smtplib
+        import ssl
+
+        account_id = token_admin(request)
+        if len(token_code_key) < 32 or not smtp_user or not smtp_password:
+            raise HTTPException(503, 'token_email_not_configured')
+        request_id = secrets.token_urlsafe(24)
+        code = f'{secrets.randbelow(1000000):06d}'
+        store.request_token_load(account_id, request_id, payload.amount, token_code_digest(request_id, code))
+        sent = False
+        try:
+            message = EmailMessage()
+            message['From'] = smtp_user
+            message['To'] = 'adysoft2000@gmail.com'
+            message['Subject'] = 'StyleMuse jeton yükleme kodu'
+            message.set_content(f'{payload.amount} Stil Jetonu için kod: {code}. Kod 5 dakika geçerlidir. Talep size ait değilse kodu kullanmayın.')
+            with smtplib.SMTP_SSL(smtp_host, 465, timeout=10, context=ssl.create_default_context()) as smtp:
+                smtp.login(smtp_user, smtp_password)
+                smtp.send_message(message)
+                sent = True
+        except (OSError, smtplib.SMTPException):
+            if not sent:
+                raise HTTPException(502, 'token_email_failed') from None
+        finally:
+            store.finish_token_email(request_id, sent)
+        return {'request_id': request_id}
+
+    @app.post('/api/admin/tokens/confirm')
+    def confirm_admin_tokens(payload: TokenLoadConfirmation, request: Request):
+        account_id = token_admin(request)
+        if len(token_code_key) < 32:
+            raise HTTPException(503, 'token_email_not_configured')
+        if not store.confirm_token_load(account_id, payload.request_id, token_code_digest(payload.request_id, payload.code)):
+            raise HTTPException(400, 'token_code_invalid')
+        return {'balance': store.style_balance(account_id)}
+
+    @app.post('/api/account')
+    def account(request: Request):
+        exact_origin(request)
+        token = request.cookies.get(cookie_name, '')
+        with session_lock:
+            entry = sessions.get(token)
+            if not entry or entry[1] <= time.monotonic():
+                raise HTTPException(401, 'unauthorized')
+            identity = authorized.get(token)
+        user = identity if identity and identity['provider'] == 'google' else None
+        balance = store.style_balance('google:' + user['id']) if user else 0
+        return {'user': user, 'balance': balance,
+                'token_load_history': store.token_load_history('google:' + user['id']) if user and user['admin'] else [],
+                'google_client_id': google_client_id,
+                'legacy_session': bool(identity and not user),
+                'nonce': entry[0] if google_client_id and not identity else None}
+
+    @app.post('/api/auth/google')
+    def google_login(payload: GoogleLogin, request: Request):
+        exact_origin(request)
+        if not google_client_id:
+            raise HTTPException(503, 'google_not_configured')
+        token = request.cookies.get(cookie_name, '')
+        with session_lock:
+            entry = sessions.get(token)
+            if not entry or entry[1] <= time.monotonic() or token in authorized:
+                raise HTTPException(401, 'unauthorized')
+        from google.oauth2 import id_token
+        from google.auth.transport.requests import Request as GoogleRequest
+        from google.auth.exceptions import GoogleAuthError
+        try:
+            claims = id_token.verify_oauth2_token(payload.credential, GoogleRequest(), google_client_id)
+        except (ValueError, GoogleAuthError):
+            raise HTTPException(401, 'google_identity_invalid') from None
+        email = claims.get('email', '')
+        sub = claims.get('sub')
+        if (claims.get('nonce') != entry[0] or claims.get('email_verified') is not True
+                or not isinstance(email, str) or not email
+                or not isinstance(sub, str) or not sub):
+            raise HTTPException(401, 'google_identity_invalid')
+        admin = email.casefold() == 'adysoft2000@gmail.com'
+        user = {'provider': 'google', 'id': sub, 'name': str(claims.get('name') or '')[:100],
+                'email': email, 'admin': admin}
+        with session_lock:
+            if sessions.get(token) != entry or entry[1] <= time.monotonic() or token in authorized:
+                raise HTTPException(401, 'unauthorized')
+            if admin:
+                store.grant_admin_tokens('google:' + sub)
+            authorized[token] = user
+        return {'user': user, 'balance': store.style_balance('google:' + sub)}
+
     @app.post('/api/session')
     def session(request: Request):
         exact_origin(request)
@@ -463,7 +588,7 @@ def create_app(settings=None, provider=None):
             if entry and entry[1] > time.monotonic():
                 exact_origin(request)
                 if token in authorized:
-                    return 'github:' + authorized[token]['id']
+                    return authorized[token]['provider'] + ':' + authorized[token]['id']
                 if paid:
                     raise HTTPException(403, 'paid_inference_not_authorized')
                 return entry[0]
@@ -596,7 +721,7 @@ def create_app(settings=None, provider=None):
                 return public_result(row['id'], result)
             store.capacity(db,len(original))
             store.reserve(db, units(s.detect_reservation_usd), owner=who, enforce_budget=False)
-            store.record_operation(db, 'detect:' + jid, units(s.detect_reservation_usd), who if who.startswith('github:') else None)
+            store.record_operation(db, 'detect:' + jid, units(s.detect_reservation_usd), who if who.startswith(('github:', 'google:')) else None)
             db.execute('INSERT INTO jobs VALUES(?,?,?,?,?,?,?,?)', (jid,who,payload.request_id,digest,'claimed',original,None,time.time()+s.session_ttl_seconds))
         try:
             from providers import RealProviders
@@ -652,7 +777,7 @@ def create_app(settings=None, provider=None):
                 store.capacity(db,len(pending)*(s.max_image_bytes*4//3+100))
                 store.reserve(db,cost, owner=who, enforce_budget=False)
                 for i in pending:
-                    store.record_operation(db, 'generate:' + payload.job_id + ':' + i, units(s.generation_reservation_usd), who if who.startswith('github:') else None)
+                    store.record_operation(db, 'generate:' + payload.job_id + ':' + i, units(s.generation_reservation_usd), who if who.startswith(('github:', 'google:')) else None)
                     db.execute('INSERT INTO claims VALUES(?,?,?,NULL)',(payload.job_id,i,'claimed'))
         if not pending:
             return {'items':[{'id':i,'image':old[i]['image']} for i in payload.item_ids]}

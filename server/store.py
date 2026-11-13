@@ -37,6 +37,9 @@ class Store:
             CREATE TABLE IF NOT EXISTS manual_provider_credit(id TEXT PRIMARY KEY, account TEXT NOT NULL, amount INTEGER NOT NULL CHECK(amount>=0), recorded REAL NOT NULL, expires REAL NOT NULL, evidence TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS manual_provider_debits(operation TEXT PRIMARY KEY, snapshot TEXT NOT NULL REFERENCES manual_provider_credit(id), amount INTEGER NOT NULL CHECK(amount>=0));
             CREATE TABLE IF NOT EXISTS payment_quotes(id TEXT PRIMARY KEY, owner TEXT NOT NULL, session TEXT NOT NULL, digest TEXT NOT NULL, amount INTEGER NOT NULL, expires REAL NOT NULL, action TEXT NOT NULL, used INTEGER NOT NULL CHECK(used IN (0,1)));
+            CREATE TABLE IF NOT EXISTS style_tokens(owner TEXT PRIMARY KEY, balance INTEGER NOT NULL CHECK(balance>=0));
+            CREATE TABLE IF NOT EXISTS token_load_requests(id TEXT PRIMARY KEY, owner TEXT NOT NULL, amount INTEGER NOT NULL, digest TEXT NOT NULL, created REAL NOT NULL, attempts INTEGER NOT NULL DEFAULT 0, state TEXT NOT NULL);
+            CREATE INDEX IF NOT EXISTS token_load_owner_time ON token_load_requests(owner,created);
             INSERT OR IGNORE INTO guard VALUES(1,0);
             ''')
         os.chmod(p, 0o600)
@@ -193,6 +196,46 @@ class Store:
         with self.tx() as db:
             return self._manual_credit(db, account)
 
+    def request_token_load(self, owner, request_id, amount, digest):
+        from fastapi import HTTPException
+        now = time.time()
+        with self.tx() as db:
+            db.execute('DELETE FROM token_load_requests WHERE state!=? AND created<?', ('used', now-3600))
+            requests = db.execute('SELECT count(*),max(created) FROM token_load_requests WHERE owner=? AND created>?', (owner, now-3600)).fetchone()
+            if requests[0] >= 5 or requests[1] and now-requests[1] < 60:
+                raise HTTPException(429, 'token_load_rate_limited')
+            db.execute("INSERT INTO token_load_requests VALUES(?,?,?,?,?,0,'sending')", (request_id, owner, amount, digest, now))
+
+    def finish_token_email(self, request_id, sent):
+        with self.tx() as db:
+            db.execute("UPDATE token_load_requests SET state=? WHERE id=? AND state='sending'", ('ready' if sent else 'failed', request_id))
+
+    def confirm_token_load(self, owner, request_id, digest):
+        from secrets import compare_digest
+        with self.tx() as db:
+            row = db.execute("SELECT * FROM token_load_requests WHERE id=? AND owner=? AND state='ready' AND attempts<5 AND created>?", (request_id, owner, time.time()-300)).fetchone()
+            if not row:
+                return False
+            if not compare_digest(row['digest'], digest):
+                db.execute('UPDATE token_load_requests SET attempts=attempts+1 WHERE id=?', (request_id,))
+                return False
+            db.execute("UPDATE token_load_requests SET state='used',digest='' WHERE id=?", (request_id,))
+            db.execute('INSERT INTO style_tokens VALUES(?,?) ON CONFLICT(owner) DO UPDATE SET balance=balance+excluded.balance', (owner, row['amount']))
+            return True
+
+    def token_load_history(self, owner):
+        with self.tx() as db:
+            return [dict(row) for row in db.execute("SELECT amount,created FROM token_load_requests WHERE owner=? AND state='used' ORDER BY created DESC LIMIT 30", (owner,))]
+
+    def grant_admin_tokens(self, owner):
+        with self.tx() as db:
+            db.execute('INSERT OR IGNORE INTO style_tokens VALUES(?,5)', (owner,))
+
+    def style_balance(self, owner):
+        with self.tx() as db:
+            row = db.execute('SELECT balance FROM style_tokens WHERE owner=?', (owner,)).fetchone()
+            return row['balance'] if row else 0
+
     def mark_submitted(self, operation, *, manual_credit_id=None):
         # Durable BEFORE the POST; persistence failure prevents submission.
         with self.tx() as db:
@@ -208,6 +251,12 @@ class Store:
             changed = db.execute(f"UPDATE {table} SET state='submitted' WHERE id=? AND state='reserved'", (operation,)).rowcount
             if changed != 1:
                 raise RuntimeError('operation_not_reserved')
+            owner = db.execute(f'SELECT owner FROM {table} WHERE id=?', (operation,)).fetchone()['owner']
+            if owner and owner.startswith('google:'):
+                debit = db.execute('UPDATE style_tokens SET balance=balance-1 WHERE owner=? AND balance>0', (owner,))
+                if debit.rowcount != 1:
+                    from fastapi import HTTPException
+                    raise HTTPException(402, 'style_tokens_empty')
 
     def finish_operation(self, operation, *, success):
         with self.tx() as db:
