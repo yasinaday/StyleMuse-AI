@@ -84,6 +84,8 @@ KOMBİN|OUTFIT|OUTFIT|ОБРАЗ|إطلالة|TENUE|पहनावा|搭配|�
 ÖNER|SUGGEST|VORSCHLAGEN|ПРЕДЛОЖИТЬ|اقترح|PROPOSER|सुझाएँ|推荐|提案
 Temizle|Clear|Leeren|Очистить|مسح|Effacer|साफ़ करें|清空|クリア
 Manken hazırlanıyor…|Preparing model…|Model wird vorbereitet…|Подготовка модели…|جارٍ تجهيز العارضة…|Préparation du modèle…|मॉडल तैयार हो रहा है…|正在准备模特…|モデルを準備中…
+Kombin kaydedildi.|Outfit saved.|Outfit gespeichert.|Образ сохранён.|تم حفظ الإطلالة.|Tenue enregistrée.|पहनावा सहेजा गया।|搭配已保存。|コーデを保存しました。
+Kombin kaydedilemedi.|Could not save the outfit.|Outfit konnte nicht gespeichert werden.|Не удалось сохранить образ.|تعذّر حفظ الإطلالة.|Impossible d’enregistrer la tenue.|पहनावा सहेजा नहीं जा सका।|无法保存搭配。|コーデを保存できませんでした。
 ♡ Kombinimi kaydet|♡ Save my outfit|♡ Outfit speichern|♡ Сохранить образ|♡ احفظ إطلالتي|♡ Enregistrer ma tenue|♡ पहनावा सहेजें|♡ 保存我的搭配|♡ コーデを保存
 ＋ Kendi fotoğrafımı yükle|＋ Upload my photo|＋ Eigenes Foto hochladen|＋ Загрузить своё фото|＋ ارفع صورتي|＋ Importer ma photo|＋ अपनी फ़ोटो अपलोड करें|＋ 上传我的照片|＋ 自分の写真をアップロード
 ✦ Yapay zekâ ile gerçekçi giydir|✦ Try on with AI|✦ Mit KI anprobieren|✦ Примерить с ИИ|✦ جرّب بالذكاء الاصطناعي|✦ Essayer avec l’IA|✦ एआई से पहनाकर देखें|✦ 使用 AI 试穿|✦ AI で試着する
