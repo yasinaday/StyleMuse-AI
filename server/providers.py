@@ -97,14 +97,14 @@ def extract_items(photo, results):
             mask = Image.frombytes('L', photo.size, bytes(pixels))
             box = mask.getbbox()
             if box is None:
-                raise ProviderError('Empty detector mask')
+                continue
             area = mask.histogram()[255]
             cut = photo.convert('RGBA')
             cut.putalpha(mask)
             cut = cut.crop(box)
             # A full rectangular opaque mask is not a transparent garment cutout.
             if cut.getchannel('A').getextrema() != (0, 255):
-                raise ProviderError('Mask does not produce a transparent cutout')
+                continue
             item = {'category': category, 'preview': png_uri(cut), 'prompt': tryoff_prompt(category),
                     'category_verified': False,
                     'mask_quality': {'status': 'unverified', 'source': 'detector_mask',
