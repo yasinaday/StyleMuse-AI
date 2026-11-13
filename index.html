@@ -1014,12 +1014,12 @@ function suggest(){
  }else{html+='<p>Önce dolabına birkaç kıyafet ekle, kendi parçalarınla kombin oluşturalım.</p><button onclick="tab(\'closet\')">Kıyafet ekle</button>'}
  document.getElementById('suggestion').innerHTML=html+'</div>';
 }
-function validLook(x){return !!(x&&typeof x.aiImage==='string'&&x.aiImage.length>0&&Array.isArray(x.images)&&x.images.length>=2)}
+function validLook(x){return !!(x&&typeof x.aiImage==='string'&&x.aiImage.length>0&&Array.isArray(x.images)&&(x.images.length>=1||x.recoveredTryOn===true))}
 function lookImage(x){return x.aiImage||x.images[0]}
-function renderSaved(){const valid=savedLooksCache.map((x,i)=>({x,i})).filter(v=>validLook(v.x));document.getElementById('savedOutfits').innerHTML='<h2>Kaydettiğim kombinler</h2>'+(valid.length?'<div class="saved-look-gallery">'+valid.map(({x,i})=>'<article class="saved-look"><button type="button" class="saved-look-preview" onclick="openSavedLook('+i+')" aria-label="Kombini büyüt"><img src="'+x.aiImage+'" alt="Manken üzerinde tamamlanmış kombin" loading="lazy"></button><div class="saved-look-info"><div class="sm-look-actions"><button type="button" class="sm-share" onclick="shareCombo(' +i+ ')">↗ Paylaş</button><button type="button" class="sm-delete" onclick="deleteCombo(' +i+ ')">✕ Sil</button></div></div></article>').join('')+'</div>':'<p class="notice">Henüz manken üzerinde tamamlanmış bir kombin kaydedilmedi.</p>')}
+function renderSaved(){const valid=savedLooksCache.map((x,i)=>({x,i})).filter(v=>validLook(v.x));document.getElementById('savedOutfits').innerHTML='<h2>Kaydettiğim kombinler</h2>'+(valid.length?'<div class="saved-look-gallery">'+valid.map(({x,i})=>'<article class="saved-look"><button type="button" class="saved-look-preview" onclick="openSavedLook('+i+')" aria-label="Kombini büyüt"><img src="'+x.aiImage+'" alt="Giydirme sonucu" loading="lazy"></button><div class="saved-look-info">'+(x.recoveredTryOn?'<small>Kurtarılan giydirme</small>':'')+'<div class="sm-look-actions"><button type="button" class="sm-share" onclick="shareCombo(' +i+ ')">↗ Paylaş</button><button type="button" class="sm-delete" onclick="deleteCombo(' +i+ ')">✕ Sil</button></div></div></article>').join('')+'</div>':'<p class="notice">Henüz manken üzerinde tamamlanmış bir kombin kaydedilmedi.</p>')}
 async function shareCombo(i){const x=savedLooksCache[i];if(!x)return;try{const img=lookImage(x);const res=await fetch(img);const blob=await res.blob();const file=new File([blob],'stylemuse-kombin.png',{type:blob.type||'image/png'});if(navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({files:[file],title:'StyleMuse kombinim'});return}if(navigator.share){await navigator.share({title:'StyleMuse kombinim',text:'Kombinime bak!'});return}openSavedLook(i)}catch(e){if(e.name!=='AbortError')showStyleNotice('Paylaşım başlatılamadı: '+e.message)}}
 
-function openSavedLook(i){const saved=savedLooksCache;const look=saved[i];if(look&&look.images&&look.images[0])openZoom(lookImage(look))}
+function openSavedLook(i){const saved=savedLooksCache;const look=saved[i];if(look&&lookImage(look))openZoom(lookImage(look))}
 async function deleteCombo(i){const look=savedLooksCache[i];if(!look||!await confirmStyleAction('Bu kayıtlı kombini kaldırmak istiyor musun?'))return;const index=savedLooksCache.indexOf(look);if(index<0)return;const a=savedLooksCache.slice();a.splice(index,1);try{await persistSavedLooks(a);renderSaved()}catch(e){showStyleNotice('Kombin silinemedi: '+e.message)}}
 let chosenTry=[];
 let savedLooksCache=[];
@@ -1247,11 +1247,11 @@ function initReadyMannequin(){
  try{localStorage.setItem(key,String(index))}catch{}
  void chooseReadyMannequin(index);
 }
-async function chooseReadyMannequin(index){if(tryonBusy)return;const url=READY_MANNEQUINS[index];if(!url)return;const load=++readyModelLoad;const preview=document.getElementById('mannequin-person');preview.dataset.readyModel="";preview.src=url;preview.hidden=false;document.getElementById('mannequin-placeholder').hidden=true;mannequinPhotoData=null;tryonResultUrl=null;tryonRun=null;tryonComplete=false;setStageProgress('Manken hazırlanıyor…');try{const response=await fetch(url,{signal:AbortSignal.timeout(15000)});if(!response.ok)throw Error('Manken fotoğrafı indirilemedi');const blob=await response.blob();if(blob.size>6*1024*1024)throw Error('Görsel çok büyük');const bitmap=await createImageBitmap(blob);const ratio=Math.min(1,1024/bitmap.width,1536/bitmap.height);const canvas=document.createElement('canvas');canvas.width=Math.round(bitmap.width*ratio);canvas.height=Math.round(bitmap.height*ratio);canvas.getContext('2d').drawImage(bitmap,0,0,canvas.width,canvas.height);bitmap.close();if(load!==readyModelLoad)return;mannequinPhotoData=canvas.toDataURL('image/jpeg',.86);mannequinPhotoUrl=mannequinPhotoData;if(!tryonResultUrl){preview.src=mannequinPhotoUrl;if(!tryonBusy)setStageProgress('Kombinin için kıyafet seç.')}}catch(e){if(load!==readyModelLoad||tryonBusy||tryonResultUrl)return;setStageProgress('Manken yüklenemedi. Kendi fotoğrafını yükleyebilirsin.');document.getElementById('mannequin-ai-status').textContent=e.message}}
+async function chooseReadyMannequin(index){if(tryonBusy)return;const url=READY_MANNEQUINS[index];if(!url)return;const load=++readyModelLoad;const preview=document.getElementById('mannequin-person');preview.dataset.readyModel="";preview.src=url;preview.hidden=false;document.getElementById('mannequin-placeholder').hidden=true;mannequinPhotoData=null;tryonResultUrl=null;tryonRun=null;tryonComplete=false;tryonRecovered=false;setStageProgress('Manken hazırlanıyor…');try{const response=await fetch(url,{signal:AbortSignal.timeout(15000)});if(!response.ok)throw Error('Manken fotoğrafı indirilemedi');const blob=await response.blob();if(blob.size>6*1024*1024)throw Error('Görsel çok büyük');const bitmap=await createImageBitmap(blob);const ratio=Math.min(1,1024/bitmap.width,1536/bitmap.height);const canvas=document.createElement('canvas');canvas.width=Math.round(bitmap.width*ratio);canvas.height=Math.round(bitmap.height*ratio);canvas.getContext('2d').drawImage(bitmap,0,0,canvas.width,canvas.height);bitmap.close();if(load!==readyModelLoad)return;mannequinPhotoData=canvas.toDataURL('image/jpeg',.86);mannequinPhotoUrl=mannequinPhotoData;if(!tryonResultUrl){preview.src=mannequinPhotoUrl;if(!tryonBusy)setStageProgress('Kombinin için kıyafet seç.')}}catch(e){if(load!==readyModelLoad||tryonBusy||tryonResultUrl)return;setStageProgress('Manken yüklenemedi. Kendi fotoğrafını yükleyebilirsin.');document.getElementById('mannequin-ai-status').textContent=e.message}}
 function setStageProgress(message){const el=document.getElementById('mannequin-progress-text');const track=document.getElementById('mannequin-image-label');const fill=document.getElementById('mannequin-progress-fill');if(el)el.textContent=message;if(!track||!fill)return;const step=String(message).match(/(\d+)\s*\/\s*(\d+)/);const completed=/tamamlandı/i.test(message);const finished=/kombin hazır/i.test(message);const active=/hazırlanıyor|giydir|işleniyor|bekleniyor|tamamlandı/i.test(message);let progress=0;if(finished)progress=100;else if(step){const n=Number(step[1]),total=Number(step[2]);progress=total?Math.min(95,Math.round(((n-(completed?0:0.5))/total)*100)):0;}else if(active)progress=8;fill.style.width=progress+'%';track.classList.toggle('sm-progress-active',active||finished);track.setAttribute('aria-label',message)}
 let mannequinPhotoUrl=null;
-function setMannequinPhoto(e){const f=e.target.files&&e.target.files[0];if(!f||tryOnSelectionLocked())return;if(!['image/png','image/jpeg'].includes(f.type)||f.size>6*1024*1024){document.getElementById('mannequin-ai-status').textContent='En fazla 6 MB PNG veya JPEG fotoğraf seç.';return}const load=++readyModelLoad;mannequinPhotoData=null;tryonResultUrl=null;tryonRun=null;tryonComplete=false;const reader=new FileReader();reader.onload=()=>{if(load!==readyModelLoad||tryOnSelectionLocked())return;mannequinPhotoData=reader.result;if(mannequinPhotoUrl)URL.revokeObjectURL(mannequinPhotoUrl);mannequinPhotoUrl=URL.createObjectURL(f);setStageProgress('Fotoğraf hazır. Kıyafetlerini seç.');const img=document.getElementById('mannequin-person');delete img.dataset.readyModel;img.alt='Seçilen manken fotoğrafı';img.src=mannequinPhotoUrl;img.hidden=false;document.getElementById('mannequin-placeholder').hidden=true;document.getElementById('mannequin-ai-status').textContent='Fotoğraf hazır. Seçim ücretsizdir; her giydirme adımında ayrı 0,04 USD onayı gerekir.'};reader.onerror=()=>{document.getElementById('mannequin-ai-status').textContent='Fotoğraf okunamadı.'};reader.readAsDataURL(f)}
-let mannequinPhotoData=null,tryonResultUrl=null,tryonBusy=false,tryonRun=null,tryonComplete=false;
+function setMannequinPhoto(e){const f=e.target.files&&e.target.files[0];if(!f||tryOnSelectionLocked())return;if(!['image/png','image/jpeg'].includes(f.type)||f.size>6*1024*1024){document.getElementById('mannequin-ai-status').textContent='En fazla 6 MB PNG veya JPEG fotoğraf seç.';return}const load=++readyModelLoad;mannequinPhotoData=null;tryonResultUrl=null;tryonRun=null;tryonComplete=false;tryonRecovered=false;const reader=new FileReader();reader.onload=()=>{if(load!==readyModelLoad||tryOnSelectionLocked())return;mannequinPhotoData=reader.result;if(mannequinPhotoUrl)URL.revokeObjectURL(mannequinPhotoUrl);mannequinPhotoUrl=URL.createObjectURL(f);setStageProgress('Fotoğraf hazır. Kıyafetlerini seç.');const img=document.getElementById('mannequin-person');delete img.dataset.readyModel;img.alt='Seçilen manken fotoğrafı';img.src=mannequinPhotoUrl;img.hidden=false;document.getElementById('mannequin-placeholder').hidden=true;document.getElementById('mannequin-ai-status').textContent='Fotoğraf hazır. Seçim ücretsizdir; her giydirme adımında ayrı 0,04 USD onayı gerekir.'};reader.onerror=()=>{document.getElementById('mannequin-ai-status').textContent='Fotoğraf okunamadı.'};reader.readAsDataURL(f)}
+let mannequinPhotoData=null,tryonResultUrl=null,tryonBusy=false,tryonRun=null,tryonComplete=false,tryonRecovered=false;
 function tryonSafeUrl(url){try{const u=new URL(url);return u.protocol==='https:'&&['fal.media','v3.fal.media','v3b.fal.media'].includes(u.hostname)&&!u.username&&!u.password&&(!u.port||u.port==='443')}catch{return false}}
 async function tryonImageData(url){
  if(safeAiImage(url))return url;
@@ -1284,13 +1284,15 @@ function setTryOnBusy(busy){
  tryonBusy=busy;
  const section=document.getElementById('tryon');
  const button=section.querySelector('.mannequin-ai-button');
+ const pending=Boolean(sessionStorage.getItem('sm-tryon-pending'));
  const locked=tryOnSelectionLocked();
+ if(pending&&!busy)setStageProgress('Yarım kalan giydirme var.');
  section.setAttribute('aria-busy',String(busy));
  section.classList.toggle('tryon-locked',locked);
  section.querySelectorAll('button, input[type="file"]').forEach(control=>{
   control.disabled=control===button?busy:locked||(control.id==='tryon-save-selection'&&!tryonComplete);
  });
- button.textContent=sessionStorage.getItem('sm-tryon-pending')?'Aynı giydirme işini kontrol et':tryonRun?'Kalan parçaları giydir':'✦ Yapay zekâ ile gerçekçi giydir';
+ button.textContent=pending?'Aynı giydirme işini kontrol et':tryonRun?'Kalan parçaları giydir':'✦ Yapay zekâ ile gerçekçi giydir';
 }
 function showTryOnError(error){
  const pending=sessionStorage.getItem('sm-tryon-pending');
@@ -1322,8 +1324,7 @@ async function recoverPendingTryOn(){
  }
  tryonRun=null;
  await pollVirtualTryOn(job,'Önceki parça');
- setStageProgress('Önceki parça tamamlandı');
- el.textContent='Önceki giydirme sonucu gösteriliyor.';
+ markRecoveredTryOn();
 }
 async function resumeVirtualTryOn(){
  if(tryonBusy)return;
@@ -1339,11 +1340,16 @@ async function resumeVirtualTryOn(){
    tryonRun.awaiting=false;
    await runTryOnParts();
   }else{
-   setStageProgress('Bekleyen parça tamamlandı');
-   document.getElementById('mannequin-ai-status').textContent='Bekleyen parçanın sonucu gösteriliyor.';
+   markRecoveredTryOn();
   }
  }catch(error){showTryOnError(error)}
  finally{setTryOnBusy(false)}
+}
+function markRecoveredTryOn(){
+ tryonComplete=true;
+ tryonRecovered=true;
+ setStageProgress('Giydirme sonucu kurtarıldı.');
+ document.getElementById('mannequin-ai-status').textContent='Kurtarılan görseli Kombinler bölümüne kaydedebilirsin.';
 }
 async function pollVirtualTryOn(job,step){
  const el=document.getElementById('mannequin-ai-status');
@@ -1399,7 +1405,7 @@ async function requestVirtualTryOn(){
  try{
   if(!await confirmStyleTokens(remaining+' parça için '+remaining+' Stil Jetonu kullanılacak. Devam edilsin mi?'))return;
   if(!tryonRun)tryonRun={items,base:mannequinPhotoData,index:0,image:null};
-  tryonComplete=false;
+  tryonComplete=false;tryonRecovered=false;
   await runTryOnParts();
  }catch(error){showTryOnError(error)}
  finally{setTryOnBusy(false)}
@@ -1444,12 +1450,12 @@ async function runTryOnParts(){
  el.textContent=run.items.length+' parçanın tamamı giydirildi.';
 }
 async function saveVirtualTryOn(){if(!tryonComplete||!tryonResultUrl)return;const button=document.getElementById('tryon-save-selection');button.disabled=true;try{const image=await tryonImageData(tryonResultUrl);const chosen=chosenTry.map(id=>getItems().find(x=>String(x.id)===String(id))).filter(Boolean);if(!isCompleteLook(chosen))throw Error('Tam kombin seçilmedi');const saved=savedLooksCache.slice();saved.unshift({date:new Date().toLocaleDateString('tr-TR'),occasion:'Kombinim',images:chosen.map(x=>x.image),itemIds:chosen.map(x=>x.id),aiImage:image});await persistSavedLooks(saved);renderSaved();document.getElementById('mannequin-ai-status').textContent='Görsel Kombinlerim bölümüne kaydedildi.'}catch(e){document.getElementById('mannequin-ai-status').textContent='Kaydedilemedi: '+e.message}finally{button.disabled=false}}
-function toggleTry(id){if(tryOnSelectionLocked())return;tryonRun=null;tryonComplete=false;setTryOnBusy(false);const items=getItems(),item=items.find(x=>String(x.id)===String(id));if(!item)return;const group=mannequinGroup(item);if(chosenTry.some(x=>String(x)===String(id))){chosenTry=chosenTry.filter(x=>String(x)!==String(id))}else{chosenTry=chosenTry.filter(x=>{const old=items.find(a=>String(a.id)===String(x));return old&&mannequinGroup(old)!==group&&!(group==='dress'&&['top','bottom'].includes(mannequinGroup(old)))&&!(mannequinGroup(old)==='dress'&&['top','bottom'].includes(group))});chosenTry.push(id)}renderTry()}
+function toggleTry(id){if(tryOnSelectionLocked())return;tryonRun=null;tryonComplete=false;tryonRecovered=false;setTryOnBusy(false);const items=getItems(),item=items.find(x=>String(x.id)===String(id));if(!item)return;const group=mannequinGroup(item);if(chosenTry.some(x=>String(x)===String(id))){chosenTry=chosenTry.filter(x=>String(x)!==String(id))}else{chosenTry=chosenTry.filter(x=>{const old=items.find(a=>String(a.id)===String(x));return old&&mannequinGroup(old)!==group&&!(group==='dress'&&['top','bottom'].includes(mannequinGroup(old)))&&!(mannequinGroup(old)==='dress'&&['top','bottom'].includes(group))});chosenTry.push(id)}renderTry()}
 function isCompleteLook(items){const groups=items.map(mannequinGroup);return groups.includes('dress')||groups.includes('top')&&groups.includes('bottom')}
-async function saveSelectedLook(){if(tryOnSelectionLocked())return;if(!tryonComplete||!tryonResultUrl){document.getElementById('mannequin-ai-status').textContent='Yalnızca manken üzerinde tamamlanmış kombin kaydedilebilir.';return}const items=getItems();const chosen=orderedTryonItems(chosenTry.map(id=>items.find(x=>String(x.id)===String(id))).filter(Boolean));const status=document.getElementById('mannequin-ai-status');if(!isCompleteLook(chosen)){status.textContent='Kombin için üst ve alt giyim ya da elbise seçmelisin.';return}const button=document.getElementById('tryon-save-selection');button.disabled=true;try{const looks=savedLooksCache.slice();looks.unshift({date:new Date().toLocaleDateString('tr-TR'),occasion:'Kombinim',images:chosen.map(x=>x.image),itemIds:chosen.map(x=>x.id),aiImage:tryonResultUrl||null});await persistSavedLooks(looks);renderSaved();status.textContent=chosen.length+' parçalık kombin Kombinlerim bölümüne kaydedildi. Bu kayıt giydirilmiş fotoğraf değildir.'}catch(e){status.textContent='Kombin kaydedilemedi: '+e.message}finally{button.disabled=tryOnSelectionLocked()}}
-function clearMannequin(){if(tryOnSelectionLocked())return;tryonRun=null;tryonComplete=false;setTryOnBusy(false);chosenTry=[];renderTry()}
+async function saveSelectedLook(){if(tryOnSelectionLocked())return;if(!tryonComplete||!tryonResultUrl){document.getElementById('mannequin-ai-status').textContent='Yalnızca manken üzerinde tamamlanmış kombin kaydedilebilir.';return}const items=getItems();const chosen=orderedTryonItems(chosenTry.map(id=>items.find(x=>String(x.id)===String(id))).filter(Boolean));const status=document.getElementById('mannequin-ai-status');if(!tryonRecovered&&!isCompleteLook(chosen)){status.textContent='Kombin için üst ve alt giyim ya da elbise seçmelisin.';return}const button=document.getElementById('tryon-save-selection');button.disabled=true;try{const looks=savedLooksCache.slice();looks.unshift({date:new Date().toLocaleDateString('tr-TR'),occasion:'Kombinim',images:tryonRecovered?[]:chosen.map(x=>x.image),itemIds:tryonRecovered?[]:chosen.map(x=>x.id),aiImage:tryonResultUrl,recoveredTryOn:tryonRecovered});await persistSavedLooks(looks);renderSaved();status.textContent=tryonRecovered?'Kurtarılan görsel Kombinler bölümüne kaydedildi.':'Giydirilmiş kombin Kombinler bölümüne kaydedildi.'}catch(e){status.textContent='Kombin kaydedilemedi: '+e.message}finally{button.disabled=tryOnSelectionLocked()}}
+function clearMannequin(){if(tryOnSelectionLocked())return;tryonRun=null;tryonComplete=false;tryonRecovered=false;setTryOnBusy(false);chosenTry=[];renderTry()}
 function suggestMannequin(){
- if(tryOnSelectionLocked())return;tryonRun=null;tryonComplete=false;setTryOnBusy(false);
+ if(tryOnSelectionLocked())return;tryonRun=null;tryonComplete=false;tryonRecovered=false;setTryOnBusy(false);
  const items=getItems().filter(x=>!isFootwearItem(x));
  const group=x=>{const category=mannequinGroup(x);if(category==='dress'||x.categoryConfirmed)return category;const name=(x.name||'').toLocaleLowerCase('tr-TR');if(/çanta|bag|tote|purse/.test(name))return 'bag';if(/ceket|jacket|coat|mont|kaban|outerwear/.test(name))return 'outer';if(/etek|skirt|pantolon|pants|jeans|denim|shorts|şort/.test(name))return 'bottom';return mannequinGroup(x)};
  const by=g=>items.filter(x=>group(x)===g);
@@ -1495,7 +1501,7 @@ function parseStyleMuseBackup(data){
  });
  const looks=rawLooks?.map(x=>{
   if(!x||!Array.isArray(x.images)||!x.images.every(image)||x.aiImage!=null&&!image(x.aiImage)&&!(typeof x.aiImage==='string'&&tryonSafeUrl(x.aiImage)))invalid();
-  return {images:x.images,aiImage:x.aiImage??null,date:typeof x.date==='string'?x.date:'',
+  return {images:x.images,aiImage:x.aiImage??null,recoveredTryOn:x.recoveredTryOn===true,date:typeof x.date==='string'?x.date:'',
    occasion:typeof x.occasion==='string'?x.occasion:'',itemIds:Array.isArray(x.itemIds)?x.itemIds.filter(id=>typeof id==='string'||typeof id==='number'):[]};
  })??null;
  const source=data.version===1?data:data.preferences;
