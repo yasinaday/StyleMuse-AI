@@ -2,6 +2,16 @@
  'use strict';
  const languages=['tr','en','de','ru','ar','fr','hi','zh','ja'];
  const phrases=`
+Stil Jetonu Al|Buy Style Tokens|Style-Token kaufen|Купить стиль-токены|شراء رموز الأناقة|Acheter des jetons Style|स्टाइल टोकन खरीदें|购买风格点数|スタイルトークンを購入
+Stil Profilim|My style profile|Mein Stilprofil|Мой стиль-профиль|ملف أسلوبي|Mon profil de style|मेरी शैली प्रोफ़ाइल|我的风格档案|スタイルプロフィール
+Bilgilerim|My details|Meine Angaben|Мои данные|معلوماتي|Mes informations|मेरी जानकारी|我的信息|個人情報
+Yönetici ayarları ve bildirimler|Admin settings and notifications|Admin-Einstellungen und Hinweise|Настройки и уведомления администратора|إعدادات المدير والإشعارات|Paramètres et notifications admin|व्यवस्थापक सेटिंग्स और सूचनाएँ|管理员设置和通知|管理者設定と通知
+Ten rengi|Skin tone|Hautton|Тон кожи|لون البشرة|Teint|त्वचा का रंग|肤色|肌の色
+Vücut tipi|Body shape|Körperform|Тип фигуры|شكل الجسم|Morphologie|शारीरिक बनावट|体型|体型
+Boy (cm)|Height (cm)|Größe (cm)|Рост (см)|الطول (سم)|Taille (cm)|कद (सेमी)|身高（厘米）|身長（cm）
+Kilo (kg)|Weight (kg)|Gewicht (kg)|Вес (кг)|الوزن (كغ)|Poids (kg)|वज़न (किग्रा)|体重（公斤）|体重（kg）
+Beden|Clothing size|Kleidergröße|Размер одежды|مقاس الملابس|Taille de vêtement|कपड़ों का साइज़|服装尺码|服のサイズ
+Ücretsiz plan|Free plan|Kostenloser Plan|Бесплатный план|الخطة المجانية|Offre gratuite|मुफ़्त प्लान|免费方案|無料プラン
 Keşfet|Discover|Entdecken|Обзор|استكشاف|Découvrir|खोजें|探索|見つける
 Giysiler|Clothes|Kleidung|Одежда|الملابس|Vêtements|कपड़े|服装|服
 Kombinler|Outfits|Outfits|Образы|الإطلالات|Tenues|पहनावे|搭配|コーデ
