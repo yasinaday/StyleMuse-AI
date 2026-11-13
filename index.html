@@ -1340,15 +1340,8 @@ async function signOutStyleMuse(){
  }catch{document.getElementById('profile-account-status').textContent='Oturum kapatılamadı.'}
 }
 function chooseAiPhoto(){
- if(styleMuseAccount){
-  if(styleMuseAccount.balance>0)document.getElementById('smart-photo').click();
-  else openHomePro();
-  return;
- }
- void refreshStyleMuseAccount().then(data=>{
-  if(data.balance===0)openHomePro();
-  else aiStatus('Fotoğraf seçmek için ayırma düğmesine tekrar dokun.');
- }).catch(()=>aiStatus('Jeton bakiyesi doğrulanamadı.'));
+ if(aiBusy)return;
+ document.getElementById('smart-photo').click();
 }
 async function canUseStyleTokens(required=1){
  const data=await refreshStyleMuseAccount();
