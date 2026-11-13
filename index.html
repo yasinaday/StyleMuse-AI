@@ -1030,7 +1030,7 @@ async function analyzeClothes(){
  const parts=result.items.filter(x=>!isFootwearCategory(x.category)&&!isAccessoryCategory(x.category)).map(x=>({id:x.id,image:x.preview,category:normalizeAiCategory(x.category),providerCategory:x.category,mask_quality:x.mask_quality,quality_warnings:x.quality_warnings,category_verified:x.category_verified===true,selected:false,generated:false,status:'Yapay zekâ ile bulundu · seçim bekliyor'}));
  aiJobId=result.job_id;aiParts=parts;aiReviewPhase='selection';showAiParts();
  aiStatus('✦ '+aiParts.length+' ürün tespit edildi.');
- }catch(e){aiJobId=null;aiParts=[];aiStatus(e.message+' Elle kırpma seçeneği kullanılabilir.');}
+ }catch(e){aiJobId=null;aiParts=[];aiStatus(e.message+'\nElle kırpma seçeneği kullanılabilir.');}
  finally{aiBusy=false;document.body.classList.remove('ai-busy','ai-detecting','ai-scanning');if(aiParts.length)showAiParts();}
 }
 async function generateAiParts(){
@@ -1551,8 +1551,8 @@ function showTryOnError(error){
  const message=count?count+'/'+tryonRun.items.length+' parça giydirildi.':pending?'İşin durumu doğrulanamadı.':blocked?'Önceki işlem bekliyor.':'Giydirme durdu.';
  setStageProgress(message);
  document.getElementById('mannequin-ai-status').textContent=(error instanceof TypeError?'Bağlantı kesildi.':error.message)+
-  (tryonRun&&!pending?' Kalan parçalarla devam edebilirsin.':'')+
-  (pending?' Aynı giydirme işini kontrol et düğmesini kullan.':' Otomatik ücretli tekrar yapılmadı.');
+  (tryonRun&&!pending?'\nKalan parçalarla devam edebilirsin.':'')+
+  (pending?'\nAynı giydirme işini kontrol et düğmesini kullan.':'\nOtomatik ücretli tekrar yapılmadı.');
 }
 async function recoverPendingTryOn(){
  document.getElementById('tryon').classList.add('tryon-scanning');
@@ -1761,7 +1761,8 @@ async function saveSelectedLook(){
   await persistSavedLooks([look,...savedLooksCache]);
   savedTryOnResult=result;
  }catch(error){
-  status.textContent='Kombin kaydedilemedi: '+error.message;
+  console.error('Outfit save failed',error);
+  status.textContent='Kombin kaydedilemedi.';
   return;
  }finally{
   savingTryOn=false;
@@ -1896,7 +1897,7 @@ async function restoreData(input){
   await job;
   sessionStorage.setItem('sm-backup-restored','1');
   location.reload();
- }catch(error){status.textContent='Geri yüklenemedi: '+error.message}
+ }catch(error){console.error('Backup restore failed',error);status.textContent='Geri yüklenemedi.'}
  finally{input.value='';button.disabled=false}
 }
 if(sessionStorage.getItem('sm-backup-restored')==='1'){
