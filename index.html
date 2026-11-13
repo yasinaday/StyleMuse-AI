@@ -595,6 +595,7 @@ select[data-style-picker][hidden]{display:none!important}
 #crop-modal .crop-panel p{margin:6px 0 10px;color:#70566e;font-size:13px}
 #crop-modal .crop-panel label{margin:8px 0 4px}
 #crop-canvas{display:block;margin-inline:auto;width:min(100%,clamp(120px,43dvh,350px));height:auto;aspect-ratio:1}
+#ai-status{white-space:pre-line;overflow-wrap:anywhere}
 #ai-status:empty{display:none}
 #crop-modal .analysis-crop{
  display:flex;flex-direction:column;height:min(680px,calc(100dvh - 24px));
@@ -981,7 +982,7 @@ cropCanvas.addEventListener('pointerup',()=>cropDrag=null);cropCanvas.addEventLi
 let multiSource=null,multiSaved=0,aiParts=[],aiSegmenter=null;
 const clothingLabels={'Upper-clothes':'Üst giyim','Pants':'Alt giyim','Skirt':'Alt giyim','Dress':'Elbise','Bag':'Çanta','Coat':'Dış giyim','Jacket':'Dış giyim','Hat':'Aksesuar','Scarf':'Aksesuar'};
 async function smartUpload(e){const file=e.target.files?.[0];e.target.value='';if(!file||aiBusy)return;document.getElementById('ai-manual-crop').hidden=true;aiJobId=null;aiParts=[];multiSource=null;closeAiReview();document.getElementById('ai-upload').hidden=true;if(!file.type.startsWith('image/')&&!/\.(jpe?g|png|webp|heic|heif|avif)$/i.test(file.name))return aiStatus('Lütfen bir fotoğraf seç.');if(file.size>25*1024*1024)return aiStatus('Fotoğraf 25 MB sınırını aşıyor.');aiBusy=true;aiStatus('Fotoğraf hazırlanıyor…');try{const url=URL.createObjectURL(file);let img;try{img=await new Promise((resolve,reject)=>{const image=new Image();image.onload=()=>resolve(image);image.onerror=()=>reject(new Error('decode'));image.src=url})}finally{URL.revokeObjectURL(url)}aiStatus('');showCrop(img,null,'',true)}catch(err){aiStatus('Fotoğraf açılamadı. JPG, PNG veya WEBP olarak tekrar seçebilirsin. Ücretli işlem yapılmadı.')}finally{aiBusy=false}}
-function aiStatus(msg){let el=document.getElementById('ai-status');if(!el){el=document.createElement('div');el.id='ai-status';el.className='result-card';document.getElementById('smart-photo').parentElement.appendChild(el)}el.textContent=msg}
+function aiStatus(msg){let el=document.getElementById('ai-status');if(!el){el=document.createElement('div');el.id='ai-status';el.className='result-card';el.setAttribute('role','status');document.getElementById('smart-photo').parentElement.appendChild(el)}el.textContent=msg}
 // Configurable placeholder only; this is not a deployment assertion.
 const STYLEMUSE_API='https://stylemuse-api.129.121.148.187.sslip.io';
 let aiSessionPromise=null;
@@ -1074,39 +1075,53 @@ async function analyzeClothes(){
  aiJobId=null;
  aiParts=[];
  classes.add('ai-busy','ai-detecting');
- let stage='Sunucu kontrol ediliyor…';
+ const stages=[
+  'Jeton bakiyesi kontrol ediliyor.',
+  'Oturum ve analiz servisi kontrol ediliyor.',
+  'Analiz teklifi hazırlanıyor.',
+  'Jeton onayı bekleniyor.',
+  'Fotoğraf gönderiliyor ve kıyafet tespiti bekleniyor.',
+  'Bulunan parçalar kontrol ediliyor.'
+ ];
+ let step=0;
+ function report(message=''){
+  aiStatus(stages.slice(0,step+1).map((label,index)=>(index+1)+'. '+label).join('\n')+(message?'\n'+message:''));
+ }
+ function advance(){step++;report();}
  try{
-  aiStatus(stage);
-  if(!await canUseStyleTokens())return;
+  report();
+  if(!await canUseStyleTokens()){report('Analiz için yeterli Stil Jetonu yok.');return;}
+  advance();
   const health=await aiPost('/api/health',{});
   if(health.authenticated!==true)throw Error('Profil bölümünden oturum aç.');
   if(health.status!=='ok'||health.enabled!==true)throw Error('Yapay zekâ şu anda kullanılamıyor.');
+  advance();
   const inputs={image,request_id:crypto.randomUUID()};
   const quote=await aiPost('/api/quote',{action:'detect',inputs});
   if(quote?.action!=='detect'||!quote.quote_id||!Number.isFinite(quote.estimated_cost_usd)||quote.estimated_cost_usd<0)throw Error('Geçersiz maliyet teklifi. Ücretli istek yapılmadı.');
+  advance();
   if(!await confirmStyleTokens('Fotoğrafın analiz için gönderilecek. Bu işlem 1 Stil Jetonu kullanır. Devam edilsin mi?')){
-   aiStatus('Analiz iptal edildi; ücretli istek yapılmadı.');
+   report('Analiz iptal edildi; ücretli istek yapılmadı.');
    return;
   }
-  stage='✦ Fotoğraf analiz ediliyor…';
+  advance();
   classes.add('ai-scanning');
-  aiStatus(stage);
   const result=await aiPost('/api/detect',{...inputs,quote_id:quote.quote_id,confirmed:true,max_total_usd:quote.estimated_cost_usd},150000);
-  stage='Tespit edilen parçalar';
+  advance();
   const parts=readDetectedClothes(result);
   if(!parts.length){
-   aiStatus('Ayrılabilecek kıyafet bulunamadı. Elle kırpma seçeneği kullanılabilir.');
+   report('Ayrılabilecek kıyafet bulunamadı. Elle kırpma seçeneği kullanılabilir.');
    manualCrop.hidden=false;
    return;
   }
   aiJobId=result.job_id;
   aiParts=parts;
   aiReviewPhase='selection';
-  aiStatus('✦ '+parts.length+' ürün tespit edildi.');
+  report('✦ '+parts.length+' ürün tespit edildi.');
  }catch(error){
-  console.warn('Clothing detection stopped',stage,error.code||error.name);
+  const code=typeof error.code==='string'&&/^[a-z0-9_]{1,80}$/i.test(error.code)?' ['+error.code+']':'';
   manualCrop.hidden=false;
-  aiStatus((error instanceof TypeError?'Bağlantı kesildi.':error.message)+'\nElle kırpma seçeneği kullanılabilir.');
+  report('Durdu: '+(step+1)+'/6'+code+'\n'+(error instanceof TypeError?'Bağlantı kesildi.':error.message)+'\nElle kırpma seçeneği kullanılabilir.');
  }finally{
   aiBusy=false;
   button.disabled=false;
