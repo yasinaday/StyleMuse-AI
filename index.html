@@ -634,7 +634,11 @@ html[dir="rtl"] #profile .sm-page-hero img{right:auto;left:0}
 #profile-wallet h2{margin:0;color:#52285b}
 #profile-management[hidden],#profile-signin[hidden],#profile-signout[hidden]{display:none!important}
 #profile-account{margin:0 0 14px}
-#profile-account .profile-fields{padding:10px 14px}
+#profile-account .profile-fields{display:flex;align-items:center;flex-wrap:wrap;gap:6px 10px;padding:5px 10px}
+#profile-account-status{flex:1 1 0;min-width:0;margin:0;font-size:12px;line-height:1.3;overflow-wrap:anywhere}
+#profile #profile-signout{flex:none;margin:0;padding:5px 9px;min-height:36px;font-size:12px;white-space:nowrap}
+#profile #profile-signin{margin:0}
+#google-signin-slot:not(:empty){flex-basis:100%}
 #profile-account-status:empty,#google-signin-slot:empty{display:none}
 </style></head><body class="on-home"><header id="site-brand-header"><div class="brand"><svg class="home-dress" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 2v3L5 8l3 5-4 9h16l-4-9 3-5-5-3V2M8 13h8M10 2h4"/><path d="m21 2 .5 1.5L23 4l-1.5.5L21 6l-.5-1.5L19 4l1.5-.5Z"/></svg><span>StyleMuse AI</span></div><button class="home-pro" type="button" onclick="openHomePro()" aria-label="Stil Jetonu"><svg class="" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 7 4 4 5-7 5 7 4-4-3 13H6Z"/></svg><span>Stil Jetonu</span></button></header>
 <dialog id="profile-wallet" aria-labelledby="profile-wallet-title">
