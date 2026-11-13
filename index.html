@@ -1039,33 +1039,80 @@ function showStyleDialog(message,title,informational=false){
 function confirmStyleTokens(message){return showStyleDialog(message,'Stil Jetonu kullanımı')}
 function confirmStyleAction(message){return showStyleDialog(message,'Onay gerekli')}
 function showStyleNotice(message){return showStyleDialog(message,'Bilgilendirme',true)}
+function readDetectedClothes(result){
+ if(!result||!safeAiId(result.job_id)||!Array.isArray(result.items))throw Error('Geçersiz tespit sonucu');
+ const seen=new Set();
+ const parts=[];
+ let invalid=false;
+ for(const item of result.items){
+  if(isFootwearCategory(item?.category)||isAccessoryCategory(item?.category))continue;
+  const category=normalizeAiCategory(item?.category);
+  if(!item||!category||!safeAiId(item.id)||!safeAiImage(item.preview)){
+   invalid=true;
+   continue;
+  }
+  if(seen.has(item.id))continue;
+  seen.add(item.id);
+  parts.push({id:item.id,image:item.preview,category,providerCategory:item.category,
+   mask_quality:item.mask_quality,quality_warnings:item.quality_warnings,
+   category_verified:item.category_verified===true,selected:false,generated:false,
+   status:'Yapay zekâ ile bulundu · seçim bekliyor'});
+ }
+ if(invalid&&!parts.length)throw Error('Geçersiz tespit sonucu');
+ return parts;
+}
 async function analyzeClothes(){
  if(aiBusy)return;
- try{if(!await canUseStyleTokens()||aiBusy)return}catch{aiStatus('Jeton bakiyesi doğrulanamadı.');return;}
+ const image=multiSource;
+ if(!safeAiImage(image)){aiStatus('Yalnızca PNG veya JPEG fotoğraf kullanılabilir.');return;}
+ const button=document.getElementById('ai-analyze');
  const manualCrop=document.getElementById('ai-manual-crop');
+ const classes=document.body.classList;
+ aiBusy=true;
+ button.disabled=true;
  manualCrop.hidden=true;
- aiJobId=null;aiParts=[];
- if(!safeAiImage(multiSource)){aiStatus('Yalnızca PNG veya JPEG fotoğraf kullanılabilir.');return;}
- aiBusy=true;aiStatus('Sunucu kontrol ediliyor…');document.body.classList.add('ai-busy','ai-detecting');
+ aiJobId=null;
+ aiParts=[];
+ classes.add('ai-busy','ai-detecting');
+ let stage='Sunucu kontrol ediliyor…';
  try{
- const health=await aiPost('/api/health',{});
- if(health.authenticated!==true)throw Error('Profil bölümünden oturum aç.');
- if(health.status!=='ok'||health.enabled!==true)throw Error('AI üretimi kapalı veya hazır değil. Ücretli istek yapılmadı.');
- const inputs={image:multiSource,request_id:crypto.randomUUID()};
- const quote=await aiPost('/api/quote',{action:'detect',inputs});
- if(quote.action!=='detect'||typeof quote.quote_id!=='string'||!quote.quote_id||typeof quote.estimated_cost_usd!=='number'||!Number.isFinite(quote.estimated_cost_usd)||quote.estimated_cost_usd<0)throw Error('Geçersiz maliyet teklifi. Ücretli istek yapılmadı.');
- if(!await confirmStyleTokens('Fotoğrafın analiz için gönderilecek. Bu işlem 1 Stil Jetonu kullanır. Devam edilsin mi?')){aiStatus('Analiz iptal edildi; ücretli istek yapılmadı.');return;}
- document.body.classList.add('ai-scanning');
- aiStatus('✦ Fotoğraf analiz ediliyor…');
- const result=await aiPost('/api/detect',{...inputs,quote_id:quote.quote_id,confirmed:true,max_total_usd:quote.estimated_cost_usd});
- if(!result||!safeAiId(result.job_id)||!Array.isArray(result.items)||result.items.some(x=>!x||!safeAiId(x.id)||!safeAiImage(x.preview)||(!normalizeAiCategory(x.category)&&!isFootwearCategory(x.category)))||new Set(result.items.map(x=>x.id)).size!==result.items.length)throw Error('Geçersiz tespit sonucu');
- await refreshAiBudget();
- const parts=result.items.filter(x=>!isFootwearCategory(x.category)&&!isAccessoryCategory(x.category)).map(x=>({id:x.id,image:x.preview,category:normalizeAiCategory(x.category),providerCategory:x.category,mask_quality:x.mask_quality,quality_warnings:x.quality_warnings,category_verified:x.category_verified===true,selected:false,generated:false,status:'Yapay zekâ ile bulundu · seçim bekliyor'}));
- if(!parts.length){manualCrop.hidden=false;aiStatus('Ayrılabilecek kıyafet bulunamadı. Elle kırpma seçeneği kullanılabilir.');return;}
- aiJobId=result.job_id;aiParts=parts;aiReviewPhase='selection';showAiParts();
- aiStatus('✦ '+aiParts.length+' ürün tespit edildi.');
- }catch(e){aiJobId=null;aiParts=[];manualCrop.hidden=false;aiStatus(e.message+'\nElle kırpma seçeneği kullanılabilir.');}
- finally{aiBusy=false;document.body.classList.remove('ai-busy','ai-detecting','ai-scanning');if(aiParts.length)showAiParts();}
+  aiStatus(stage);
+  if(!await canUseStyleTokens())return;
+  const health=await aiPost('/api/health',{});
+  if(health.authenticated!==true)throw Error('Profil bölümünden oturum aç.');
+  if(health.status!=='ok'||health.enabled!==true)throw Error('Yapay zekâ şu anda kullanılamıyor.');
+  const inputs={image,request_id:crypto.randomUUID()};
+  const quote=await aiPost('/api/quote',{action:'detect',inputs});
+  if(quote?.action!=='detect'||!quote.quote_id||!Number.isFinite(quote.estimated_cost_usd)||quote.estimated_cost_usd<0)throw Error('Geçersiz maliyet teklifi. Ücretli istek yapılmadı.');
+  if(!await confirmStyleTokens('Fotoğrafın analiz için gönderilecek. Bu işlem 1 Stil Jetonu kullanır. Devam edilsin mi?')){
+   aiStatus('Analiz iptal edildi; ücretli istek yapılmadı.');
+   return;
+  }
+  stage='✦ Fotoğraf analiz ediliyor…';
+  classes.add('ai-scanning');
+  aiStatus(stage);
+  const result=await aiPost('/api/detect',{...inputs,quote_id:quote.quote_id,confirmed:true,max_total_usd:quote.estimated_cost_usd},150000);
+  stage='Tespit edilen parçalar';
+  const parts=readDetectedClothes(result);
+  if(!parts.length){
+   aiStatus('Ayrılabilecek kıyafet bulunamadı. Elle kırpma seçeneği kullanılabilir.');
+   manualCrop.hidden=false;
+   return;
+  }
+  aiJobId=result.job_id;
+  aiParts=parts;
+  aiReviewPhase='selection';
+  aiStatus('✦ '+parts.length+' ürün tespit edildi.');
+ }catch(error){
+  console.warn('Clothing detection stopped',stage,error.code||error.name);
+  manualCrop.hidden=false;
+  aiStatus((error instanceof TypeError?'Bağlantı kesildi.':error.message)+'\nElle kırpma seçeneği kullanılabilir.');
+ }finally{
+  aiBusy=false;
+  button.disabled=false;
+  classes.remove('ai-busy','ai-detecting','ai-scanning');
+  if(aiParts.length)showAiParts();
+ }
 }
 async function generateAiParts(){
  if(aiBusy)return;
