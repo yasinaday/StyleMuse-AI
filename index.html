@@ -1283,10 +1283,12 @@ async function persistSavedLooks(looks){const db=await wardrobeDb();try{await ne
 
 function mannequinGroup(x){const c=(wardrobeCategory(x)||'').toLocaleLowerCase('tr-TR');if(/şapka|hat|cap|bere/.test(c))return 'hat';if(/çanta|bag|handbag|purse|tote/.test(c))return 'bag';if(/dış|ceket|mont|kaban|hırka|outerwear/.test(c))return 'outer';if(/alt|pantolon|etek|jean|şort|bottom/.test(c))return 'bottom';if(/elbise|tulum/.test(c))return 'dress';if(/üst|bluz|tişört|gömlek|kazak|top/.test(c))return 'top';return 'other'}
 function renderTry(){const items=getItems().filter(x=>!isFootwearItem(x));chosenTry=chosenTry.filter(id=>items.some(x=>String(x.id)===String(id)));const chosen=orderedTryonItems(chosenTry.map(id=>items.find(x=>String(x.id)===String(id))).filter(Boolean));const labels={top:'Üst giyim',bottom:'Alt giyim',outer:'Dış giyim',dress:'Elbise',bag:'Çanta',hat:'Şapka'};const target=document.getElementById('mannequin-selected');target.replaceChildren();if(!chosen.length){for(let i=0;i<4;i++){const slot=document.createElement('div');slot.className='sm-stage-item sm-stage-empty';slot.setAttribute('aria-label','Boş kıyafet alanı');target.append(slot)}}chosen.forEach(x=>{const card=document.createElement('div');card.className='sm-stage-item';const img=document.createElement('img');img.src=x.image;img.alt=x.name||x.category||'Kıyafet';const label=document.createElement('small');label.textContent=(x.name||labels[mannequinGroup(x)]||x.category||'Kıyafet');label.title=label.textContent;card.append(img,label);target.append(card)});document.getElementById('try-choices').innerHTML=items.length?items.map(x=>'<button type="button" '+(tryOnSelectionLocked()?'disabled ':'')+'class="try-choice '+(chosenTry.some(id=>String(id)===String(x.id))?'chosen':'')+'" onclick="toggleTry('+JSON.stringify(x.id)+')"><img src="'+x.image+'" alt=""><small>'+(x.category||'Kıyafet')+'</small></button>').join(''):'<p>Dolabında kıyafet yok. Önce bir kıyafet ekle.</p>';document.getElementById('mannequin-status').textContent=chosen.length+' parça seçildi.'}
-const READY_MANNEQUINS=Array.from({length:10},(_,i)=>'assets/mannequins/studio-'+(i+1)+'.webp');
+const mannequinTones=['light','medium','deep'];
+const mannequinShapes=['straight','curved','pear','oval','triangle'];
+const READY_MANNEQUINS=mannequinTones.flatMap(tone=>mannequinShapes.flatMap(shape=>['standard','full'].map(build=>({
+ tone,shape,build,url:'assets/mannequins/profile-'+tone+'-'+shape+'-'+build+'.webp'
+}))));
 let readyModelLoad=0;
-const mannequinTones=['light','deep','light','medium','light','deep','medium','light','light','medium'];
-const mannequinShapes=['curved','straight','straight','curved','straight','curved','curved','straight','straight','curved'];
 function readStyleProfile(){
  try{return JSON.parse(localStorage.getItem('sm-style-profile'))||{}}catch{return {}}
 }
@@ -1465,39 +1467,30 @@ function initStyleProfile(){
   try{
    localStorage.setItem('sm-style-profile',JSON.stringify(Object.fromEntries(new FormData(form))));
    document.getElementById('style-profile-status').textContent='Stil profilin kaydedildi.';
-   if(!tryOnSelectionLocked()&&document.getElementById('mannequin-person').hasAttribute('data-ready-model'))initReadyMannequin();
+   if(!tryOnSelectionLocked()&&(!mannequinPhotoUrl||mannequinPhotoUrl===mannequinPhotoData))void initReadyMannequin();
   }catch{document.getElementById('style-profile-status').textContent='Stil profili kaydedilemedi.'}
  });
 }
-const mannequinBuilds=[1,0,0,1,0,2,2,1,0,1];
 function preferredMannequinBuild(profile){
  const size=['XS','S','M','L','XL','XXL','3XL','4XL'].indexOf(profile['profile-size']);
- const height=Number(profile.height)/100, weight=Number(profile.weight);
+ const height=Number(profile.height)/100;
+ const weight=Number(profile.weight);
  const proportion=height>0&&weight>0?weight/(height*height):null;
- const sizeBand=size<0?null:size<2?0:size<4?1:2;
- const proportionBand=proportion===null?null:proportion<20?0:proportion<25?1:2;
- return sizeBand===null?proportionBand:proportionBand===null?sizeBand:(2*sizeBand+proportionBand)/3;
+ if(proportion!==null&&(proportion<23||proportion>=27))return proportion>=27?'full':'standard';
+ return size>=4?'full':'standard';
+}
+function selectReadyMannequin(profile){
+ const tone=mannequinTones.includes(profile['profile-tone'])?profile['profile-tone']:'medium';
+ const shape=mannequinShapes.includes(profile['profile-shape'])?profile['profile-shape']:'straight';
+ const build=preferredMannequinBuild(profile);
+ return READY_MANNEQUINS.findIndex(model=>model.tone===tone&&model.shape===shape&&model.build===build);
 }
 function initReadyMannequin(preserveResult=false){
- const key='sm-last-ready-model';
- let previous=null;
- try{previous=localStorage.getItem(key)}catch{}
- const profile=readStyleProfile();
- const build=preferredMannequinBuild(profile);
- const score=i=>Number(mannequinTones[i]===profile['profile-tone'])*3
-  +Number(mannequinShapes[i]===profile['profile-shape'])*2
-  -(build===null?0:Math.abs(mannequinBuilds[i]-build));
- const indices=READY_MANNEQUINS.map((_,i)=>i);
- const best=Math.max(...indices.map(score));
- const matches=indices.filter(i=>score(i)===best);
- const candidates=matches.length>1?matches.filter(i=>String(i)!==previous):matches;
- const index=candidates[Math.floor(Math.random()*candidates.length)];
- try{localStorage.setItem(key,String(index))}catch{}
- return chooseReadyMannequin(index,preserveResult);
+ return chooseReadyMannequin(selectReadyMannequin(readStyleProfile()),preserveResult);
 }
 async function chooseReadyMannequin(index,preserveResult=false){
  if(tryOnSelectionLocked()&&!preserveResult)return;
- const url=READY_MANNEQUINS[index];
+ const url=READY_MANNEQUINS[index]?.url;
  if(!url)return;
  const load=++readyModelLoad;
  const preview=document.getElementById('mannequin-person');
