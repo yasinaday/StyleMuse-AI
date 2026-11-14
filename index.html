@@ -1063,7 +1063,7 @@ async function aiRequest(path,payload,timeout=120000){
  if(url.protocol!=='https:')throw Error('HTTPS gerekli.');
  const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),timeout);
  let response,result;try{response=await fetch(url,{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload),signal:controller.signal});result=await response.json()}catch(error){if(controller.signal.aborted)throw Error("Sunucu zamanında yanıt vermedi.");throw error}finally{clearTimeout(timer)}
- if(!response.ok){const detail=result?.detail??result?.error;const code=typeof detail==='string'?detail:detail?.code;if(code==='provider_failed_no_retry'||code?.startsWith('tryon_provider_http_')){const error=Error('Yapay zekâ işlemi tamamlanamadı.');error.code=code;throw error;}if(code==='style_tokens_empty'){openHomePro();void refreshStyleMuseAccount().catch(()=>{});throw Error('Stil Jetonu kalmadı.')}if(code==='busy_or_ambiguous'){const error=Error('Sunucuda önceki bir AI işlemi hâlâ bekliyor veya sonucu belirsiz.');error.code=code;throw error}if(code==='paid_inference_not_authorized')throw Error('Profil bölümünden oturum aç.');if(code==='provider_credit_unavailable'||code==='provider_credit_insufficient'){const error=Error(code==='provider_credit_insufficient'?'Sağlayıcı için kullanılabilir kredi yetersiz.':'Sağlayıcı kredi bilgisi doğrulanamadı.');error.code=code;throw error;}if(code==='quote_invalid_or_expired'||code==='cost_confirmation_required')throw Error('Maliyet teklifi geçersiz, kullanılmış veya süresi dolmuş. Yeni teklif ve açık onay gerekir; otomatik tekrar yapılmadı.');if(response.status===401||(response.status===403&&['paid_inference_not_authorized','oauth_account_not_allowed'].includes(code))){aiSessionPromise=null;updateGithubStatus({authenticated:false});}const error=Error(typeof detail==='string'?detail.slice(0,600):'Sunucu hatası: '+JSON.stringify(detail??response.status).slice(0,600));error.code=code;throw error;}
+ if(!response.ok){const detail=result?.detail??result?.error;const code=typeof detail==='string'?detail:detail?.code;if(code==='provider_failed_no_retry'||code?.startsWith('tryon_provider_http_')){const error=Error('Yapay zekâ işlemi tamamlanamadı.');error.code=code;throw error;}if(code==='style_tokens_empty'){openHomePro();void refreshStyleMuseAccount().catch(()=>{});throw Error('Stil Jetonu kalmadı.')}if(code==='busy_or_ambiguous'){const error=Error('Sunucuda önceki bir AI işlemi hâlâ bekliyor veya sonucu belirsiz.');error.code=code;throw error}if(code==='paid_inference_not_authorized')throw Error('Profil bölümünden oturum aç.');if(code==='provider_credit_unavailable'||code==='provider_credit_insufficient'){const error=Error(code==='provider_credit_insufficient'?'Sağlayıcı için kullanılabilir kredi yetersiz.':'Sağlayıcı kredi bilgisi doğrulanamadı.');error.code=code;throw error;}if(code==='quote_invalid_or_expired'||code==='cost_confirmation_required'){const error=Error('Maliyet teklifi geçersiz, kullanılmış veya süresi dolmuş. Yeni teklif ve açık onay gerekir; otomatik tekrar yapılmadı.');error.code=code;throw error;}if(response.status===401||(response.status===403&&['paid_inference_not_authorized','oauth_account_not_allowed'].includes(code))){aiSessionPromise=null;updateGithubStatus({authenticated:false});}const error=Error(typeof detail==='string'?detail.slice(0,600):'Sunucu hatası: '+JSON.stringify(detail??response.status).slice(0,600));error.code=code;throw error;}
  if(path==='/api/session'||path==='/api/health')updateGithubStatus(result);
  if(path==='/api/health')updateAiBudget(result);
  return result;
@@ -1245,14 +1245,14 @@ async function generateAiParts(){
  const entry={operation:'generate',startedAt:new Date().toISOString(),jobId:job,selectedCount:chosen.length,outcome:'interrupted',steps:[]};
  const recordStep=stage=>entry.steps.push({stage,at:new Date().toISOString()});
  try{
- recordStep('quote');
- const inputs={job_id:job,item_ids:chosen.map(x=>x.id)};
- const quote=await aiPost('/api/quote',{action:'generate',inputs});
- if(quote.action!=='generate'||typeof quote.quote_id!=='string'||!quote.quote_id||typeof quote.estimated_cost_usd!=='number'||!Number.isFinite(quote.estimated_cost_usd)||quote.estimated_cost_usd<0)throw Error('Geçersiz maliyet teklifi. Ücretli istek yapılmadı.');
  recordStep('token_check');
  if(!await canUseStyleTokens(chosen.length)){entry.outcome='insufficient_style_tokens';return;}
  recordStep('approval');
  if(!await confirmStyleTokens(chosen.length+' ürün için '+chosen.length+' Stil Jetonu kullanılacak. Devam edilsin mi?')){entry.outcome='canceled';return;}
+ recordStep('quote');
+ const inputs={job_id:job,item_ids:chosen.map(x=>x.id)};
+ const quote=await aiPost('/api/quote',{action:'generate',inputs});
+ if(quote.action!=='generate'||typeof quote.quote_id!=='string'||!quote.quote_id||typeof quote.estimated_cost_usd!=='number'||!Number.isFinite(quote.estimated_cost_usd)||quote.estimated_cost_usd<0)throw Error('Geçersiz maliyet teklifi. Ücretli istek yapılmadı.');
  chosen.forEach(p=>{p.status='Üretiliyor…';p.error=''});showAiParts();document.getElementById('ai-review')?.classList.add('ai-working');
  recordStep('generate');
  const result=await aiPost('/api/generate',{...inputs,quote_id:quote.quote_id,confirmed:true,max_total_usd:quote.estimated_cost_usd});
@@ -1264,7 +1264,7 @@ async function generateAiParts(){
  entry.failedCount=chosen.length-entry.generatedCount;
  entry.outcome=entry.failedCount?(entry.generatedCount?'partial':'failed'):'succeeded';
 const firstGenerated=aiParts.findIndex(p=>chosen.includes(p)&&p.generated);if(firstGenerated>=0)aiActiveIndex=firstGenerated;
- }catch(e){entry.outcome='failed';entry.errorCode=analysisErrorCode(e);chosen.forEach(p=>{p.error=e.message;p.status='Üretim başarısız: '+e.message});aiStatus('Üretim başarısız: '+e.message+' Otomatik tekrar yapılmadı.');}
+ }catch(e){entry.outcome='failed';entry.errorCode=analysisErrorCode(e);chosen.forEach(p=>{p.error=e.code==='quote_invalid_or_expired'?'Teklif doğrulanamadı. Yeni teklif almak için Parçaları iyileştir’e tekrar dokun.':e.message;p.status='Üretim başarısız: '+e.message});aiStatus('Üretim başarısız: '+e.message+' Otomatik tekrar yapılmadı.');}
  finally{storeAnalysis(entry);await refreshAiBudget();aiBusy=false;showAiParts();document.getElementById('ai-review')?.classList.remove('ai-working');}
 }
 const escapeAi=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
