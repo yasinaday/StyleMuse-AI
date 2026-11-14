@@ -1346,7 +1346,7 @@ async function reviewAiPart(i,decision){
    await persistWardrobe(items);
    p.review='accepted';p.saved=true;p.selected=false;p.status='Dolaba kaydedildi';
    render();renderProfile();
-   aiStatus('1 kıyafet dolabına kaydedildi.');if(!aiParts.some(x=>x.selected&&!x.saved&&x.review!=='rejected')){closeAiReview();multiSource=null;aiJobId=null;aiParts=[];tab('closet');return;}
+   if(!aiParts.some(x=>x.selected&&!x.saved&&x.review!=='rejected')){finishAiSave(1);tab('closet');return;}
   }catch(e){showStyleNotice('Kıyafet kaydedilemedi. Telefonun depolama alanını kontrol et.');return;}finally{savingExtractedPart=false;}
  }else{p.review='rejected';p.selected=false;p.status='Reddedildi';}
  const rail=document.getElementById('ai-cards');const scroll=rail?.scrollTop||0;
@@ -1364,9 +1364,18 @@ async function cancelAiReview(){
  closeAiReview();
 }
 function closeAiReview(){if(aiBusy)return;document.getElementById('ai-review')?.classList.remove('active');document.body.style.overflow='';document.getElementById('smart-photo').focus()}
-async function saveAiParts(){if(aiBusy)return;const chosen=aiParts.filter(p=>!isFootwearItem(p)&&!isAccessoryCategory(p.category)&&!isAccessoryCategory(p.providerCategory)&&p.selected&&p.generated&&p.review==='accepted'&&!p.saved&&safeAiImage(p.image));if(!chosen.length)return showStyleNotice('Önce AI ile ürün görseli oluştur.');if(chosen.some(p=>p.category_verified!==true||p.mask_quality!=='verified'||(Array.isArray(p.quality_warnings)&&p.quality_warnings.length))&&!await confirmStyleAction('Seçili ürünlerden bazılarının maske veya kategorisi doğrulanmadı. Orijinalinden farklı ürünler kaydedilebilir. Kontrol ederek kaydetmeyi onaylıyor musun?'))return;try{const items=getItems();chosen.forEach((p,i)=>items.push({image:p.image,category:p.category,providerCategory:p.providerCategory,id:Date.now()+i}));await persistWardrobe(items);closeAiReview();multiSource=null;aiJobId=null;aiParts=[];currentFilter='Tümü';render();aiStatus(chosen.length+' kıyafet dolabına kaydedildi.')}catch(err){showStyleNotice('Telefonun depolama alanı dolmuş olabilir. Daha az parça seç.')}}
+async function saveAiParts(){if(aiBusy)return;const chosen=aiParts.filter(p=>!isFootwearItem(p)&&!isAccessoryCategory(p.category)&&!isAccessoryCategory(p.providerCategory)&&p.selected&&p.generated&&p.review==='accepted'&&!p.saved&&safeAiImage(p.image));if(!chosen.length)return showStyleNotice('Önce AI ile ürün görseli oluştur.');if(chosen.some(p=>p.category_verified!==true||p.mask_quality!=='verified'||(Array.isArray(p.quality_warnings)&&p.quality_warnings.length))&&!await confirmStyleAction('Seçili ürünlerden bazılarının maske veya kategorisi doğrulanmadı. Orijinalinden farklı ürünler kaydedilebilir. Kontrol ederek kaydetmeyi onaylıyor musun?'))return;try{const items=getItems();chosen.forEach((p,i)=>items.push({image:p.image,category:p.category,providerCategory:p.providerCategory,id:Date.now()+i}));await persistWardrobe(items);currentFilter='Tümü';render();finishAiSave(chosen.length)}catch(err){showStyleNotice('Telefonun depolama alanı dolmuş olabilir. Daha az parça seç.')}}
 function openMultiCrop(){if(!multiSource)return;const category=document.getElementById('category');category.value='Üst giyim';category.dispatchEvent(new Event('change',{bubbles:true}));openCrop(multiSource,null,'Üst giyim');const p=document.querySelector('.crop-panel');let controls=document.getElementById('multi-controls');if(!controls){controls=document.createElement('div');controls.id='multi-controls';controls.innerHTML='<label for="multi-category">Bu parça nedir?</label><select id="multi-category"><option>Üst giyim</option><option>Alt giyim</option><option>Elbise</option><option>Çanta</option><option>Dış giyim</option><option>Aksesuar</option></select><p id="multi-counter" class="hint"></p>';p.insertBefore(controls,document.getElementById('crop-frame'))}controls.style.display='block';initStylePicker('multi-category');document.getElementById('multi-category').value='Üst giyim';syncStylePickers.get('multi-category')?.();document.getElementById('multi-counter').textContent=multiSaved+' parça kaydedildi';p.querySelector('.actions button:last-child').textContent='Parçayı kaydet ve devam et'}
-function finishMulti(){multiSource=null;multiSaved=0;document.getElementById('ai-upload').hidden=true;aiStatus('');const controls=document.getElementById('multi-controls');if(controls)controls.style.display='none';const btn=document.querySelector('.crop-panel .actions button:last-child');if(btn)btn.textContent='Kırp ve kaydet ✓'}
+function finishAiSave(count){
+ closeAiReview();
+ aiJobId=null;
+ aiParts=[];
+ aiReviewPhase='selection';
+ document.getElementById('smart-photo').value='';
+ finishMulti();
+ aiStatus(count+' kıyafet dolabına kaydedildi.');
+}
+function finishMulti(){multiSource=null;multiSaved=0;document.getElementById('ai-upload').hidden=true;document.getElementById('ai-upload-preview').removeAttribute('src');aiStatus('');const controls=document.getElementById('multi-controls');if(controls)controls.style.display='none';const btn=document.querySelector('.crop-panel .actions button:last-child');if(btn)btn.textContent='Kırp ve kaydet ✓'}
 let currentFilter='Tümü',lastCombo=[];
 function isFootwearCategory(value){return typeof value==='string'&&['shoe','shoes','left shoe','right shoe','footwear','ayakkabi','ayakkabilar','spor ayakkabi','spor ayakkabilar','sol ayakkabi','sag ayakkabi','sneaker','sneakers','loafer','loafers','boot','boots','bot','botlar','cizme','cizmeler','sandal','sandals','sandalet','terlik','topuklu ayakkabi'].includes(value.normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/ı/g,'i').replace(/[-_]+/g,' ').trim().replace(/\s+/g,' '))}
 function isFootwearItem(item){return !!item&&typeof item==='object'&&(isFootwearCategory(item.category)||isFootwearCategory(item.providerCategory))}
@@ -2271,7 +2280,6 @@ async function resetWardrobe(){
   document.getElementById('suggestion').replaceChildren();
   clearMannequin();
   finishMulti();
-  document.getElementById('ai-upload-preview').removeAttribute('src');
   aiJobId=null;
   aiParts=[];
   render();
