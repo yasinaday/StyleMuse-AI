@@ -585,10 +585,16 @@ button.style-picker-trigger{
 .style-picker-trigger::after{content:'';width:7px;height:7px;flex:none;border:solid currentColor;border-width:0 1px 1px 0;transform:translateY(-2px) rotate(45deg)}
 select[data-style-picker][hidden]{display:none!important}
 #outfits .style-picker-trigger{font-size:clamp(12px,3.5vw,15px)}
-#style-profile-mannequin-note{margin:0 0 10px;font-size:13px;line-height:1.4;color:#70566e}
-#style-profile-form .profile-measures input[type="number"]{
- box-sizing:border-box;height:44px;min-height:44px;padding:8px 13px;line-height:1.25;
+#style-profile-mannequin-note{margin:0 0 6px;font-size:13px;line-height:1.35;color:#70566e}
+#profile #style-profile-form{padding-bottom:9px}
+#profile #style-profile-form label{margin:7px 0 3px;line-height:1.25}
+#profile #style-profile-form .profile-measures{gap:8px}
+#profile #style-profile-form .profile-measures input{display:block;margin:3px 0 0}
+#profile #style-profile-form :is(.style-picker-trigger,select,input[type="number"]){
+ box-sizing:border-box;min-height:40px;padding:6px 12px;line-height:1.25;
 }
+#profile #style-profile-form input[type="number"]{height:40px}
+#profile #style-profile-form .profile-tokens{margin-top:8px}
 #crop-modal{background:#35203cbe}
 #crop-modal .crop-panel{box-sizing:border-box;width:min(100%,460px);max-height:calc(100dvh - 24px);padding:14px;background:#fff8fc;color:#44234c;border:1px solid #e4cce2}
 #crop-modal .crop-panel h2{margin:0;font:700 22px/1.2 system-ui,sans-serif;color:#44234c}
