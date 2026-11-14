@@ -826,6 +826,9 @@ html[dir="rtl"] #profile .sm-page-hero img{right:auto;left:0}
 #ward-summary-counts div:last-child{border:0}
 #ward-summary-counts dt{overflow-wrap:anywhere;min-width:0}
 #ward-summary-counts dd{margin:0;font-weight:700}
+#tryon.tryon-result-only .sm-stage-items,
+#tryon.tryon-result-only .sm-stage-suggest{display:none!important}
+#tryon.tryon-result-only .sm-stage-photo{grid-column:1 / -1!important}
 </style></head><body class="on-home"><header id="site-brand-header"><div class="brand"><img class="home-dress" src="assets/stylemuse-icon.png" alt="" width="34" height="34"><span>StyleMuse AI</span></div><button class="home-pro" type="button" onclick="openHomePro()" aria-label="Stil Jetonu"><svg class="" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 7 4 4 5-7 5 7 4-4-3 13H6Z"/></svg><span>Stil Jetonu</span></button></header>
 <dialog id="style-confirm" aria-labelledby="style-confirm-title" aria-describedby="style-confirm-message"><form method="dialog"><header>✦ StyleMuse AI</header><h2 id="style-confirm-title">Stil Jetonu kullanımı</h2><p id="style-confirm-message"></p><div><button id="style-confirm-cancel" value="cancel" autofocus>Vazgeç</button><button id="style-confirm-approve" value="approve">Onayla</button></div></form></dialog><dialog id="profile-wallet" aria-labelledby="profile-wallet-title">
  <div class="home-dialog-head"><h2 id="profile-wallet-title">Jeton Takibi</h2><button type="button" onclick="this.closest('dialog').close()" aria-label="Kapat">×</button></div>
@@ -1517,7 +1520,7 @@ async function loadSavedLooks(){try{const db=await wardrobeDb();const existing=a
 async function persistSavedLooks(looks){const db=await wardrobeDb();try{await new Promise((resolve,reject)=>{const tx=db.transaction('wardrobe','readwrite');tx.objectStore('wardrobe').put(looks,'saved-looks');tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error||Error('Kombin kaydı başarısız'));tx.onabort=()=>reject(tx.error||Error('Kombin kaydı iptal edildi'))});savedLooksCache=looks}finally{db.close()}}
 
 function mannequinGroup(x){const c=(wardrobeCategory(x)||'').toLocaleLowerCase('tr-TR');if(/şapka|hat|cap|bere/.test(c))return 'hat';if(/çanta|bag|handbag|purse|tote/.test(c))return 'bag';if(/dış|ceket|mont|kaban|hırka|outerwear/.test(c))return 'outer';if(/alt|pantolon|etek|jean|şort|bottom/.test(c))return 'bottom';if(/elbise|tulum/.test(c))return 'dress';if(/üst|bluz|tişört|gömlek|kazak|top/.test(c))return 'top';return 'other'}
-function renderTry(){const items=getItems().filter(x=>!isFootwearItem(x));chosenTry=chosenTry.filter(id=>items.some(x=>String(x.id)===String(id)));const chosen=orderedTryonItems(chosenTry.map(id=>items.find(x=>String(x.id)===String(id))).filter(Boolean));const labels={top:'Üst giyim',bottom:'Alt giyim',outer:'Dış giyim',dress:'Elbise',bag:'Çanta',hat:'Şapka'};const target=document.getElementById('mannequin-selected');target.replaceChildren();if(!chosen.length){for(let i=0;i<4;i++){const slot=document.createElement('div');slot.className='sm-stage-item sm-stage-empty';slot.setAttribute('aria-label','Boş kıyafet alanı');target.append(slot)}}chosen.forEach(x=>{const card=document.createElement('div');card.className='sm-stage-item';const img=document.createElement('img');img.src=x.image;img.alt=x.name||x.category||'Kıyafet';const label=document.createElement('small');label.textContent=(x.name||labels[mannequinGroup(x)]||x.category||'Kıyafet');label.title=label.textContent;card.append(img,label);target.append(card)});document.getElementById('try-choices').innerHTML=items.length?items.map(x=>'<button type="button" '+(tryOnSelectionLocked()?'disabled ':'')+'class="try-choice '+(chosenTry.some(id=>String(id)===String(x.id))?'chosen':'')+'" onclick="toggleTry('+JSON.stringify(x.id)+')"><img src="'+x.image+'" alt=""><small>'+(x.category||'Kıyafet')+'</small></button>').join(''):'<p>Dolabında kıyafet yok. Önce bir kıyafet ekle.</p>';document.getElementById('mannequin-status').textContent=chosen.length+' parça seçildi.'}
+function renderTry(){document.getElementById('tryon').classList.toggle('tryon-result-only',tryonRecovered&&!chosenTry.length);const items=getItems().filter(x=>!isFootwearItem(x));chosenTry=chosenTry.filter(id=>items.some(x=>String(x.id)===String(id)));const chosen=orderedTryonItems(chosenTry.map(id=>items.find(x=>String(x.id)===String(id))).filter(Boolean));const labels={top:'Üst giyim',bottom:'Alt giyim',outer:'Dış giyim',dress:'Elbise',bag:'Çanta',hat:'Şapka'};const target=document.getElementById('mannequin-selected');target.replaceChildren();if(!chosen.length){for(let i=0;i<4;i++){const slot=document.createElement('div');slot.className='sm-stage-item sm-stage-empty';slot.setAttribute('aria-label','Boş kıyafet alanı');target.append(slot)}}chosen.forEach(x=>{const card=document.createElement('div');card.className='sm-stage-item';const img=document.createElement('img');img.src=x.image;img.alt=x.name||x.category||'Kıyafet';const label=document.createElement('small');label.textContent=(x.name||labels[mannequinGroup(x)]||x.category||'Kıyafet');label.title=label.textContent;card.append(img,label);target.append(card)});document.getElementById('try-choices').innerHTML=items.length?items.map(x=>'<button type="button" '+(tryOnSelectionLocked()?'disabled ':'')+'class="try-choice '+(chosenTry.some(id=>String(id)===String(x.id))?'chosen':'')+'" onclick="toggleTry('+JSON.stringify(x.id)+')"><img src="'+x.image+'" alt=""><small>'+(x.category||'Kıyafet')+'</small></button>').join(''):'<p>Dolabında kıyafet yok. Önce bir kıyafet ekle.</p>';document.getElementById('mannequin-status').textContent=chosen.length+' parça seçildi.'}
 const mannequinTones=['light','medium','deep'];
 const mannequinShapes=['straight','curved','pear','oval','triangle'];
 const READY_MANNEQUINS=mannequinTones.flatMap(tone=>mannequinShapes.flatMap(shape=>['standard','full'].map(build=>({
@@ -1808,6 +1811,7 @@ function tryOnSelectionLocked(){
 function setTryOnBusy(busy){
  tryonBusy=busy;
  const section=document.getElementById('tryon');
+ section.classList.toggle('tryon-result-only',tryonRecovered&&!chosenTry.length);
  const button=section.querySelector('.mannequin-ai-button');
  const pending=Boolean(sessionStorage.getItem('sm-tryon-pending'));
  const locked=tryOnSelectionLocked();
@@ -1890,6 +1894,7 @@ async function resumeVirtualTryOn(){
 function markRecoveredTryOn(){
  tryonComplete=true;
  tryonRecovered=true;
+ renderTry();
  setStageProgress('Giydirme sonucu kurtarıldı.');
  document.getElementById('mannequin-ai-status').textContent='Kurtarılan görseli Kombinler bölümüne kaydedebilirsin.';
 }
