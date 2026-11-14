@@ -1,0 +1,48 @@
+✔ backup wardrobe images never enter HTML strings across closet, suggestions and try-on (415.606143ms)
+✔ invalid restore preserves IndexedDB wardrobe, saved looks, preferences and visible closet (277.484865ms)
+✔ valid legacy backup version 1 restores and opens wardrobe after reload (351.346171ms)
+✔ valid legacy backup version 2 restores and opens wardrobe after reload (304.588579ms)
+✔ restored allowlisted result cannot create executable attributes in real DOM (208.508019ms)
+StyleMuse init TypeError: form.elements is not iterable
+    at initStyleProfile (evalmachine.<anonymous>:837:26)
+    at evalmachine.<anonymous>:1458:747
+    at Script.runInContext (node:vm:150:12)
+    at Object.runInContext (node:vm:302:6)
+    at app (/opt/stylemuse-security-fix/tests/frontend/offline-harness.cjs:10:27)
+    at TestContext.<anonymous> (/opt/stylemuse-security-fix/tests/frontend/harness-parser.test.cjs:5:10)
+    at Test.runInAsyncScope (node:async_hooks:226:14)
+    at Test.run (node:internal/test_runner/test:1402:25)
+    at Test.start (node:internal/test_runner/test:1262:17)
+    at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17)
+Wardrobe storage unavailable Error: IndexedDB unavailable
+    at evalmachine.<anonymous>:483:103
+    at new Promise (<anonymous>)
+    at wardrobeDb (evalmachine.<anonymous>:483:30)
+    at loadWardrobe (evalmachine.<anonymous>:487:18)
+    at evalmachine.<anonymous>:1458:694
+    at Script.runInContext (node:vm:150:12)
+    at Object.runInContext (node:vm:302:6)
+    at app (/opt/stylemuse-security-fix/tests/frontend/offline-harness.cjs:10:27)
+    at TestContext.<anonymous> (/opt/stylemuse-security-fix/tests/frontend/harness-parser.test.cjs:5:10)
+    at Test.runInAsyncScope (node:async_hooks:226:14)
+Error: IndexedDB unavailable
+    at evalmachine.<anonymous>:483:103
+    at new Promise (<anonymous>)
+    at wardrobeDb (evalmachine.<anonymous>:483:30)
+    at loadSavedLooks (evalmachine.<anonymous>:654:52)
+    at evalmachine.<anonymous>:1458:709
+    at Script.runInContext (node:vm:150:12)
+    at Object.runInContext (node:vm:302:6)
+    at app (/opt/stylemuse-security-fix/tests/frontend/offline-harness.cjs:10:27)
+    at TestContext.<anonymous> (/opt/stylemuse-security-fix/tests/frontend/harness-parser.test.cjs:5:10)
+    at Test.runInAsyncScope (node:async_hooks:226:14)
+✔ offline harness executes app script without consuming later external script markup (10.547805ms)
+✔ restored legacy string IDs support zoom, edit, selection and removal after reload (854.517929ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 7
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3040.645238

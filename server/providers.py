@@ -148,10 +148,12 @@ def original_image(value):
         if isinstance(value, str):
             if not value.startswith(('data:image/png;base64,', 'data:image/jpeg;base64,')):
                 raise ValueError()
+            if len(value) - value.index(',') - 1 > ((20 * 1024 * 1024 + 2) // 3) * 4:
+                raise ValueError()
             value = base64.b64decode(value.split(',', 1)[1], validate=True)
         if not isinstance(value, bytes) or len(value) > 20 * 1024 * 1024:
             raise ValueError()
-        image = Image.open(io.BytesIO(value))
+        image = Image.open(io.BytesIO(value), formats=('PNG', 'JPEG'))
         if image.width * image.height > 1_048_576 or image.format not in ('PNG', 'JPEG'):
             raise ValueError()
         image.load()
@@ -334,7 +336,9 @@ class RealProviders:
             raise ProviderError('Invalid or unsafe fal output')
         raw = self.http.request('GET', images[0]['url'])
         try:
-            image = Image.open(io.BytesIO(raw))
+            if not isinstance(raw, bytes) or len(raw) > 64 * 1024 * 1024:
+                raise ValueError()
+            image = Image.open(io.BytesIO(raw), formats=('PNG',))
             if image.format != 'PNG' or image.size != (768, 1024):
                 raise ValueError()
             image.load()
