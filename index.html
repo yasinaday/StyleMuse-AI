@@ -882,7 +882,7 @@ html[dir="rtl"] #profile .sm-page-hero img{right:auto;left:0}
 <h2 class="profile-group-title">Veriler</h2>
 <div class="profile-list"><details><summary><svg class="profile-menu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m-4-4 4 4 4-4M4 15v5h16v-5"/></svg><span>Veri yedekleme</span></summary><div class="profile-fields"><div class="profile-backup-actions"><button type="button" class="secondary" onclick="exportData()">Verilerimi yedekle ↓</button><button id="restore-backup" type="button" class="secondary" onclick="document.getElementById('backup-file').click()">Yedekten geri yükle ↑</button></div><input id="backup-file" type="file" accept=".json,application/json" hidden onchange="restoreData(this)"><p id="backup-status" role="status"></p><button type="button" id="reset-wardrobe" class="secondary" onclick="resetWardrobe()">Dolabı sıfırla</button><p id="reset-wardrobe-status" role="status"></p><p class="notice">Kıyafetler cihazındaki tarayıcıda tutulur. Tarayıcı verilerini silersen kayıtlar kaybolabilir.</p></div></details></div>
 <div id="profile-management" hidden><h2 class="profile-group-title">Yönetim</h2>
-<div class="profile-list"><details><summary><svg class="profile-menu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2l8 4v6c0 5-4 8-8 10-4-2-8-5-8-10V6l8-4zM9 12l2 2 4-4"/></svg><span>Yönetici ayarları ve bildirimler</span></summary><div class="profile-fields profile-admin"><div class="result-card">
+<div class="profile-list"><details><summary><svg class="profile-menu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2l8 4v6c0 5-4 8-8 10-4-2-8-5-8-10V6l8-4zM9 12l2 2 4-4"/></svg><span>Yönetici ayarları ve bildirimler</span></summary><div class="profile-fields profile-admin"><div class="result-card"><h2>Analiz geçmişi</h2><div id="analysis-history"></div><button type="button" class="secondary" onclick="copyAnalysisHistory()">Raporu kopyala</button><p id="analysis-copy-status" role="status"></p></div><div class="result-card">
 <h2>Jeton Yükle</h2>
 <form id="token-load-form"><label for="token-load-amount">Jeton adedi</label><input id="token-load-amount" type="number" min="1" max="10000" step="1" required><button type="submit">E-posta kodu gönder</button></form>
 <form id="token-confirm-form" hidden><label for="token-load-code">6 haneli doğrulama kodu</label><input id="token-load-code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required><button type="submit">Jetonları yükle</button></form>
@@ -1112,6 +1112,52 @@ function readDetectedClothes(result){
  if(invalid&&!parts.length)throw Error('Geçersiz tespit sonucu');
  return parts;
 }
+const analysisHistoryKey='sm-analysis-history-v1';
+let analysisHistory=[];
+try{
+ const data=JSON.parse(localStorage.getItem(analysisHistoryKey)||'[]');
+ if(Array.isArray(data))analysisHistory=data;
+}catch{}
+function renderAnalysisHistory(){
+ const list=document.getElementById('analysis-history');
+ list.replaceChildren();
+ if(!analysisHistory.length){list.textContent='Henüz kayıt yok.';return;}
+ for(const entry of analysisHistory.slice(0,20)){
+  const row=document.createElement('details');
+  const title=document.createElement('summary');
+  const report=document.createElement('pre');
+  title.textContent=new Date(entry.startedAt).toLocaleString(document.documentElement.lang)+' · '+entry.operation+' · '+entry.outcome;
+  report.style.whiteSpace='pre-wrap';
+  report.style.overflowWrap='anywhere';
+  report.textContent=JSON.stringify(entry,null,2);
+  row.append(title,report);
+  list.append(row);
+ }
+}
+async function copyAnalysisHistory(){
+ if(styleMuseAccount?.user?.admin!==true)return;
+ const report=JSON.stringify(analysisHistory,null,2);
+ try{
+  await navigator.clipboard.writeText(report);
+  document.getElementById('analysis-copy-status').textContent='Rapor kopyalandı.';
+ }catch{
+  const field=document.createElement('textarea');
+  field.readOnly=true;
+  field.value=report;
+  const status=document.getElementById('analysis-copy-status');
+  status.replaceChildren(field);
+  field.select();
+ }
+}
+function storeAnalysis(entry){
+ entry.finishedAt=new Date().toISOString();
+ analysisHistory=[entry,...analysisHistory].slice(0,50);
+ try{localStorage.setItem(analysisHistoryKey,JSON.stringify(analysisHistory));}catch{}
+ if(styleMuseAccount?.user?.admin===true)renderAnalysisHistory();
+}
+function analysisErrorCode(error){
+ return typeof error.code==='string'&&/^[a-z0-9_]{1,80}$/i.test(error.code)?error.code:error instanceof TypeError?'network_error':error.message==='Sunucu zamanında yanıt vermedi.'?'timeout':'unexpected_error';
+}
 async function analyzeClothes(){
  if(aiBusy)return;
  const image=multiSource;
@@ -1125,54 +1171,57 @@ async function analyzeClothes(){
  aiJobId=null;
  aiParts=[];
  classes.add('ai-busy','ai-detecting');
- const stages=[
-  'Jeton bakiyesi kontrol ediliyor.',
-  'Oturum ve analiz servisi kontrol ediliyor.',
-  'Analiz teklifi hazırlanıyor.',
-  'Jeton onayı bekleniyor.',
-  'Fotoğraf gönderiliyor ve kıyafet tespiti bekleniyor.',
-  'Bulunan parçalar kontrol ediliyor.'
- ];
+ const entry={operation:'detect',startedAt:new Date().toISOString(),outcome:'interrupted',steps:[]};
+ const stages=['token_check','service_check','quote','approval','detect','validate_results'];
  let step=0;
- function report(message='',offerCrop=false){
-  aiStatus(stages.slice(0,step+1).map((label,index)=>(index+1)+'. '+label).join('\n')+(message?'\n'+message:''),offerCrop);
+ function advance(){
+  entry.steps.push({stage:stages[step++],at:new Date().toISOString()});
  }
- function advance(){step++;report();}
  try{
-  report();
-  if(!await canUseStyleTokens()){report('Analiz için yeterli Stil Jetonu yok.');return;}
+  advance();
+  aiStatus('Analiz hazırlanıyor…');
+  if(!await canUseStyleTokens()){entry.outcome='insufficient_style_tokens';aiStatus('Analiz için yeterli Stil Jetonu yok.');return;}
   advance();
   const health=await aiPost('/api/health',{});
   if(health.authenticated!==true)throw Error('Profil bölümünden oturum aç.');
   if(health.status!=='ok'||health.enabled!==true)throw Error('Yapay zekâ şu anda kullanılamıyor.');
   advance();
   const inputs={image,request_id:crypto.randomUUID()};
+  entry.requestId=inputs.request_id;
   const quote=await aiPost('/api/quote',{action:'detect',inputs});
   if(quote?.action!=='detect'||!quote.quote_id||!Number.isFinite(quote.estimated_cost_usd)||quote.estimated_cost_usd<0)throw Error('Geçersiz maliyet teklifi. Ücretli istek yapılmadı.');
   advance();
   if(!await confirmStyleTokens('Fotoğrafın analiz için gönderilecek. Bu işlem 1 Stil Jetonu kullanır. Devam edilsin mi?')){
-   report('Analiz iptal edildi; ücretli istek yapılmadı.');
+   entry.outcome='canceled';
+   aiStatus('Analiz iptal edildi.');
    return;
   }
   advance();
+  aiStatus('✦ Fotoğraf analiz ediliyor…');
   classes.add('ai-scanning');
   const result=await aiPost('/api/detect',{...inputs,quote_id:quote.quote_id,confirmed:true,max_total_usd:quote.estimated_cost_usd},150000);
   advance();
   const parts=readDetectedClothes(result);
+  entry.jobId=String(result.job_id).slice(0,200);
+  entry.detectedCount=result.items.length;
+  entry.usableCount=parts.length;
   if(!parts.length){
-   report('Ayrılabilecek kıyafet bulunamadı. Elle kırpma seçeneği kullanılabilir.',true);
+   entry.outcome='no_usable_items';
+   aiStatus('Ayrılabilecek kıyafet bulunamadı. Elle kırpma seçeneği kullanılabilir.',true);
 
    return;
   }
   aiJobId=result.job_id;
   aiParts=parts;
   aiReviewPhase='selection';
-  report('✦ '+parts.length+' ürün tespit edildi.');
+  entry.outcome='succeeded';
+  aiStatus('✦ '+parts.length+' ürün tespit edildi.');
  }catch(error){
-  const code=typeof error.code==='string'&&/^[a-z0-9_]{1,80}$/i.test(error.code)?' ['+error.code+']':'';
-
-  report('Durdu: '+(step+1)+'/6'+code+'\n'+(error instanceof TypeError?'Bağlantı kesildi.':error.message)+'\nElle kırpma seçeneği kullanılabilir.',true);
+  entry.outcome='failed';
+  entry.errorCode=analysisErrorCode(error);
+  aiStatus('Analiz tamamlanamadı.',true);
  }finally{
+  storeAnalysis(entry);
   aiBusy=false;
   button.disabled=false;
   classes.remove('ai-busy','ai-detecting','ai-scanning');
@@ -1188,20 +1237,30 @@ async function generateAiParts(){
  if(!aiJobId)return showStyleNotice('Önce AI tespiti gerekir.');
  if(aiBusy)return;
  const job=aiJobId;aiBusy=true;
+ const entry={operation:'generate',startedAt:new Date().toISOString(),jobId:job,selectedCount:chosen.length,outcome:'interrupted',steps:[]};
+ const recordStep=stage=>entry.steps.push({stage,at:new Date().toISOString()});
  try{
+ recordStep('quote');
  const inputs={job_id:job,item_ids:chosen.map(x=>x.id)};
  const quote=await aiPost('/api/quote',{action:'generate',inputs});
  if(quote.action!=='generate'||typeof quote.quote_id!=='string'||!quote.quote_id||typeof quote.estimated_cost_usd!=='number'||!Number.isFinite(quote.estimated_cost_usd)||quote.estimated_cost_usd<0)throw Error('Geçersiz maliyet teklifi. Ücretli istek yapılmadı.');
- if(!await canUseStyleTokens(chosen.length))return;
- if(!await confirmStyleTokens(chosen.length+' ürün için '+chosen.length+' Stil Jetonu kullanılacak. Devam edilsin mi?'))return;
+ recordStep('token_check');
+ if(!await canUseStyleTokens(chosen.length)){entry.outcome='insufficient_style_tokens';return;}
+ recordStep('approval');
+ if(!await confirmStyleTokens(chosen.length+' ürün için '+chosen.length+' Stil Jetonu kullanılacak. Devam edilsin mi?')){entry.outcome='canceled';return;}
  chosen.forEach(p=>{p.status='Üretiliyor…';p.error=''});showAiParts();document.getElementById('ai-review')?.classList.add('ai-working');
+ recordStep('generate');
  const result=await aiPost('/api/generate',{...inputs,quote_id:quote.quote_id,confirmed:true,max_total_usd:quote.estimated_cost_usd});
+ recordStep('validate_results');
  if(aiJobId!==job)throw Error('İş değişti; eski sonuç uygulanmadı.');
  if(!result||!Array.isArray(result.items)||!result.items.length||new Set(result.items.map(x=>x?.id)).size!==result.items.length||result.items.some(x=>!x||!chosen.some(p=>p.id===x.id)||(!safeAiImage(x.image)&&!(typeof x.error==='string'&&x.error.length))))throw Error('Geçersiz üretim sonucu');
  for(const p of chosen){const item=result.items.find(x=>x.id===p.id);if(item&&safeAiImage(item.image)){p.originalPreview=p.originalPreview||p.image;p.image=item.image;p.generated=true;p.review='pending';p.status='Üretildi';p.error=''}else{p.error=item?.error?.includes('budget_exceeded')?'AI bütçe sınırı aşıldı. Daha az parça seç veya elle kırp.':item?.error||'Sunucu bu ürün için tamamlanmış görsel döndürmedi.';p.status='Üretim başarısız: '+p.error;}}
+ entry.generatedCount=chosen.filter(p=>p.generated).length;
+ entry.failedCount=chosen.length-entry.generatedCount;
+ entry.outcome=entry.failedCount?(entry.generatedCount?'partial':'failed'):'succeeded';
 const firstGenerated=aiParts.findIndex(p=>chosen.includes(p)&&p.generated);if(firstGenerated>=0)aiActiveIndex=firstGenerated;
- }catch(e){chosen.forEach(p=>{p.error=e.message;p.status='Üretim başarısız: '+e.message});aiStatus('Üretim başarısız: '+e.message+' Otomatik tekrar yapılmadı.');}
- finally{await refreshAiBudget();aiBusy=false;showAiParts();document.getElementById('ai-review')?.classList.remove('ai-working');}
+ }catch(e){entry.outcome='failed';entry.errorCode=analysisErrorCode(e);chosen.forEach(p=>{p.error=e.message;p.status='Üretim başarısız: '+e.message});aiStatus('Üretim başarısız: '+e.message+' Otomatik tekrar yapılmadı.');}
+ finally{storeAnalysis(entry);await refreshAiBudget();aiBusy=false;showAiParts();document.getElementById('ai-review')?.classList.remove('ai-working');}
 }
 const escapeAi=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let aiBudget=null;
@@ -1528,7 +1587,7 @@ function renderStyleMuseAccount(data){
  document.getElementById('profile-token-count').textContent=data?.balance??0;
  document.getElementById('wallet-token-count').textContent=data?.balance??0;
  refreshProfileName();
- if(user?.admin===true)void checkAiHealth();
+ if(user?.admin===true){void checkAiHealth();renderAnalysisHistory();}
 }
 async function refreshStyleMuseAccount(){
  const data=await aiPost('/api/account',{},12000);
