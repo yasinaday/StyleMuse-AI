@@ -1830,7 +1830,17 @@ function showTryOnError(error){
   (tryonRun&&!pending?'\nKalan parçalarla devam edebilirsin.':'')+
   (pending?'\nAynı giydirme işini kontrol et düğmesini kullan.':'\nOtomatik ücretli tekrar yapılmadı.');
 }
-async function recoverPendingTryOn(){
+function tryOnLogStep(entry,stage,details={}){
+ entry.steps.push({stage,at:new Date().toISOString(),...details});
+}
+function finishTryOnLog(entry){
+ if(entry.outcome==='interrupted'){
+  entry.outcome=sessionStorage.getItem('sm-tryon-pending')?'pending':'interrupted';
+ }
+ storeAnalysis(entry);
+}
+async function recoverPendingTryOn(entry){
+ tryOnLogStep(entry,'recover_pending');
  document.getElementById('tryon').classList.add('tryon-scanning');
  setStageProgress('Önceki giydirme kontrol ediliyor…');
  const el=document.getElementById('mannequin-ai-status');
@@ -1842,6 +1852,7 @@ async function recoverPendingTryOn(){
    if(typeof job!=='string'||!job)throw Error('Bekleyen iş kimliği doğrulanamadı.');
    sessionStorage.setItem('sm-tryon-pending',job);
   }catch(error){
+   entry.errorCode=analysisErrorCode(error);
    setStageProgress('Önceki iş doğrulanamadı.');
    el.textContent=error.code==='pending_tryon_not_found'
     ?'Sağlayıcıda sorgulanabilecek bir giydirme kimliği yok. Önceki işlemin sunucu kaydı kontrol edilmeli.'
@@ -1850,27 +1861,30 @@ async function recoverPendingTryOn(){
   }
  }
  tryonRun=null;
- await pollVirtualTryOn(job,'Önceki parça');
+ await pollVirtualTryOn(job,'Önceki parça',entry);
  markRecoveredTryOn();
+ entry.outcome='recovered';
 }
 async function resumeVirtualTryOn(){
  if(tryonBusy)return;
  const job=sessionStorage.getItem('sm-tryon-pending');
  if(!job)return;
+ const entry={operation:'tryon_resume',startedAt:new Date().toISOString(),outcome:'interrupted',steps:[]};
  setTryOnBusy(true);
  try{
-  if(job==='lookup'){await recoverPendingTryOn();return}
-  const image=await pollVirtualTryOn(job,'Bekleyen parça');
+  if(job==='lookup'){await recoverPendingTryOn(entry);return}
+  const image=await pollVirtualTryOn(job,'Bekleyen parça',entry);
   if(tryonRun?.awaiting){
    tryonRun.image=image;
    tryonRun.index++;
    tryonRun.awaiting=false;
-   await runTryOnParts();
+   await runTryOnParts(entry);
   }else{
    markRecoveredTryOn();
+   entry.outcome='recovered';
   }
- }catch(error){showTryOnError(error)}
- finally{setTryOnBusy(false)}
+ }catch(error){entry.outcome='failed';entry.errorCode=analysisErrorCode(error);showTryOnError(error)}
+ finally{setTryOnBusy(false);finishTryOnLog(entry)}
 }
 function markRecoveredTryOn(){
  tryonComplete=true;
@@ -1878,7 +1892,8 @@ function markRecoveredTryOn(){
  setStageProgress('Giydirme sonucu kurtarıldı.');
  document.getElementById('mannequin-ai-status').textContent='Kurtarılan görseli Kombinler bölümüne kaydedebilirsin.';
 }
-async function pollVirtualTryOn(job,step){
+async function pollVirtualTryOn(job,step,entry){
+ tryOnLogStep(entry,'poll',{jobId:String(job).slice(0,200)});
  document.getElementById('tryon').classList.add('tryon-scanning');
  const el=document.getElementById('mannequin-ai-status');
  const deadline=Date.now()+120000;
@@ -1897,6 +1912,7 @@ async function pollVirtualTryOn(job,step){
    continue;
   }
   if(result.state==='failed'){
+   tryOnLogStep(entry,'provider_failed');
    sessionStorage.removeItem('sm-tryon-pending');
    if(tryonRun)tryonRun.awaiting=false;
    throw Error('Sağlayıcı giydirme işini tamamlayamadı.');
@@ -1911,10 +1927,12 @@ async function pollVirtualTryOn(job,step){
    img.hidden=false;
    document.getElementById('mannequin-placeholder').hidden=true;
    sessionStorage.removeItem('sm-tryon-pending');
+   tryOnLogStep(entry,'result_ready');
    return result.image;
   }
   await new Promise(resolve=>setTimeout(resolve,3000));
  }while(Date.now()<deadline);
+ tryOnLogStep(entry,'poll_timeout');
  throw Error('Sağlayıcı iki dakika içinde sonuç döndürmedi.');
 }
 function orderedTryonItems(items){const dress=items.some(x=>mannequinGroup(x)==='dress');const compatible=dress?items.filter(x=>!['top','bottom'].includes(mannequinGroup(x))):items;const rank={top:0,dress:0,bottom:1,outer:2,bag:3,hat:4};return compatible.slice().sort((a,b)=>(rank[mannequinGroup(a)]??5)-(rank[mannequinGroup(b)]??5))}
@@ -1928,16 +1946,21 @@ async function requestVirtualTryOn(){
   el.textContent=message;
   return;
  }
+ const entry={operation:'tryon',startedAt:new Date().toISOString(),selectedCount:items.length,outcome:'interrupted',steps:[]};
  setTryOnBusy(true);
  try{
+  tryOnLogStep(entry,'prepare_model');
   if(!mannequinPhotoData)await initReadyMannequin(true);
   if(!mannequinPhotoData){
+   entry.outcome='failed';entry.errorCode='mannequin_unavailable';
    const message='Hazır manken yüklenemedi. Kendi fotoğrafını yükleyebilirsin.';
    setStageProgress(message);
    el.textContent=message;
    return;
   }
-  try{if(!await canUseStyleTokens())return}catch{
+  tryOnLogStep(entry,'token_check');
+  try{if(!await canUseStyleTokens()){entry.outcome='insufficient_style_tokens';return;}}catch(error){
+   entry.outcome='failed';entry.errorCode=analysisErrorCode(error);
    setStageProgress('Jeton bakiyesi doğrulanamadı.');
    el.textContent='Jeton bakiyesi doğrulanamadı.';
    return;
@@ -1945,15 +1968,17 @@ async function requestVirtualTryOn(){
   const matches=tryonRun?.base===mannequinPhotoData&&items.length===tryonRun.items.length&&items.every((item,i)=>item.id===tryonRun.items[i].id&&item.image===tryonRun.items[i].image);
   if(!matches)tryonRun=null;
   const remaining=items.length-(tryonRun?.index||0);
-  if(remaining>styleMuseAccount.balance){openHomePro();return;}
-  if(!await confirmStyleTokens(remaining+' parça için '+remaining+' Stil Jetonu kullanılacak. Devam edilsin mi?'))return;
+  if(remaining>styleMuseAccount.balance){entry.outcome='insufficient_style_tokens';openHomePro();return;}
+  tryOnLogStep(entry,'approval');
+  if(!await confirmStyleTokens(remaining+' parça için '+remaining+' Stil Jetonu kullanılacak. Devam edilsin mi?')){entry.outcome='canceled';return;}
   if(!tryonRun)tryonRun={items,base:mannequinPhotoData,index:0,image:null};
   tryonComplete=false;tryonRecovered=false;
-  await runTryOnParts();
- }catch(error){showTryOnError(error)}
- finally{setTryOnBusy(false)}
+  await runTryOnParts(entry);
+ }catch(error){entry.outcome='failed';entry.errorCode=analysisErrorCode(error);showTryOnError(error)}
+ finally{setTryOnBusy(false);finishTryOnLog(entry)}
 }
-async function runTryOnParts(){
+async function runTryOnParts(entry){
+ tryOnLogStep(entry,'prepare_clothes');
  document.getElementById('tryon').classList.add('tryon-scanning');
  const el=document.getElementById('mannequin-ai-status');
  const run=tryonRun;
@@ -1967,6 +1992,7 @@ async function runTryOnParts(){
    }catch{throw Error((item.name||item.category)+' fotoğrafı açılamadı. Fotoğrafı yeniden ekle.')}
   }));
  }
+ tryOnLogStep(entry,'service_check');
  const health=await aiPost('/api/health',{});
  if(health.authenticated!==true)throw Error('Profil bölümünden oturum aç.');
  while(run.index<run.items.length){
@@ -1975,9 +2001,11 @@ async function runTryOnParts(){
   setStageProgress(progress+' · Hazırlanıyor…');
   const person=run.image?await tryonImageData(run.image):run.base;
   const inputs={person_image:person,clothing_image:run.clothingImages[run.index],request_id:crypto.randomUUID()};
+  tryOnLogStep(entry,'quote',{part:run.index+1,category:mannequinGroup(item),requestId:inputs.request_id});
   const quote=await aiPost('/api/quote',{action:'tryon',inputs},45000);
   if(quote.action!=='tryon'||!quote.quote_id||!Number.isFinite(quote.estimated_cost_usd)||quote.estimated_cost_usd<=0)throw Error('Giydirme teklifi doğrulanamadı.');
   setStageProgress(progress+' · Gönderiliyor…');
+  tryOnLogStep(entry,'submit',{part:run.index+1});
   let job;
   try{
    job=await aiPost('/api/tryon',{...inputs,quote_id:quote.quote_id,confirmed:true,max_total_usd:quote.estimated_cost_usd});
@@ -1986,17 +2014,19 @@ async function runTryOnParts(){
    if(error instanceof TypeError||error.code==='busy_or_ambiguous'||error.code==='request_ambiguous_no_retry'||error.message==='Sunucu zamanında yanıt vermedi.'){
     sessionStorage.setItem('sm-tryon-pending','lookup');
     run.awaiting=false;
-    await recoverPendingTryOn();
+    entry.errorCode=analysisErrorCode(error);
+    await recoverPendingTryOn(entry);
     return;
    }
    throw error;
   }
   sessionStorage.setItem('sm-tryon-pending',job.job_id);
   run.awaiting=true;
-  run.image=await pollVirtualTryOn(job.job_id,progress);
+  run.image=await pollVirtualTryOn(job.job_id,progress,entry);
   run.awaiting=false;
   run.index++;
  }
+ entry.outcome='succeeded';
  tryonRun=null;
  tryonComplete=true;
  setStageProgress('Sonuç hazır · Görseli kontrol et');
