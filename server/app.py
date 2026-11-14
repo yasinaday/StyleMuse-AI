@@ -16,6 +16,12 @@ from providers import ProviderError, is_footwear
 
 logger = logging.getLogger('uvicorn.error')
 
+class ManualCreditInput(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    request_id: str = Field(pattern=r'^[a-f0-9-]{36}$')
+    amount_usd: str = Field(pattern=r'^(?:[0-9]{1,5}|100000)(?:\.[0-9]{1,2})?$')
+
+
 class TokenLoadRequest(BaseModel):
     model_config = ConfigDict(extra='forbid')
     amount: int = Field(strict=True, ge=1, le=10000)
@@ -457,6 +463,41 @@ def create_app(settings=None, provider=None):
             if not entry or entry[1] <= time.monotonic() or not user or user.get('provider') != 'google' or user.get('admin') is not True or user.get('email', '').casefold() != 'adysoft2000@gmail.com':
                 raise HTTPException(403, 'token_load_admin_only')
             return 'google:' + user['id']
+
+    @app.post('/api/admin/replicate-credit/status')
+    def read_replicate_credit(request: Request):
+        token_admin(request)
+        if provider is None:
+            raise HTTPException(503, 'provider_credit_unavailable')
+        try:
+            account = provider.replicate_account()
+        except Exception:
+            raise HTTPException(503, 'provider_credit_unavailable') from None
+        credit = store.manual_credit(account)
+        return {'available_usd': credit['available_usd'], 'expires_at': credit['expires_at']} if credit else {}
+
+    @app.post('/api/admin/replicate-credit')
+    def update_replicate_credit(payload: ManualCreditInput, request: Request):
+        admin = token_admin(request)
+        if provider is None:
+            raise HTTPException(503, 'provider_credit_unavailable')
+        from decimal import Decimal
+        amount = Decimal(payload.amount_usd)
+        if amount > 100000:
+            raise HTTPException(422, 'invalid_request')
+        try:
+            account = provider.replicate_account()
+        except Exception:
+            raise HTTPException(503, 'provider_credit_unavailable') from None
+        try:
+            store.record_manual_credit('billing-' + payload.request_id, account,
+                                       amount, 'Billing amount entered by ' + admin)
+        except RuntimeError:
+            raise HTTPException(409, 'busy_or_ambiguous') from None
+        except ValueError:
+            raise HTTPException(409, 'manual_credit_conflict') from None
+        credit = store.manual_credit(account)
+        return {'available_usd': credit['available_usd'], 'expires_at': credit['expires_at']} if credit else {}
 
     def token_code_digest(request_id, code):
         import hmac
