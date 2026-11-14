@@ -1099,6 +1099,11 @@ async function approvePaidQuote(action,inputs,tokens,label){
   const started=performance.now(),wallStarted=Date.now();
   const quote=await aiPost('/api/quote',{action,inputs});
   if(quote?.action!==action||typeof quote.quote_id!=='string'||!quote.quote_id||typeof quote.estimated_cost_usd!=='number'||!Number.isFinite(quote.estimated_cost_usd)||quote.estimated_cost_usd<0||action==='tryon'&&quote.estimated_cost_usd===0||typeof quote.expires_in_seconds!=='number'||!Number.isFinite(quote.expires_in_seconds)||quote.expires_in_seconds<=0||quote.expires_in_seconds>90)throw Error('Geçersiz maliyet teklifi. Ücretli istek yapılmadı.');
+  if(action==='generate'){
+   if(!Number.isInteger(quote.style_tokens)||quote.style_tokens<0||quote.style_tokens>inputs.item_ids.length*2)throw Error('İyileştirme fiyatı doğrulanamadı.');
+   tokens=quote.style_tokens;
+   if(tokens&&!await canUseStyleTokens(tokens))return null;
+  }
   if(!await confirmStyleTokens(label+' · '+tokens+' Stil Jetonu kullanılacak. Toplam tahmini sağlayıcı maliyeti: '+quote.estimated_cost_usd+' USD. Bu tutar kullanıcıya ek ücret veya ödeme değildir. Devam edilsin mi?'))return null;
   if(Math.max(performance.now()-started,Date.now()-wallStarted)>=quote.expires_in_seconds*1000)continue;
   return quote;
@@ -1256,15 +1261,14 @@ async function generateAiParts(){
  const recordStep=stage=>entry.steps.push({stage,at:new Date().toISOString()});
  try{
  recordStep('token_check');
- if(!await canUseStyleTokens(chosen.length)){entry.outcome='insufficient_style_tokens';return;}
  recordStep('quote');
  const inputs={job_id:job,item_ids:chosen.map(x=>x.id)};
- const quote=await approvePaidQuote('generate',inputs,chosen.length,chosen.length+' ürün iyileştirme');
+ const quote=await approvePaidQuote('generate',inputs,0,chosen.length+' ürün iyileştirme');
  recordStep('approval');
  if(!quote){entry.outcome='canceled';return;}
  chosen.forEach(p=>{p.status='Üretiliyor…';p.error=''});showAiParts();document.getElementById('ai-review')?.classList.add('ai-working');
  recordStep('generate');
- const result=await aiPost('/api/generate',{...inputs,quote_id:quote.quote_id,confirmed:true,max_total_usd:quote.estimated_cost_usd});
+ const result=await aiPost('/api/generate',{...inputs,quote_id:quote.quote_id,approved_style_tokens:quote.style_tokens,confirmed:true,max_total_usd:quote.estimated_cost_usd});
  recordStep('validate_results');
  if(aiJobId!==job)throw Error('İş değişti; eski sonuç uygulanmadı.');
  if(!result||!Array.isArray(result.items)||!result.items.length||new Set(result.items.map(x=>x?.id)).size!==result.items.length||result.items.some(x=>!x||!chosen.some(p=>p.id===x.id)||(!safeAiImage(x.image)&&!(typeof x.error==='string'&&x.error.length))))throw Error('Geçersiz üretim sonucu');
