@@ -464,6 +464,12 @@ def create_app(settings=None, provider=None):
                 raise HTTPException(403, 'token_load_admin_only')
             return 'google:' + user['id']
 
+    @app.post('/api/admin/fal-credit/status')
+    def read_fal_credit(request: Request):
+        token_admin(request)
+        balance = provider.credit_available_usd('tryon') if provider is not None else None
+        return {'available_usd': balance}
+
     @app.post('/api/admin/replicate-credit/status')
     def read_replicate_credit(request: Request):
         token_admin(request)
