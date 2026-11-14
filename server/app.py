@@ -647,47 +647,18 @@ def create_app(settings=None, provider=None):
         return {'status':'ok', 'enabled':s.enabled, **store.costs(),
                 'app_spending_ceiling_usd': None, 'historical_budget_metadata': True,
                 **(identity_status(request.cookies.get(cookie_name, '')) if s.github_owner_id else {})}
-    def credit_preflight(action, cost):
-        from decimal import Decimal
-        import math
-        try:
-            balance = provider.credit_available_usd(action)
-        except Exception:
-            balance = None
-        credit = None
-        if balance is None and action == 'detect':
-            try:
-                credit = store.manual_credit(provider.replicate_account())
-                balance = credit['available_usd'] if credit else None
-            except Exception:
-                balance = None
-        if type(balance) not in (int, float, Decimal) or not math.isfinite(balance) or balance < 0:
-            raise HTTPException(402, 'provider_credit_unavailable')
-        if Decimal(str(balance)) * 1000000 < cost:
-            raise HTTPException(402, 'provider_credit_insufficient')
-        return credit or {'source': 'provider_api', 'available_usd': float(balance), 'overspend_risk': True}
-
-    def quote_digest(action, inputs, credit=None):
-        return hashlib.sha256(json.dumps({'action': action, 'inputs': inputs,
-            'manual_snapshot': (credit or {}).get('snapshot_id')},
+    def quote_digest(action, inputs):
+        return hashlib.sha256(json.dumps({'action': action, 'inputs': inputs, 'manual_snapshot': None},
             sort_keys=True, separators=(',', ':')).encode()).hexdigest()
 
-    def before_paid_submit(operation, action, cost):
-        credit = credit_preflight(action, cost)
-        store.mark_submitted(operation, manual_credit_id=credit.get('snapshot_id'))
-
-    def consume_quote(db, payload, request, who, action, inputs, cost, credit=None):
+    def consume_quote(db, payload, request, who, action, inputs, cost):
         from decimal import Decimal
         if not payload.confirmed or Decimal(str(payload.max_total_usd)) * 1000000 != cost:
             raise HTTPException(403, 'cost_confirmation_required')
-        if credit and credit.get('snapshot_id'):
-            current = store._manual_credit(db, credit['account'])
-            if not current or current['snapshot_id'] != credit['snapshot_id']:
-                raise HTTPException(403, 'quote_invalid_or_expired')
         row = db.execute('SELECT * FROM payment_quotes WHERE id=?', (payload.quote_id,)).fetchone()
         if (not row or row['used'] or row['expires'] <= time.time()
                 or row['owner'] != who or row['session'] != request.cookies.get(cookie_name, '')
-                or row['digest'] != quote_digest(action, inputs, credit) or row['amount'] != cost):
+                or row['digest'] != quote_digest(action, inputs) or row['amount'] != cost):
             raise HTTPException(403, 'quote_invalid_or_expired')
         db.execute('UPDATE payment_quotes SET used=1 WHERE id=?', (payload.quote_id,))
 
@@ -730,14 +701,14 @@ def create_app(settings=None, provider=None):
                     raise HTTPException(409, 'generation_already_claimed')
                 cost = units(s.generation_reservation_usd) * sum(i not in old for i in payload.item_ids)
                 inputs = generation_quote_inputs(payload, job)
-        credit = credit_preflight(action, cost) if cost else None
+
         qid = secrets.token_urlsafe(32)
         with store.tx() as db:
             db.execute('INSERT INTO payment_quotes VALUES(?,?,?,?,?,?,?,0)',
-                (qid, who, request.cookies.get(cookie_name, ''), quote_digest(action, inputs, credit),
+                (qid, who, request.cookies.get(cookie_name, ''), quote_digest(action, inputs),
                  cost, time.time() + 90, action))
         return {'quote_id': qid, 'action': action, 'estimated_cost_usd': cost/1000000,
-                'expires_in_seconds': 90, 'provider_credit': credit, 'app_spending_ceiling_usd': None}
+                'expires_in_seconds': 90, 'provider_credit': None, 'app_spending_ceiling_usd': None}
 
     def generation_quote_inputs(payload, job):
         return {'job_id': payload.job_id, 'item_ids': payload.item_ids,
@@ -751,12 +722,12 @@ def create_app(settings=None, provider=None):
         if not payload.confirmed or units(payload.max_total_usd) < units(s.detect_reservation_usd):
             raise HTTPException(403, 'cost_confirmation_required')
         original = normalize(payload.image, s, upload=True)
-        credit = credit_preflight('detect', units(s.detect_reservation_usd))
+
         digest = hashlib.sha256(original.encode()).hexdigest()
         jid = secrets.token_urlsafe(24)
         with store.tx() as db:
             consume_quote(db, payload, request, who, 'detect',
-                          {'image': payload.image, 'request_id': payload.request_id}, units(s.detect_reservation_usd), credit)
+                          {'image': payload.image, 'request_id': payload.request_id}, units(s.detect_reservation_usd))
             row = db.execute('SELECT * FROM jobs WHERE owner=? AND request_id=?', (who,payload.request_id)).fetchone()
             if row:
                 if row['hash'] != digest or row['state'] != 'done' or row['expires'] < time.time():
@@ -770,10 +741,10 @@ def create_app(settings=None, provider=None):
         try:
             from providers import RealProviders
             if type(provider) is RealProviders:
-                items = provider.detect(original, before_submit=lambda: before_paid_submit('detect:' + jid, 'detect', units(s.detect_reservation_usd)))
+                items = provider.detect(original, before_submit=lambda: store.mark_submitted('detect:' + jid))
             else:
                 # Unknown adapters provide no proof of non-submission.
-                before_paid_submit('detect:' + jid, 'detect', units(s.detect_reservation_usd))
+                store.mark_submitted('detect:' + jid)
                 items = provider.detect(original)
             if not isinstance(items,list) or not 0 <= len(items) <= 20:
                 raise ValueError()
@@ -819,7 +790,7 @@ def create_app(settings=None, provider=None):
             cost = units(s.generation_reservation_usd)*len(pending)
             consume_quote(db, payload, request, who, 'generate', generation_quote_inputs(payload, job), cost)
             if pending:
-                credit_preflight('generate', cost)
+
                 store.capacity(db,len(pending)*(s.max_image_bytes*4//3+100))
                 store.reserve(db,cost, owner=who, enforce_budget=False)
                 for i in pending:
@@ -832,9 +803,9 @@ def create_app(settings=None, provider=None):
                 from providers import RealProviders
                 operation = 'generate:' + payload.job_id + ':' + i
                 if type(provider) is RealProviders:
-                    generated = provider.generate(job['original'], available[i], before_submit=lambda: before_paid_submit(operation, 'generate', units(s.generation_reservation_usd)))
+                    generated = provider.generate(job['original'], available[i], before_submit=lambda: store.mark_submitted(operation))
                 else:
-                    before_paid_submit(operation, 'generate', units(s.generation_reservation_usd))
+                    store.mark_submitted(operation)
                     generated = provider.generate(job['original'], available[i])
                 result = normalize(generated,s)
                 with store.tx() as db:
@@ -862,11 +833,11 @@ def create_app(settings=None, provider=None):
             raise HTTPException(503, 'inference_disabled')
         person = normalize(payload.person_image, s, upload=True)
         clothing = normalize(payload.clothing_image, s, preserve_alpha=True, upload=True)
-        credit = credit_preflight('tryon', 40000)
+
         jid = 'tryon-' + secrets.token_urlsafe(24)
         operation = 'tryon:' + jid
         with store.tx() as db:
-            consume_quote(db, payload, request, who, 'tryon', tryon_inputs(payload), 40000, credit)
+            consume_quote(db, payload, request, who, 'tryon', tryon_inputs(payload), 40000)
             if db.execute('SELECT 1 FROM jobs WHERE owner=? AND request_id=?',
                           (who, 'tryon:' + payload.request_id)).fetchone():
                 raise HTTPException(409, 'request_already_claimed')
@@ -878,7 +849,7 @@ def create_app(settings=None, provider=None):
                  'claimed', None, None, time.time() + s.session_ttl_seconds))
         try:
             rid = provider.tryon_submit(person, clothing,
-                before_submit=lambda: before_paid_submit(operation, 'tryon', 40000))
+                before_submit=lambda: store.mark_submitted(operation))
             with store.tx() as db:
                 db.execute('UPDATE jobs SET state=?,result=? WHERE id=?',
                            ('pending', json.dumps({'request_id': rid}), jid))
