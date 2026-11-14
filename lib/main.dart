@@ -77,7 +77,20 @@ class _WardrobeHomeState extends State<WardrobeHome> {
   Widget build(BuildContext context) {
     final titles = ['Discover', 'My Wardrobe', 'Outfits', 'Settings'];
     return Scaffold(
-      appBar: AppBar(title: Text('StyleMuse AI · ${titles[page]}')),
+      appBar: AppBar(
+        title: Row(
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(7),
+              child: Image.asset('assets/stylemuse-icon.png', width: 32, height: 32, excludeFromSemantics: true),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text('StyleMuse AI · ${titles[page]}', overflow: TextOverflow.ellipsis),
+            ),
+          ],
+        ),
+      ),
       body: SafeArea(
         child: switch (page) {
           0 => ListView(padding: const EdgeInsets.all(20), children: [
