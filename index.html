@@ -1372,6 +1372,7 @@ function validLook(x){return !!(x&&typeof x.aiImage==='string'&&x.aiImage.length
 function lookImage(x){return x.aiImage||x.images[0]}
 function renderSaved(){const valid=savedLooksCache.map((x,i)=>({x,i})).filter(v=>validLook(v.x));document.getElementById('savedOutfits').innerHTML='<h2>Kaydettiğim kombinler</h2>'+(valid.length?'<div class="saved-look-gallery">'+valid.map(({x,i})=>'<article class="saved-look"><button type="button" class="saved-look-preview" onclick="openSavedLook('+i+')" aria-label="Kombini büyüt"><img src="'+x.aiImage+'" alt="Giydirme sonucu" loading="lazy"></button><div class="saved-look-info">'+(x.recoveredTryOn?'<small>Kurtarılan giydirme</small>':'')+'<div class="sm-look-actions"><button type="button" class="sm-share" onclick="shareCombo(' +i+ ')">↗ Paylaş</button><button type="button" class="sm-delete" onclick="deleteCombo(' +i+ ')">✕ Sil</button></div></div></article>').join('')+'</div>':'<p class="notice">Henüz manken üzerinde tamamlanmış bir kombin kaydedilmedi.</p>')}
 const appRating=document.getElementById('app-rating');
+closeDialogOnBackdropTap(appRating);
 const appRatingForm=document.getElementById('app-rating-form');
 const appRatingStatus=document.getElementById('app-rating-status');
 for(let stars=1;stars<=5;stars++){
