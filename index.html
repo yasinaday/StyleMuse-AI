@@ -588,8 +588,10 @@ select[data-style-picker][hidden]{display:none!important}
 #style-profile-mannequin-note{margin:0 0 6px;font-size:13px;line-height:1.35;color:#70566e}
 #profile #style-profile-form{padding-bottom:9px}
 #profile #style-profile-form label{margin:7px 0 3px;line-height:1.25}
-#profile #style-profile-form .profile-measures{gap:8px}
-#profile #style-profile-form .profile-measures input{display:block;margin:3px 0 0}
+#profile #style-profile-form .profile-measures{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+#profile #style-profile-form .profile-measures>div{min-width:0;display:flex;flex-direction:column}
+#profile #style-profile-form .profile-measures :is(input,.style-picker-trigger,select){margin:0;margin-top:auto;min-width:0;padding-inline:8px}
+#profile #style-profile-form .profile-measures .style-picker-trigger{gap:4px;height:40px}
 #profile #style-profile-form :is(.style-picker-trigger,select,input[type="number"]){
  box-sizing:border-box;min-height:40px;padding:6px 12px;line-height:1.25;
 }
@@ -842,8 +844,11 @@ html[dir="rtl"] #profile .sm-page-hero img{right:auto;left:0}
  <p id="style-profile-mannequin-note">Bu profili kaydettiğinde hazır manken görünümün ten rengine, vücut tipine ve ölçülerine göre güncellenir.</p>
  <label for="profile-tone">Ten rengi</label><select id="profile-tone" name="profile-tone"><option value="">Seçiniz</option><option value="light">Açık</option><option value="medium">Orta</option><option value="deep">Koyu</option></select>
  <label for="profile-shape">Vücut tipi</label><select id="profile-shape" name="profile-shape"><option value="">Seçiniz</option><option value="straight">Dikdörtgen</option><option value="curved">Kum saati</option><option value="pear">Armut</option><option value="oval">Oval</option><option value="triangle">Ters üçgen</option></select>
- <div class="profile-measures"><label>Boy (cm)<input name="height" type="number" min="100" max="250" inputmode="numeric"></label><label>Kilo (kg)<input name="weight" type="number" min="25" max="350" inputmode="decimal" step="0.1"></label></div>
- <label for="profile-size">Beden</label><select id="profile-size" name="profile-size"><option value="">Seçiniz</option><option value="XS">XS</option><option value="S">S</option><option value="M">M</option><option value="L">L</option><option value="XL">XL</option><option value="XXL">XXL</option><option value="3XL">3XL</option><option value="4XL">4XL</option></select>
+ <div class="profile-measures">
+  <div><label for="profile-height">Boy (cm)</label><input id="profile-height" name="height" type="number" min="100" max="250" inputmode="numeric"></div>
+  <div><label for="profile-weight">Kilo (kg)</label><input id="profile-weight" name="weight" type="number" min="25" max="350" inputmode="decimal" step="0.1"></div>
+  <div><label for="profile-size">Beden</label><select id="profile-size" name="profile-size"><option value="">Seçiniz</option><option value="XS">XS</option><option value="S">S</option><option value="M">M</option><option value="L">L</option><option value="XL">XL</option><option value="XXL">XXL</option><option value="3XL">3XL</option><option value="4XL">4XL</option></select></div>
+ </div>
  <label for="favorite">En sevdiğin tarz</label><select id="favorite" onchange="localStorage.setItem('sm-style',this.value)"><option>Rahat ve şık</option><option>Minimal</option><option>Romantik</option><option>Modern klasik</option></select>
  <button class="profile-tokens" type="submit">Kaydet</button><p id="style-profile-status" role="status"></p>
  </form></details>
