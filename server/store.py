@@ -236,7 +236,7 @@ class Store:
             row = db.execute('SELECT balance FROM style_tokens WHERE owner=?', (owner,)).fetchone()
             return row['balance'] if row else 0
 
-    def mark_submitted(self, operation, *, manual_credit_id=None):
+    def mark_submitted(self, operation, *, manual_credit_id=None, style_tokens=1):
         # Durable BEFORE the POST; persistence failure prevents submission.
         with self.tx() as db:
             table = self._operation_table(db, operation)
@@ -253,7 +253,7 @@ class Store:
                 raise RuntimeError('operation_not_reserved')
             owner = db.execute(f'SELECT owner FROM {table} WHERE id=?', (operation,)).fetchone()['owner']
             if owner and owner.startswith('google:'):
-                debit = db.execute('UPDATE style_tokens SET balance=balance-1 WHERE owner=? AND balance>0', (owner,))
+                debit = db.execute('UPDATE style_tokens SET balance=balance-? WHERE owner=? AND balance>=?', (style_tokens, owner, style_tokens))
                 if debit.rowcount != 1:
                     from fastapi import HTTPException
                     raise HTTPException(402, 'style_tokens_empty')
