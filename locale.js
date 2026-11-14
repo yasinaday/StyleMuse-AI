@@ -276,6 +276,28 @@ Ayrılabilecek kıyafet bulunamadı. Elle kırpma seçeneği kullanılabilir.|No
 Seçilen parçaları incele|Review selected items|Ausgewählte Teile prüfen|Проверить выбранные вещи|راجع القطع المحددة|Examiner les articles sélectionnés|चुने हुए कपड़े देखें|查看所选单品|選択したアイテムを確認
 Fotoğraf analizi · Ürün seçimi|Photo analysis · Select items|Fotoanalyse · Teile auswählen|Анализ фото · Выбор вещей|تحليل الصورة · اختيار القطع|Analyse photo · Sélection des articles|फ़ोटो विश्लेषण · कपड़े चुनें|照片分析 · 选择单品|写真分析 · アイテム選択
 Seçilen parçaların analizi|Review selected items|Ausgewählte Teile analysieren|Анализ выбранных вещей|تحليل القطع المحددة|Analyse des articles sélectionnés|चुने हुए कपड़ों का विश्लेषण|分析所选单品|選択したアイテムの分析
+↗ Paylaş|↗ Share|↗ Teilen|↗ Поделиться|↗ مشاركة|↗ Partager|↗ साझा करें|↗ 分享|↗ 共有
+✕ Sil|✕ Delete|✕ Löschen|✕ Удалить|✕ حذف|✕ Supprimer|✕ हटाएँ|✕ 删除|✕ 削除
+Kurtarılan giydirme|Recovered try-on|Wiederhergestellte Anprobe|Восстановленная примерка|تجربة مستعادة|Essayage récupéré|बहाल किया गया ट्राई-ऑन|已恢复的试穿|復元した試着
+Kombini büyüt|Enlarge outfit|Outfit vergrößern|Увеличить образ|تكبير الإطلالة|Agrandir la tenue|पहनावा बड़ा करें|放大搭配|コーデを拡大
+Giydirme sonucu|Try-on result|Anprobe-Ergebnis|Результат примерки|نتيجة التجربة|Résultat de l’essayage|ट्राई-ऑन का नतीजा|试穿结果|試着結果
+Henüz manken üzerinde tamamlanmış bir kombin kaydedilmedi.|No completed try-on outfit has been saved yet.|Noch kein fertiges Outfit gespeichert.|Готовых сохранённых образов пока нет.|لم تُحفظ أي إطلالة مكتملة بعد.|Aucune tenue essayée n’a encore été enregistrée.|अभी कोई पूरा पहनावा सहेजा नहीं गया है।|尚未保存试穿搭配。|保存済みの試着コーデはまだありません。
+StyleMuse kombinim|My StyleMuse outfit|Mein StyleMuse-Outfit|Мой образ StyleMuse|إطلالتي في StyleMuse|Ma tenue StyleMuse|मेरा StyleMuse पहनावा|我的 StyleMuse 搭配|私のStyleMuseコーデ
+Kombinime bak!|Check out my outfit!|Schau dir mein Outfit an!|Посмотри на мой образ!|شاهد إطلالتي!|Regarde ma tenue !|मेरा पहनावा देखें!|看看我的搭配！|私のコーデを見て！
+Uygulamayı değerlendir|Rate the app|App bewerten|Оценить приложение|قيّم التطبيق|Évaluer l’application|ऐप को रेट करें|评价应用|アプリを評価
+Uygulamayı paylaş|Share the app|App teilen|Поделиться приложением|شارك التطبيق|Partager l’application|ऐप साझा करें|分享应用|アプリを共有
+1 ile 5 arasında yıldız seç.|Choose a rating from 1 to 5 stars.|Wähle 1 bis 5 Sterne.|Выберите от 1 до 5 звёзд.|اختر من نجمة إلى خمس نجوم.|Choisis de 1 à 5 étoiles.|1 से 5 स्टार चुनें।|请选择 1 到 5 星。|1〜5の星を選んでください。
+Değerlendirmen bu cihazda kaydedildi.|Your rating was saved on this device.|Deine Bewertung wurde auf diesem Gerät gespeichert.|Оценка сохранена на этом устройстве.|حُفظ تقييمك على هذا الجهاز.|Ton évaluation a été enregistrée sur cet appareil.|रेटिंग इस डिवाइस पर सहेजी गई।|评分已保存在此设备上。|この端末に評価を保存しました。
+Değerlendirme kaydedilemedi.|Could not save the rating.|Bewertung konnte nicht gespeichert werden.|Не удалось сохранить оценку.|تعذّر حفظ التقييم.|Impossible d’enregistrer l’évaluation.|रेटिंग सहेजी नहीं जा सकी।|无法保存评分。|評価を保存できませんでした。
+Uygulama bağlantısı kopyalandı.|App link copied.|App-Link kopiert.|Ссылка скопирована.|تم نسخ رابط التطبيق.|Lien de l’application copié.|ऐप लिंक कॉपी हुआ।|应用链接已复制。|アプリのリンクをコピーしました。
+Jeton bakiyesi kontrol ediliyor.|Checking token balance.|Token-Guthaben wird geprüft.|Проверяем баланс токенов.|جارٍ التحقق من رصيد الرموز.|Vérification du solde de jetons.|टोकन शेष जाँचा जा रहा है।|正在检查点数余额。|トークン残高を確認中です。
+Oturum ve analiz servisi kontrol ediliyor.|Checking sign-in and analysis service.|Anmeldung und Analysedienst werden geprüft.|Проверяем вход и сервис анализа.|جارٍ التحقق من تسجيل الدخول وخدمة التحليل.|Vérification de la connexion et du service d’analyse.|साइन-इन और विश्लेषण सेवा की जाँच हो रही है।|正在检查登录和分析服务。|ログインと分析サービスを確認中です。
+Analiz teklifi hazırlanıyor.|Preparing the analysis quote.|Analyseangebot wird erstellt.|Готовим предложение для анализа.|جارٍ إعداد تكلفة التحليل.|Préparation du devis d’analyse.|विश्लेषण का अनुमान तैयार हो रहा है।|正在准备分析报价。|分析の見積もりを準備中です。
+Jeton onayı bekleniyor.|Waiting for token approval.|Warte auf Token-Freigabe.|Ожидаем подтверждения токенов.|بانتظار تأكيد استخدام الرموز.|En attente de la confirmation des jetons.|टोकन की पुष्टि की प्रतीक्षा है।|正在等待点数确认。|トークンの使用確認を待っています。
+Fotoğraf gönderiliyor ve kıyafet tespiti bekleniyor.|Sending photo and waiting for detection.|Foto wird gesendet. Warte auf die Erkennung.|Отправляем фото и ожидаем распознавания.|جارٍ إرسال الصورة وانتظار اكتشاف الملابس.|Envoi de la photo et attente de la détection.|फ़ोटो भेजी जा रही है और पहचान की प्रतीक्षा है।|正在发送照片并等待识别。|写真を送信し、服の検出を待っています。
+Bulunan parçalar kontrol ediliyor.|Checking detected garments.|Erkannte Kleidungsstücke werden geprüft.|Проверяем распознанные вещи.|جارٍ التحقق من الملابس المكتشفة.|Vérification des vêtements détectés.|पहचाने गए कपड़े जाँचे जा रहे हैं।|正在检查识别出的衣物。|検出した服を確認中です。
+Durdu|Stopped|Angehalten|Остановлено|توقف|Arrêt|रुका|已停止|停止
+Analiz için yeterli Stil Jetonu yok.|Not enough Style Tokens for analysis.|Nicht genug Style-Token für die Analyse.|Недостаточно токенов для анализа.|رموز الأناقة غير كافية للتحليل.|Jetons Style insuffisants pour l’analyse.|विश्लेषण के लिए पर्याप्त स्टाइल टोकन नहीं हैं।|风格点数不足，无法分析。|分析に必要なスタイルトークンが不足しています。
 `;
  const dictionary=new Map(phrases.trim().split('\n').map(line=>{const row=line.split('|');return [row[0],row]}));
  const field=document.getElementById('app-language');
@@ -306,12 +328,20 @@ Seçilen parçaların analizi|Review selected items|Ausgewählte Teile analysier
   }
   return value;
  }
+ function translateLine(value){
+  const numbered=value.match(/^(\d+\. )(.+)$/);
+  if(numbered)return numbered[1]+translateSegment(numbered[2]);
+  const stopped=value.match(/^(Durdu)(: .+)$/);
+  if(stopped)return translateSegment(stopped[1])+stopped[2];
+  return translateSegment(value);
+ }
  const translate=value=>{
   if(language==='tr')return value;
   const whole=translateSegment(value);
   if(whole!==value)return whole;
-  return value.split(/( · |\n)/).map(translateSegment).join('');
+  return value.split(/( · |\n)/).map(translateLine).join('');
  };
+ window.styleMuseTranslate=translate;
  window.styleMuseSourceText=element=>Array.from(element.childNodes,node=>node.nodeType===Node.TEXT_NODE?(originals.get(node)?.original??node.data):node.textContent).join('');
  const observer=new MutationObserver(records=>{
   observer.disconnect();
@@ -333,7 +363,7 @@ Seçilen parçaların analizi|Review selected items|Ausgewählte Teile analysier
  function localizeElement(el){
   if(el.tagName==='OPTION'&&!el.hasAttribute('value'))el.value=el.textContent.trim();
   const values=attributeOriginals.get(el)||{};
-  for(const name of ['aria-label','placeholder','title','alt']){
+  for(const name of ['aria-label','placeholder','title','alt','data-zoom-label']){
    const current=el.getAttribute(name);
    if(current===null)continue;
    const old=values[name],original=old&&current===old.rendered?old.original:current,rendered=translate(original);
@@ -354,7 +384,7 @@ Seçilen parçaların analizi|Review selected items|Ausgewählte Teile analysier
   }
  }
  function observe(){
-  observer.observe(document.body,{subtree:true,childList:true,characterData:true,attributes:true,attributeFilter:['aria-label','placeholder','title','alt']});
+  observer.observe(document.body,{subtree:true,childList:true,characterData:true,attributes:true,attributeFilter:['aria-label','placeholder','title','alt','data-zoom-label']});
  }
  function apply(){
   observer.disconnect();
