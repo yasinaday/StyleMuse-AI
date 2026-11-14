@@ -217,7 +217,7 @@ button.secondary{background:#f4e9f0;color:#6e4566}
 #profile>.result-card:first-child .actions button{flex:1}
 #profile .result-card{margin-top:20px}
 #profile .result-card h2{margin-top:6px}
-#profile #name,#profile #favorite{margin-bottom:7px}
+#profile #name{margin-bottom:7px}
 #profile .notice{font-size:12px;line-height:1.55}
 #filterbar{margin:23px 0 10px;padding-bottom:10px;scrollbar-width:none}
 #filterbar button{border-radius:99px;background:#f6e9f0;color:#77536c;font-size:13px;min-height:40px}
@@ -849,7 +849,6 @@ html[dir="rtl"] #profile .sm-page-hero img{right:auto;left:0}
   <div><label for="profile-weight">Kilo (kg)</label><input id="profile-weight" name="weight" type="number" min="25" max="350" inputmode="decimal" step="0.1"></div>
   <div><label for="profile-size">Beden</label><select id="profile-size" name="profile-size"><option value="">Seçiniz</option><option value="XS">XS</option><option value="S">S</option><option value="M">M</option><option value="L">L</option><option value="XL">XL</option><option value="XXL">XXL</option><option value="3XL">3XL</option><option value="4XL">4XL</option></select></div>
  </div>
- <label for="favorite">En sevdiğin tarz</label><select id="favorite" onchange="localStorage.setItem('sm-style',this.value)"><option>Rahat ve şık</option><option>Minimal</option><option>Romantik</option><option>Modern klasik</option></select>
  <button class="profile-tokens" type="submit">Kaydet</button><p id="style-profile-status" role="status"></p>
  </form></details>
  <details><summary><span>Bilgilerim</span></summary><div class="profile-fields"><label for="name">Nasıl hitap edelim?</label><form id="profile-name-form"><div class="profile-name-row"><input id="name" placeholder="Adın" maxlength="60"><div id="profile-name-actions" hidden><button type="submit" aria-label="Kaydet" title="Kaydet">✓</button><button type="button" aria-label="Vazgeç" title="Vazgeç" onclick="resetProfileName()">×</button></div></div></form><p id="profile-edit-status" role="status"></p><p id="profile-stats"></p></div></details>
@@ -2076,6 +2075,6 @@ if(sessionStorage.getItem('sm-backup-restored')==='1'){
  status.closest('details').open=true;
  tab('profile');
 }
-document.querySelector('.nav').addEventListener('click',function(event){const button=event.target.closest('button[data-tab]');if(!button)return;event.preventDefault();try{tab(button.dataset.tab)}catch(err){console.error('StyleMuse navigation',err);document.querySelectorAll('main section').forEach(section=>section.classList.toggle('hide',section.id!==button.dataset.tab));document.querySelectorAll('.nav button').forEach(item=>item.classList.toggle('active',item===button));document.body.classList.toggle('on-home',button.dataset.tab==='discover');window.scrollTo(0,0)}});try{document.getElementById('name').value=localStorage.getItem('sm-name')||'';document.getElementById('favorite').value=localStorage.getItem('sm-style')||'Rahat ve şık';render();renderSaved();renderHomeRecent();loadWardrobe();loadSavedLooks();initProfileEditing();initStyleProfile();for(const id of ['category','occasion','style','app-language','crop-category','profile-tone','profile-shape','profile-size','favorite'])initStylePicker(id);initReadyMannequin();}catch(err){console.error('StyleMuse init',err)}
+document.querySelector('.nav').addEventListener('click',function(event){const button=event.target.closest('button[data-tab]');if(!button)return;event.preventDefault();try{tab(button.dataset.tab)}catch(err){console.error('StyleMuse navigation',err);document.querySelectorAll('main section').forEach(section=>section.classList.toggle('hide',section.id!==button.dataset.tab));document.querySelectorAll('.nav button').forEach(item=>item.classList.toggle('active',item===button));document.body.classList.toggle('on-home',button.dataset.tab==='discover');window.scrollTo(0,0)}});try{document.getElementById('name').value=localStorage.getItem('sm-name')||'';render();renderSaved();renderHomeRecent();loadWardrobe();loadSavedLooks();initProfileEditing();initStyleProfile();for(const id of ['category','occasion','style','app-language','crop-category','profile-tone','profile-shape','profile-size'])initStylePicker(id);initReadyMannequin();}catch(err){console.error('StyleMuse init',err)}
 document.addEventListener('DOMContentLoaded',()=>{for(const sync of syncStylePickers.values())sync();});
 </script><script src="locale.js" defer></script></body></html>
