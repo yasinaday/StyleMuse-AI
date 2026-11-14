@@ -217,7 +217,11 @@ button.secondary{background:#f4e9f0;color:#6e4566}
 #profile>.result-card:first-child .actions button{flex:1}
 #profile .result-card{margin-top:20px}
 #profile .result-card h2{margin-top:6px}
-#profile #name{margin-bottom:7px}
+#profile .profile-personal-details{padding-bottom:9px}
+#profile .profile-personal-details>label{margin:0 0 4px;line-height:1.25}
+#profile .profile-personal-details #name{box-sizing:border-box;height:40px;min-height:40px;margin:0;padding:6px 12px;line-height:1.25}
+#profile .profile-personal-details p{margin:5px 0 0;font-size:13px;line-height:1.35;color:var(--page-muted)}
+#profile .profile-personal-details p:empty{display:none}
 #profile .notice{font-size:12px;line-height:1.55}
 #filterbar{margin:23px 0 10px;padding-bottom:10px;scrollbar-width:none}
 #filterbar button{border-radius:99px;background:#f6e9f0;color:#77536c;font-size:13px;min-height:40px}
@@ -851,7 +855,7 @@ html[dir="rtl"] #profile .sm-page-hero img{right:auto;left:0}
  </div>
  <button class="profile-tokens" type="submit">Kaydet</button><p id="style-profile-status" role="status"></p>
  </form></details>
- <details><summary><span>Bilgilerim</span></summary><div class="profile-fields"><label for="name">Nasıl hitap edelim?</label><form id="profile-name-form"><div class="profile-name-row"><input id="name" placeholder="Adın" maxlength="60"><div id="profile-name-actions" hidden><button type="submit" aria-label="Kaydet" title="Kaydet">✓</button><button type="button" aria-label="Vazgeç" title="Vazgeç" onclick="resetProfileName()">×</button></div></div></form><p id="profile-edit-status" role="status"></p><p id="profile-stats"></p></div></details>
+ <details><summary><span>Bilgilerim</span></summary><div class="profile-fields profile-personal-details"><label for="name">Nasıl hitap edelim?</label><form id="profile-name-form"><div class="profile-name-row"><input id="name" placeholder="Adın" maxlength="60"><div id="profile-name-actions" hidden><button type="submit" aria-label="Kaydet" title="Kaydet">✓</button><button type="button" aria-label="Vazgeç" title="Vazgeç" onclick="resetProfileName()">×</button></div></div></form><p id="profile-edit-status" role="status"></p><p id="profile-stats"></p></div></details>
 </div>
 <h2 class="profile-group-title">Görünüm</h2>
 <div class="profile-list"><details><summary><span>Uygulama dili</span></summary><div class="profile-fields"><label for="app-language">Uygulama dili</label>
