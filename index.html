@@ -886,7 +886,7 @@ html[dir="rtl"] #profile .sm-page-hero img{right:auto;left:0}
 <h2>Jeton Yükle</h2>
 <form id="token-load-form"><label for="token-load-amount">Jeton adedi</label><input id="token-load-amount" type="number" min="1" max="10000" step="1" required><button type="submit">E-posta kodu gönder</button></form>
 <form id="token-confirm-form" hidden><label for="token-load-code">6 haneli doğrulama kodu</label><input id="token-load-code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required><button type="submit">Jetonları yükle</button></form>
-<p id="token-load-status" role="status"></p></div><div class="result-card"><b>Toplu ürün aktarımı</b><button type="button" class="secondary" onclick="document.getElementById('wardrobe-import').click()">↓ Ürün paketini içe aktar</button><p class="hint">StyleMuse ürün paketini seçerek bütün ürünleri tek seferde dolabına ekle. Var olan kıyafetlerin korunur.</p><input id="wardrobe-import" type="file" accept=".json,application/json" style="display:none" onchange="importWardrobePackage(event)"><small id="wardrobe-import-status" aria-live="polite" hidden></small></div><div class="result-card"><p id="github-status" role="status">GitHub oturumu henüz doğrulanmadı.</p><div class="actions"><button id="github-login" onclick="loginGithub()">GitHub ile giriş yap</button><button id="github-logout" onclick="logoutGithub()" hidden>GitHub çıkış</button></div></div><div class="result-card sm-balance-settings" style="margin:22px 0"><span class="eyebrow">AYARLAR · YAPAY ZEKÂ</span><h2>Sağlayıcı bakiyelerim</h2><p class="hint">Bu tutarlar bilgilendirme amaçlıdır. Replicate bakiyesi API üzerinden canlı okunamıyor. Bu ekrandaki tutar yalnızca cihazda saklanır. Kıyafet ayırma için bakiye sunucuya ayrıca kaydedilmelidir.</p><div class="sm-balance-line"><div><strong>Replicate</strong><small>Son kontrol ettiğin kredi</small></div><a href="https://replicate.com/account/billing" target="_blank" rel="noopener noreferrer">Billing ↗</a></div><label for="sm-replicate-credit">Kalan kredi (USD)</label><div class="sm-balance-input"><input id="sm-replicate-credit" type="number" inputmode="decimal" min="0" step="0.01" placeholder="Örn. 0.92"><button type="button" class="secondary" onclick="saveProviderBalance()">Kaydet</button></div><p class="hint" id="sm-replicate-stamp">Henüz kayıt yok.</p><div class="sm-balance-line"><div><strong>fal.ai</strong><small>Canlı bakiye doğrulanamadı</small></div><a href="https://fal.ai/dashboard/billing" target="_blank" rel="noopener noreferrer">Billing ↗</a></div><p class="hint" id="sm-fal-balance">Son bilinen bakiye: 9,36 USD (9 Kasım 2026). Güncel bakiye olarak kabul edilmez.</p><p class="sm-balance-warning">Uygulama içi genel harcama tavanı yok. Her ücretli işlem için ayrı maliyet teklifi ve açık onay gerekir. Sağlayıcı güvenlik kontrolleri değişmez.</p></div><div class="result-card" style="margin:22px 0"><span class="eyebrow">AI HİZMETİ</span><h2>Bağlantı durumu</h2><p class="hint" id="ai-connection-state" role="status">Sunucu kontrol ediliyor…</p><button type="button" class="secondary" onclick="checkAiHealth()">Yeniden kontrol et</button></div></div></details></div>
+<p id="token-load-status" role="status"></p></div><div class="result-card"><b>Toplu ürün aktarımı</b><button type="button" class="secondary" onclick="document.getElementById('wardrobe-import').click()">↓ Ürün paketini içe aktar</button><p class="hint">StyleMuse ürün paketini seçerek bütün ürünleri tek seferde dolabına ekle. Var olan kıyafetlerin korunur.</p><input id="wardrobe-import" type="file" accept=".json,application/json" style="display:none" onchange="importWardrobePackage(event)"><small id="wardrobe-import-status" aria-live="polite" hidden></small></div><div class="result-card"><p id="github-status" role="status">GitHub oturumu henüz doğrulanmadı.</p><div class="actions"><button id="github-login" onclick="loginGithub()">GitHub ile giriş yap</button><button id="github-logout" onclick="logoutGithub()" hidden>GitHub çıkış</button></div></div><div class="result-card sm-balance-settings" style="margin:22px 0"><span class="eyebrow">AYARLAR · YAPAY ZEKÂ</span><h2>Sağlayıcı bakiyelerim</h2><p class="hint">Replicate Billing’de gördüğün güncel tutarı gir. Bu kayıt sunucuda 24 saat geçerlidir ve canlı bakiye değildir.</p><div class="sm-balance-line"><div><strong>Replicate</strong><small>Son kontrol ettiğin kredi</small></div><a href="https://replicate.com/account/billing" target="_blank" rel="noopener noreferrer">Billing ↗</a></div><label for="sm-replicate-credit">Kalan kredi (USD)</label><div class="sm-balance-input"><input id="sm-replicate-credit" type="number" inputmode="decimal" min="0" step="0.01" placeholder="Örn. 0.92"><button type="button" class="secondary" id="sm-replicate-save" onclick="saveProviderBalance()">Kaydet</button></div><p class="hint" id="sm-replicate-stamp">Henüz kayıt yok.</p><div class="sm-balance-line"><div><strong>fal.ai</strong><small>Canlı bakiye doğrulanamadı</small></div><a href="https://fal.ai/dashboard/billing" target="_blank" rel="noopener noreferrer">Billing ↗</a></div><p class="hint" id="sm-fal-balance">Son bilinen bakiye: 9,36 USD (9 Kasım 2026). Güncel bakiye olarak kabul edilmez.</p><p class="sm-balance-warning">Uygulama içi genel harcama tavanı yok. Her ücretli işlem için ayrı maliyet teklifi ve açık onay gerekir. Sağlayıcı güvenlik kontrolleri değişmez.</p></div><div class="result-card" style="margin:22px 0"><span class="eyebrow">AI HİZMETİ</span><h2>Bağlantı durumu</h2><p class="hint" id="ai-connection-state" role="status">Sunucu kontrol ediliyor…</p><button type="button" class="secondary" onclick="checkAiHealth()">Yeniden kontrol et</button></div></div></details></div>
 </div><div class="profile-list profile-app-actions">
  <button type="button" class="secondary" onclick="openAppRating()"><svg class="profile-menu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 2.7 5.5 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1-4.4-4.3 6.1-.9L12 3z"/></svg><span>Uygulamayı değerlendir</span></button>
  <button type="button" class="secondary" onclick="shareStyleMuse()"><svg class="profile-menu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3m-4 4 4-4 4 4M5 11v9h14v-9"/></svg><span>Uygulamayı paylaş</span></button>
@@ -1058,7 +1058,7 @@ async function aiRequest(path,payload,timeout=120000){
  if(url.protocol!=='https:')throw Error('HTTPS gerekli.');
  const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),timeout);
  let response,result;try{response=await fetch(url,{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload),signal:controller.signal});result=await response.json()}catch(error){if(controller.signal.aborted)throw Error("Sunucu zamanında yanıt vermedi.");throw error}finally{clearTimeout(timer)}
- if(!response.ok){const detail=result?.detail??result?.error;const code=typeof detail==='string'?detail:detail?.code;if(code==='provider_failed_no_retry'||code?.startsWith('tryon_provider_http_')){const error=Error('Yapay zekâ işlemi tamamlanamadı.');error.code=code;throw error;}if(code==='style_tokens_empty'){openHomePro();void refreshStyleMuseAccount().catch(()=>{});throw Error('Stil Jetonu kalmadı.')}if(code==='busy_or_ambiguous'){const error=Error('Sunucuda önceki bir AI işlemi hâlâ bekliyor veya sonucu belirsiz.');error.code=code;throw error}if(code==='paid_inference_not_authorized')throw Error('Profil bölümünden oturum aç.');if(code==='provider_credit_unavailable'||code==='provider_credit_insufficient'){const error=Error('Yapay zekâ hizmeti şu anda kullanılamıyor. Daha sonra tekrar dene.');error.code=code;throw error;}if(code==='quote_invalid_or_expired'||code==='cost_confirmation_required')throw Error('Maliyet teklifi geçersiz, kullanılmış veya süresi dolmuş. Yeni teklif ve açık onay gerekir; otomatik tekrar yapılmadı.');if(response.status===401||(response.status===403&&['paid_inference_not_authorized','oauth_account_not_allowed'].includes(code))){aiSessionPromise=null;updateGithubStatus({authenticated:false});}const error=Error(typeof detail==='string'?detail.slice(0,600):'Sunucu hatası: '+JSON.stringify(detail??response.status).slice(0,600));error.code=code;throw error;}
+ if(!response.ok){const detail=result?.detail??result?.error;const code=typeof detail==='string'?detail:detail?.code;if(code==='provider_failed_no_retry'||code?.startsWith('tryon_provider_http_')){const error=Error('Yapay zekâ işlemi tamamlanamadı.');error.code=code;throw error;}if(code==='style_tokens_empty'){openHomePro();void refreshStyleMuseAccount().catch(()=>{});throw Error('Stil Jetonu kalmadı.')}if(code==='busy_or_ambiguous'){const error=Error('Sunucuda önceki bir AI işlemi hâlâ bekliyor veya sonucu belirsiz.');error.code=code;throw error}if(code==='paid_inference_not_authorized')throw Error('Profil bölümünden oturum aç.');if(code==='provider_credit_unavailable'||code==='provider_credit_insufficient'){const error=Error(code==='provider_credit_insufficient'?'Sağlayıcı için kullanılabilir kredi yetersiz.':'Sağlayıcı kredi bilgisi doğrulanamadı.');error.code=code;throw error;}if(code==='quote_invalid_or_expired'||code==='cost_confirmation_required')throw Error('Maliyet teklifi geçersiz, kullanılmış veya süresi dolmuş. Yeni teklif ve açık onay gerekir; otomatik tekrar yapılmadı.');if(response.status===401||(response.status===403&&['paid_inference_not_authorized','oauth_account_not_allowed'].includes(code))){aiSessionPromise=null;updateGithubStatus({authenticated:false});}const error=Error(typeof detail==='string'?detail.slice(0,600):'Sunucu hatası: '+JSON.stringify(detail??response.status).slice(0,600));error.code=code;throw error;}
  if(path==='/api/session'||path==='/api/health')updateGithubStatus(result);
  if(path==='/api/health')updateAiBudget(result);
  return result;
@@ -1528,7 +1528,7 @@ function renderStyleMuseAccount(data){
  document.getElementById('profile-token-count').textContent=data?.balance??0;
  document.getElementById('wallet-token-count').textContent=data?.balance??0;
  refreshProfileName();
- if(user?.admin===true)void checkAiHealth();
+ if(user?.admin===true){void checkAiHealth();void refreshReplicateCredit();}
 }
 async function refreshStyleMuseAccount(){
  const data=await aiPost('/api/account',{},12000);
@@ -2031,9 +2031,46 @@ function suggestMannequin(){
  document.getElementById('mannequin-status').textContent='Kombin seçildi.';
 }
 async function checkAiHealth(){const el=document.getElementById('ai-connection-state');if(!el)return;el.textContent='Sunucu kontrol ediliyor…';try{const data=await aiPost('/api/health',{});if(data.status!=='ok'||typeof data.enabled!=='boolean')throw Error('Geçersiz sağlık yanıtı');el.textContent=data.authenticated!==true?'Giriş yapman gerekiyor.':data.enabled?'Yapay zekâ hazır.':'Yapay zekâ şu anda kullanılamıyor.';}catch(e){el.textContent='Sunucu bağlantısı veya oturum doğrulanamadı. Manuel kıyafet ekleme kullanılabilir.';}}
-function renderProviderBalance(){const input=document.getElementById('sm-replicate-credit'),stamp=document.getElementById('sm-replicate-stamp');if(!input||!stamp)return;try{const record=JSON.parse(localStorage.getItem('sm-replicate-credit-note')||'null');if(record&&Number.isFinite(record.amount)&&record.amount>=0&&typeof record.at==='string'){input.value=record.amount.toFixed(2);stamp.textContent='Senin kaydettiğin bakiye: '+record.amount.toFixed(2)+' USD · '+new Date(record.at).toLocaleString('tr-TR')+' · Canlı değil';}else{stamp.textContent='Henüz kayıt yok. Replicate Billing ekranından kontrol ederek kaydedebilirsin.'}}catch{stamp.textContent='Bakiye kaydı okunamadı.'}}
-function saveProviderBalance(){const el=document.getElementById('sm-replicate-credit');if(!el||el.value.trim()===''||!Number.isFinite(Number(el.value))||Number(el.value)<0||Number(el.value)>100000){showStyleNotice('Geçerli bir USD tutarı gir.');return;}localStorage.setItem('sm-replicate-credit-note',JSON.stringify({amount:Number(el.value),at:new Date().toISOString()}));renderProviderBalance();}
-function renderProfile(){renderProviderBalance();refreshProfileName();document.getElementById('profile-stats').textContent=getItems().length+' kıyafet · '+savedLooksCache.filter(validLook).length+' kayıtlı kombin'}
+function showReplicateCredit(record){
+ const stamp=document.getElementById('sm-replicate-stamp');
+ if(!Number.isFinite(record.available_usd)||!Number.isFinite(record.expires_at)){
+  stamp.textContent='Geçerli sunucu bakiye kaydı yok.';
+  return;
+ }
+ stamp.textContent='Sunucudaki tahmini bakiye: '+record.available_usd.toFixed(2)+' USD · '+new Date(record.expires_at*1000).toLocaleString(document.documentElement.lang);
+}
+let replicateCreditVersion=0;
+async function refreshReplicateCredit(){
+ if(document.getElementById('sm-replicate-save').disabled)return;
+ const version=++replicateCreditVersion;
+ try{
+  const credit=await aiPost('/api/admin/replicate-credit/status',{},12000);
+  if(version===replicateCreditVersion)showReplicateCredit(credit);
+ }catch{
+  if(version===replicateCreditVersion)document.getElementById('sm-replicate-stamp').textContent='Replicate bakiye kaydı okunamadı.';
+ }
+}
+async function saveProviderBalance(){
+ const input=document.getElementById('sm-replicate-credit');
+ const stamp=document.getElementById('sm-replicate-stamp');
+ const button=document.getElementById('sm-replicate-save');
+ const amount=Number(input.value);
+ if(button.disabled)return;
+ if(!input.value.trim()||!input.validity.valid||!Number.isFinite(amount)||amount<0||amount>100000){
+  showStyleNotice('Geçerli bir USD tutarı gir.');
+  return;
+ }
+ button.disabled=true;
+ const version=++replicateCreditVersion;
+ try{
+  const record=await aiPost('/api/admin/replicate-credit',{amount_usd:amount.toFixed(2),request_id:crypto.randomUUID()},15000);
+  if(!Number.isFinite(record.available_usd)||!Number.isFinite(record.expires_at))throw Error('Invalid balance response');
+  if(version===replicateCreditVersion)showReplicateCredit(record);
+ }catch{
+  stamp.textContent='Replicate bakiyesi sunucuya kaydedilemedi.';
+ }finally{button.disabled=false;}
+}
+function renderProfile(){refreshProfileName();document.getElementById('profile-stats').textContent=getItems().length+' kıyafet · '+savedLooksCache.filter(validLook).length+' kayıtlı kombin'}
 const backupPreferenceKeys=['sm-name','sm-style','sm-style-profile','sm-profile-photo','sm-language'];
 function exportData(){
  const data={version:2,exported:new Date().toISOString(),items:getItems(),looks:savedLooksCache,
