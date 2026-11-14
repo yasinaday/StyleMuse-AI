@@ -224,10 +224,12 @@ class RealProviders:
         fal contract: https://fal.ai/docs/platform-apis/v1/account/billing
         """
         import math
-        if action not in ('generate', 'tryon') or not self.fal_key:
+        import os
+        billing_key = os.environ.get('FAL_BILLING_KEY') or self.fal_key
+        if action not in ('generate', 'tryon') or not billing_key:
             return None
         try:
-            data = self._json('GET', 'https://api.fal.ai/v1/account/billing?expand=credits', self.fal_key,
+            data = self._json('GET', 'https://api.fal.ai/v1/account/billing?expand=credits', billing_key,
                               headers={'Accept': 'application/json'})
             credits = data['credits']
             value = credits['current_balance']
