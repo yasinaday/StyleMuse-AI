@@ -1394,13 +1394,16 @@ appRatingForm.addEventListener('submit',event=>{
 });
 async function shareStyleMuse(){
  const url='https://yasinaday.github.io/StyleMuse-AI/';
+ const source="✨ Dolabında yeni kombinler keşfet! StyleMuse AI ile fotoğraflardan kıyafetlerini ayır, dijital dolabını oluştur ve kombinlerini sanal mankende dene. Hemen dene!";
+ const description=window.styleMuseTranslate?.(source)??source;
+ const message=description+'\n\n'+url;
  try{
-  if(navigator.share){await navigator.share({title:'StyleMuse AI',url});return;}
+  if(navigator.share){await navigator.share({title:'StyleMuse AI',text:message});return;}
  }catch(error){if(error.name==='AbortError')return;}
  try{
-  await navigator.clipboard.writeText(url);
-  showStyleNotice('Uygulama bağlantısı kopyalandı.');
- }catch{showStyleNotice(url);}
+  await navigator.clipboard.writeText(message);
+  showStyleNotice('Paylaşım metni kopyalandı.');
+ }catch{showStyleNotice(message);}
 }
 async function shareCombo(i){const x=savedLooksCache[i];if(!x)return;try{const img=lookImage(x);const res=await fetch(img);const blob=await res.blob();const file=new File([blob],'stylemuse-kombin.png',{type:blob.type||'image/png'});if(navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({files:[file],title:window.styleMuseTranslate?.('StyleMuse kombinim')??'StyleMuse kombinim'});return}if(navigator.share){await navigator.share({title:window.styleMuseTranslate?.('StyleMuse kombinim')??'StyleMuse kombinim',text:window.styleMuseTranslate?.('Kombinime bak!')??'Kombinime bak!'});return}openSavedLook(i)}catch(e){if(e.name!=='AbortError')showStyleNotice('Paylaşım başlatılamadı: '+e.message)}}
 
