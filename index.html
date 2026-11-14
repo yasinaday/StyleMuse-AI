@@ -791,7 +791,8 @@ html[dir="rtl"] #profile .sm-page-hero img{right:auto;left:0}
 .sm-extract-card img{display:block;width:100%;height:72px;object-fit:contain}
 .sm-extract-card label{display:flex;align-items:center;gap:4px;margin:4px 0;line-height:1.25}
 .sm-extract-card input{width:16px;height:16px;margin:0;flex:none;accent-color:#803d84}
-.sm-extract-card small{overflow-wrap:anywhere}
+.sm-extract-card label{justify-content:center;min-height:28px}
+.sm-extract-detail select{width:100%}
 .sm-extract-panel .ai-review-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
 .sm-extract-panel .ai-review-actions button{width:auto;flex:1 1 auto;min-height:40px;padding:6px 10px;font-size:13px}
 .sm-extract-panel .sm-extract-status{margin:6px 0;font-size:13px;color:#592d61}
@@ -1275,7 +1276,7 @@ function updateAiBudget(data){
 }
 async function refreshAiBudget(){try{await aiPost('/api/health',{})}catch(e){updateAiBudget({remaining_usd:0});}}
 function selectAiPart(i,value){if(aiBusy||!aiParts[i])return;aiParts[i].selected=value;showAiParts()}
-function categoryAiPart(i,value){if(!aiBusy&&AI_CATEGORIES.includes(value))aiParts[i].category=value}
+function categoryAiPart(i,value){if(aiBusy||!aiParts[i]?.selected||aiParts[i].saved||!AI_CATEGORIES.includes(value))return;aiParts[i].category=value;aiActiveIndex=i;showAiParts();document.getElementById('ai-category-'+i)?.focus({preventScroll:true})}
 function aiQualityNotice(p){
  const quality=p.mask_quality&&typeof p.mask_quality==='object'?p.mask_quality.status:p.mask_quality;
  const mask=!safeAiImage(p.generated?p.originalPreview:p.image)||quality==='missing'?'Maske eksik — kaynak doğrulanamadı':quality==='low'||quality==='review_required'?'Maske kalitesi düşük — elle kontrol et':'Maske kalitesi doğrulanmadı — elle kontrol et';
@@ -1311,8 +1312,12 @@ function showAiParts(){
  modal.classList.add('active');
  modal.classList.toggle('ai-working',aiBusy);
  document.body.style.overflow='hidden';
- const cards=aiParts.map((p,i)=>'<div class="sm-extract-card"><button type="button" aria-pressed="'+(i===aiActiveIndex)+'" onclick="focusAiPart('+i+')"'+disabled+'><img src="'+(safeAiImage(p.image)?p.image:'')+'" alt=""><span>'+escapeAi(p.category)+'</span></button><label><input type="checkbox" aria-label="'+escapeAi(p.category)+'" '+(p.selected?'checked':'')+(p.saved||p.review==='rejected'?' disabled':disabled)+' onchange="selectAiPart('+i+',this.checked)"><small>'+escapeAi(p.status||'Tespit edildi')+'</small></label></div>').join('');
- const controls=detail&&active?'<div class="sm-extract-detail"><label for="ai-active-category">Kategori</label><select id="ai-active-category"'+(active.saved? ' disabled':disabled)+' onchange="categoryAiPart('+aiActiveIndex+',this.value)">'+AI_CATEGORIES.map(c=>'<option '+(c===active.category?'selected':'')+'>'+c+'</option>').join('')+'</select>'+aiQualityNotice(active)+(active.generated?'<div class="ai-review-actions"><button onclick="reviewAiPart('+aiActiveIndex+',\'accepted\')"'+(active.saved||active.review==='rejected'?' disabled':disabled)+'>'+(active.saved?'✓ Dolaba kaydedildi':'Kabul et ve kaydet')+'</button><button class="secondary" onclick="reviewAiPart('+aiActiveIndex+',\'rejected\')"'+(active.saved||active.review==='rejected'?' disabled':disabled)+'>Reddet</button></div>':'')+'</div>':'';
+ const cards=aiParts.map((p,i)=>'<div class="sm-extract-card"><button type="button" aria-pressed="'+(i===aiActiveIndex)+'" onclick="focusAiPart('+i+')"'+disabled+'><img src="'+(safeAiImage(p.image)?p.image:'')+'" alt=""><span>'+escapeAi(p.category)+'</span></button><label><input type="checkbox" aria-label="'+escapeAi(p.category)+'" '+(p.selected?'checked':'')+(p.saved||p.review==='rejected'?' disabled':disabled)+' onchange="selectAiPart('+i+',this.checked)"></label></div>').join('');
+ const categories=detail?aiVisibleIndices().map((i,pos)=>{
+  const part=aiParts[i];
+  return '<label for="ai-category-'+i+'">Ürün '+(pos+1)+' · Kategori</label><select id="ai-category-'+i+'"'+disabled+' onchange="categoryAiPart('+i+',this.value)">'+AI_CATEGORIES.map(c=>'<option '+(c===part.category?'selected':'')+'>'+c+'</option>').join('')+'</select>';
+ }).join(''):'';
+ const controls=detail&&active?'<div class="sm-extract-detail">'+categories+aiQualityNotice(active)+(active.generated?'<div class="ai-review-actions"><button onclick="reviewAiPart('+aiActiveIndex+',\'accepted\')"'+(active.saved||active.review==='rejected'?' disabled':disabled)+'>'+(active.saved?'✓ Dolaba kaydedildi':'Kabul et ve kaydet')+'</button><button class="secondary" onclick="reviewAiPart('+aiActiveIndex+',\'rejected\')"'+(active.saved||active.review==='rejected'?' disabled':disabled)+'>Reddet</button></div>':'')+'</div>':'';
  modal.innerHTML='<div class="crop-panel ai-review-panel sm-extract-panel" aria-busy="'+aiBusy+'"><div class="ai-review-head"><h2>'+(detail?'Seçilen parçaların analizi':'Fotoğraf analizi · Ürün seçimi')+'</h2></div><div class="sm-extract-stage"><div class="sm-extract-rail" id="ai-cards" aria-label="Tespit edilen parçalar">'+cards+'</div><div class="ai-model"><img id="ai-original" alt="Yüklediğin kombin fotoğrafı"></div></div><p class="sm-extract-status" role="status">'+escapeAi(active?.error||selected+' ürün seçili')+'</p>'+controls+'<div class="ai-review-actions">'+(detail?'<button id="ai-generate" onclick="generateAiParts()"'+(canGenerate?disabled:' disabled')+'>✦ Parçaları iyileştir</button>':'<button onclick="startAiDetailReview()"'+(selected?disabled:' disabled')+'>Seçilen parçaları incele</button>')+'<button class="secondary" onclick="if(!aiBusy){closeAiReview();openMultiCrop()}"'+disabled+'>Elle kırp</button><button class="secondary" onclick="cancelAiReview()"'+disabled+'>Analizi iptal et</button></div></div>';
  const preview=detail&&active?.generated?active.image:multiSource;
  document.getElementById('ai-original').src=safeAiImage(preview)?preview:'';
