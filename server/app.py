@@ -73,7 +73,7 @@ def normalize(uri, s, *, preserve_alpha=False, upload=False):
         raw = base64.b64decode(uri.split(',', 1)[1], validate=True)
         if len(raw) > s.max_image_bytes:
             raise ValueError()
-        with Image.open(BytesIO(raw)) as im:
+        with Image.open(BytesIO(raw), formats=('PNG', 'JPEG')) as im:
             if im.format not in ('PNG', 'JPEG') or im.width*im.height > s.max_pixels:
                 raise ValueError()
             im.load()

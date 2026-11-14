@@ -1,0 +1,14 @@
+SONUÇ: DAR KAPSAM FRONTEND PASS; SECURITY ACCEPTANCE OPEN.
+
+HEAD: 04455df881a03cecf453b2bd01ec9a77d52daf75
+index.html SHA256: 2aa812f12b85c68b31b424fb13cb6afb5e9a52553f8ff64cd2ea0bce80800ffb (beklenen ile aynı).
+
+index.html ve frontend harness HEAD diff'i, yeni üç test dosyası, restore parser ve görüntü açma yolları incelendi. Sunucu kapsam dışı. Yedekten gelen image/aiImage HTML src interpolasyonları kaldırılmış; closet, her iki suggestion tanımı ve try-choice DOM img.src kullanıyor. Saved gallery statik markup ve DOM src/closure kullanıyor. Home recent, seçilmiş mannequin ve zoom da DOM src atıyor. Restore kategorileri allowlist; item id karakterleri sınırlı. Sayısal saved-look index callback'leri kullanıcı kaynaklı kod içermiyor.
+
+Önceki string-ID bulgusu giderilmiş: index.html:1463 edit/remove ve :1559 toggle callback'leri item.id yakalayan DOM closure'ları. legacy_42 / legacy-43 restore/reload, gerçek DOM tıklamalarıyla zoom, crop edit açılması, seçim/aç-kapat, silme ve silmenin reload sonrası kalıcılığı doğrulandı. Bu dar incelemede açık ürün bulgusu saptanmadı.
+
+Aynı final snapshot üzerinde 7/7 offline regresyon PASS, 0 fail/skip: backup-security 5 Chromium testi; harness-parser 1 VM parser testi; legacy-string-id 1 Chromium testi. Geçerli V1/V2 eski yedek geri yükleme, invalid restore'da IndexedDB wardrobe/saved looks, preferences ve görünür closet nonmutation; allowlisted URL attribute injection negatif kontrolü başarılı. Test çıktısı regressions.tap. Komut: NODE_PATH=/opt/stylemuse-ai-integration/tests/frontend/node_modules node --test tests/frontend/backup-security.test.cjs tests/frontend/harness-parser.test.cjs tests/frontend/legacy-string-id.test.cjs
+
+Sınır: VM parser testi form.elements ve IndexedDB eksik mock uyarıları veriyor; tam initialization doğrulaması değil. Altı gerçek Chromium testi ayrıca geçti. Genel frontend suite'i, backend, canlı dağıtım, ücretli sağlayıcılar ve bağımsız güvenlik kabulü bu sonuç kapsamında değil. Playwright mevcut yerel bağımlılıktan kullanıldı; kurulum/canlı HTTP/ücretli istek yapılmadı. Browser HTTP tümü offline fulfillment/abort; servis worker kapalı.
+
+Kaynak düzenlenmedi. index.html + tests/frontend (node_modules hariç 20 dosya) before/after SHA256 manifestleri birebir aynı. Sadece bu benzersiz scratch evidence dizinine frontend.diff, hashes-before.json, hashes-after.json, regressions.tap ve review.txt yazıldı. Güvenlik kabulü, deploy/aktivasyon veya PR onayı verilmedi.

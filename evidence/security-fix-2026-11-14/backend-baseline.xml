@@ -1,0 +1,413 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="19" skipped="1" tests="225" time="105.732" timestamp="2026-11-14T18:01:15.480503+00:00" hostname="offline-runner"><testcase classname="test_api" name="test_failure_reservation_never_retried_and_ceiling_cannot_increase" time="0.365" /><testcase classname="test_api" name="test_busy_guard_blocks_concurrent_calls" time="0.415" /><testcase classname="test_api" name="test_storage_admission_expiry_and_owner" time="12.842" /><testcase classname="test_api" name="test_safe_errors_body_bound_and_confirmation" time="13.112" /><testcase classname="test_api" name="test_generation_owned_unique_claim" time="26.817" /><testcase classname="test_api" name="test_detection_idempotent_durable_budget" time="6.009" /><testcase classname="test_api" name="test_environment_constructor_is_inert_and_defaults_closed" time="0.329" /><testcase classname="test_api" name="test_environment_explicit_configuration_wires_inert_provider" time="0.528" /><testcase classname="test_api" name="test_environment_rejects_unsafe_configuration[ENABLED-yes]" time="0.001" /><testcase classname="test_api" name="test_environment_rejects_unsafe_configuration[LIFETIME_BUDGET_USD-nan]" time="0.000" /><testcase classname="test_api" name="test_environment_rejects_unsafe_configuration[DETECT_RESERVATION_USD-0]" time="0.000" /><testcase classname="test_api" name="test_environment_rejects_unsafe_configuration[GENERATION_RESERVATION_USD--1]" time="0.000" /><testcase classname="test_api" name="test_environment_rejects_unsafe_configuration[MAX_PIXELS-0]" time="0.000" /><testcase classname="test_api" name="test_detection_preserves_transparent_mask_preview" time="0.397" /><testcase classname="test_api" name="test_health_auth_and_default_disabled" time="0.529" /><testcase classname="test_budget_accounting" name="test_submitted_charge_is_retained_and_restart_never_releases[False]" time="0.751" /><testcase classname="test_budget_accounting" name="test_submitted_charge_is_retained_and_restart_never_releases[True]" time="0.604" /><testcase classname="test_budget_accounting" name="test_crashed_unsubmitted_reservation_is_not_automatically_refunded" time="0.802" /><testcase classname="test_budget_accounting" name="test_real_submission_boundary_accounting_offline[preflight]" time="0.747" /><testcase classname="test_budget_accounting" name="test_real_submission_boundary_accounting_offline[timeout]" time="0.428" /><testcase classname="test_budget_accounting" name="test_real_submission_boundary_accounting_offline[http_error]" time="0.480" /><testcase classname="test_budget_accounting" name="test_real_submission_boundary_accounting_offline[malformed]" time="0.749" /><testcase classname="test_budget_accounting" name="test_submit_audit_failure_prevents_any_provider_post" time="0.001" /><testcase classname="test_budget_accounting" name="test_operation_release_requires_durable_unsubmitted_evidence" time="0.783" /><testcase classname="test_budget_accounting" name="test_real_unknown_credit_blocks_before_reservation_or_job" time="2.987"><failure message="AssertionError: assert 403 == 402&#10; +  where 403 = &lt;Response [403 Forbidden]&gt;.status_code&#10; +    where &lt;Response [403 Forbidden]&gt; = post('/api/detect', json={'image': 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAIAAAAmkwkpAAAAEElEQVR4nGP8z4AATAxEcQAz0QEHOoQ+uAAAAABJRU5ErkJggg==', 'request_id': 'preflight', 'confirmed': True, 'max_total_usd': 0.05})&#10; +      where post = &lt;starlette.testclient.TestClient object at 0x725ab0276780&gt;.post">tmp_path = PosixPath('/root/.hermes/cache/scratch/stylemuse-security-fix/backend-retry/baseline-fixedenv/tmp/test_real_unknown_credit_block0')
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x725ab0351a90&gt;
+
+    def test_real_unknown_credit_blocks_before_reservation_or_job(tmp_path, monkeypatch):
+        from fastapi.testclient import TestClient
+        from app import create_app
+        from providers import RealProviders
+        from test_api import image
+        provider = RealProviders('', '')
+        from test_oauth import CONFIG, HEADERS, login
+        client = TestClient(create_app(dict(CONFIG, enabled=True,
+            lifetime_budget_usd=.5, db_path=str(tmp_path/'db'), storage_dir=str(tmp_path/'images')), provider), base_url='https://testserver')
+        assert login(client, monkeypatch).status_code == 303
+        client.headers.update(HEADERS)
+        payload = dict(image=image(), request_id='preflight', confirmed=True, max_total_usd=.05)
+&gt;       assert client.post('/api/detect', json=payload).status_code == 402
+E       AssertionError: assert 403 == 402
+E        +  where 403 = &lt;Response [403 Forbidden]&gt;.status_code
+E        +    where &lt;Response [403 Forbidden]&gt; = post('/api/detect', json={'image': 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAIAAAAmkwkpAAAAEElEQVR4nGP8z4AATAxEcQAz0QEHOoQ+uAAAAABJRU5ErkJggg==', 'request_id': 'preflight', 'confirmed': True, 'max_total_usd': 0.05})
+E        +      where post = &lt;starlette.testclient.TestClient object at 0x725ab0276780&gt;.post
+
+test_budget_accounting.py:109: AssertionError</failure></testcase><testcase classname="test_budget_accounting" name="test_generation_partial_failure_releases_only_unstarted_items" time="1.544" /><testcase classname="test_budget_accounting" name="test_cancelled_preflight_releases_and_propagates_cancellation" time="0.442" /><testcase classname="test_budget_accounting" name="test_historical_reservations_are_preserved_as_unknown_pending" time="0.193" /><testcase classname="test_footwear_removal" name="test_fal_rejects_footwear_before_transport_or_submission" time="0.001" /><testcase classname="test_footwear_removal" name="test_extraction_discards_footwear_before_masks_preserving_other_garments" time="0.000" /><testcase classname="test_footwear_removal" name="test_sam_prompt_allowlist_excludes_footwear" time="0.000" /><testcase classname="test_footwear_removal" name="test_api_filters_mixed_and_only_footwear_detection_and_replay" time="0.298" /><testcase classname="test_footwear_removal" name="test_legacy_footwear_hidden_and_unclaimable_before_budget[shoes]" time="0.351" /><testcase classname="test_footwear_removal" name="test_legacy_footwear_hidden_and_unclaimable_before_budget[Shoes]" time="0.310" /><testcase classname="test_footwear_removal" name="test_legacy_footwear_hidden_and_unclaimable_before_budget[Left-shoe]" time="0.298" /><testcase classname="test_footwear_removal" name="test_legacy_footwear_hidden_and_unclaimable_before_budget[Right-shoe]" time="0.320" /><testcase classname="test_footwear_removal" name="test_legacy_footwear_hidden_and_unclaimable_before_budget[footwear]" time="0.325" /><testcase classname="test_footwear_removal" name="test_legacy_footwear_hidden_and_unclaimable_before_budget[shoe]" time="0.320" /><testcase classname="test_footwear_removal" name="test_legacy_footwear_hidden_and_unclaimable_before_budget[left_shoe]" time="0.312" /><testcase classname="test_footwear_removal" name="test_legacy_footwear_hidden_and_unclaimable_before_budget[right shoe]" time="0.311" /><testcase classname="test_footwear_removal" name="test_legacy_footwear_hidden_and_unclaimable_before_budget[sneakers]" time="0.347" /><testcase classname="test_footwear_removal" name="test_legacy_footwear_hidden_and_unclaimable_before_budget[pink sneakers]" time="0.330" /><testcase classname="test_footwear_removal" name="test_legacy_footwear_hidden_and_unclaimable_before_budget[boots]" time="0.343" /><testcase classname="test_footwear_removal" name="test_legacy_footwear_hidden_and_unclaimable_before_budget[sandals]" time="0.300" /><testcase classname="test_footwear_removal" name="test_legacy_footwear_hidden_and_unclaimable_before_budget[heels]" time="0.290" /><testcase classname="test_footwear_removal" name="test_legacy_footwear_hidden_and_unclaimable_before_budget[trainers]" time="0.284" /><testcase classname="test_footwear_removal" name="test_legacy_footwear_hidden_and_unclaimable_before_budget[loafers]" time="0.321" /><testcase classname="test_footwear_removal" name="test_legacy_footwear_hidden_and_unclaimable_before_budget[slippers]" time="0.409" /><testcase classname="test_footwear_removal" name="test_legacy_footwear_hidden_and_unclaimable_before_budget[flip-flops]" time="0.343" /><testcase classname="test_garment_integrity.IntegrityTests" name="test_complete_jumpsuit_wins_over_contained_pants_in_either_order" time="0.001" /><testcase classname="test_garment_integrity.IntegrityTests" name="test_duplicate_winner_is_confidence_not_input_order" time="0.000" /><testcase classname="test_garment_integrity.IntegrityTests" name="test_five_garments_preserve_distinct_masks_without_footwear" time="0.001" /><testcase classname="test_garment_integrity.IntegrityTests" name="test_layer_overlap_preserves_original_pixels_without_shoes" time="0.001" /><testcase classname="test_garment_integrity.IntegrityTests" name="test_pants_alias_has_canonical_category" time="0.000" /><testcase classname="test_garment_integrity.IntegrityTests" name="test_prompts_preserve_visible_construction_without_invented_features" time="0.000" /><testcase classname="test_garment_integrity.IntegrityTests" name="test_separate_pants_not_suppressed_by_unrelated_dress" time="0.000" /><testcase classname="test_image_normalization" name="test_upload_normalized_before_detection_storage_and_generation[real]" time="0.001"><skipped type="pytest.skip" message="Set STYLEMUSE_TEST_PHOTO to an authorized private sample; sample is not published">/root/.hermes/cache/scratch/stylemuse-security-fix/backend-retry/baseline-fixedenv/server/test_image_normalization.py:26: Set STYLEMUSE_TEST_PHOTO to an authorized private sample; sample is not published</skipped></testcase><testcase classname="test_image_normalization" name="test_upload_normalized_before_detection_storage_and_generation[oversized]" time="1.105" /><testcase classname="test_image_normalization" name="test_upload_normalized_before_detection_storage_and_generation[exif]" time="0.932" /><testcase classname="test_manual_credit" name="test_manual_snapshot_is_identity_bound_timestamped_expiring_and_debited" time="0.214" /><testcase classname="test_manual_credit" name="test_manual_fallback_quote_discloses_risk_and_preserves_single_use" time="0.219"><failure message="TypeError: 'NoneType' object is not subscriptable">tmp_path = PosixPath('/root/.hermes/cache/scratch/stylemuse-security-fix/backend-retry/baseline-fixedenv/tmp/test_manual_fallback_quote_dis0')
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x725ab037e120&gt;
+
+    def test_manual_fallback_quote_discloses_risk_and_preserves_single_use(tmp_path, monkeypatch):
+        from test_paid_quotes import client, FundedProvider
+        from test_oauth import HEADERS
+        from test_api import image
+        class ManualProvider(FundedProvider):
+            balance = None
+            def replicate_account(self):
+                return 'user:fixture-owner'
+        c, p = client(tmp_path, monkeypatch, ManualProvider())
+        store(tmp_path).record_manual_credit('fixture-snapshot', 'user:fixture-owner', '.92', 'fixture Billing evidence')
+        health = c.post('/api/health', headers=HEADERS).json()
+        assert health['app_spending_ceiling_usd'] is None
+        assert health['historical_budget_metadata'] is True
+        inputs = dict(image=image(), request_id='manual-fixture')
+        q = c.post('/api/quote', headers=HEADERS, json=dict(action='detect', inputs=inputs))
+        assert q.status_code == 200, q.text
+        credit = q.json()['provider_credit']
+&gt;       assert credit['source'] == 'manual_non_realtime' and credit['overspend_risk']
+               ^^^^^^^^^^^^^^^^
+E       TypeError: 'NoneType' object is not subscriptable
+
+test_manual_credit.py:54: TypeError</failure></testcase><testcase classname="test_manual_credit" name="test_real_account_is_read_only_and_not_a_balance_api" time="0.001" /><testcase classname="test_manual_credit" name="test_operator_enrollment_only_reads_identity_and_does_not_submit" time="0.179" /><testcase classname="test_manual_credit" name="test_quote_binds_manual_snapshot_and_refresh_does_not_reauthorize_old_quote[False]" time="0.242"><failure message="AssertionError: {&quot;job_id&quot;:&quot;KNPNNFhZLtu83Blr1i8ykqjl2IrbqTcQ&quot;,&quot;items&quot;:[{&quot;id&quot;:&quot;aOJcyMijwLZ4g7fedW1IvGhQVV6T8-Tl&quot;,&quot;preview&quot;:&quot;data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAYAAACp8Z5+AAAAFUlEQVR4nGP8z8DwnwEJMDGgAcICAIPRAgYCkO9YAAAAAElFTkSuQmCC&quot;,&quot;category&quot;:&quot;shirt&quot;,&quot;mask_quality&quot;:{&quot;status&quot;:&quot;missing&quot;,&quot;source&quot;:&quot;unavailable&quot;},&quot;quality_warnings&quot;:[&quot;semantic_category_unverified&quot;,&quot;mask_quality_unavailable&quot;],&quot;category_verified&quot;:false}]}&#10;assert 200 == 403&#10;[+1 more line; full report in element text]">tmp_path = PosixPath('/root/.hermes/cache/scratch/stylemuse-security-fix/backend-retry/baseline-fixedenv/tmp/test_quote_binds_manual_snapsh0')
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x725ab17cf230&gt;
+refresh_race = False
+
+    @pytest.mark.parametrize('refresh_race', [False, True])
+    def test_quote_binds_manual_snapshot_and_refresh_does_not_reauthorize_old_quote(tmp_path, monkeypatch, refresh_race):
+        from test_paid_quotes import client, FundedProvider
+        from test_oauth import HEADERS
+        from test_api import image
+        class ManualProvider(FundedProvider):
+            balance = None
+            def replicate_account(self):
+                return 'user:fixture-owner'
+        c, p = client(tmp_path, monkeypatch, ManualProvider())
+        s = store(tmp_path)
+        s.record_manual_credit('old', 'user:fixture-owner', '.92', 'fixture old statement')
+        inputs = dict(image=image(), request_id='replaced-snapshot')
+        q = c.post('/api/quote', headers=HEADERS, json=dict(action='detect', inputs=inputs)).json()
+        if refresh_race:
+            original = Store.manual_credit
+            def refresh_after_read(self, account):
+                credit = original(self, account)
+                s.record_manual_credit('new', 'user:fixture-owner', '.92', 'fixture refreshed statement')
+                return credit
+            monkeypatch.setattr(Store, 'manual_credit', refresh_after_read)
+        else:
+            s.record_manual_credit('new', 'user:fixture-owner', '.92', 'fixture refreshed statement')
+        result = c.post('/api/detect', headers=HEADERS, json=dict(inputs, confirmed=True, max_total_usd=.05, quote_id=q['quote_id']))
+&gt;       assert result.status_code == 403, result.text
+E       AssertionError: {"job_id":"KNPNNFhZLtu83Blr1i8ykqjl2IrbqTcQ","items":[{"id":"aOJcyMijwLZ4g7fedW1IvGhQVV6T8-Tl","preview":"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAYAAACp8Z5+AAAAFUlEQVR4nGP8z8DwnwEJMDGgAcICAIPRAgYCkO9YAAAAAElFTkSuQmCC","category":"shirt","mask_quality":{"status":"missing","source":"unavailable"},"quality_warnings":["semantic_category_unverified","mask_quality_unavailable"],"category_verified":false}]}
+E       assert 200 == 403
+E        +  where 200 = &lt;Response [200 OK]&gt;.status_code
+
+test_manual_credit.py:127: AssertionError</failure></testcase><testcase classname="test_manual_credit" name="test_quote_binds_manual_snapshot_and_refresh_does_not_reauthorize_old_quote[True]" time="0.269"><failure message="AssertionError: {&quot;job_id&quot;:&quot;jfxOKbZXE6Nc_2PjTjVwjt3f9xYcwHJD&quot;,&quot;items&quot;:[{&quot;id&quot;:&quot;OCusT9SKw1A1r6rPAlKlmOcfYEBftVmt&quot;,&quot;preview&quot;:&quot;data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAYAAACp8Z5+AAAAFUlEQVR4nGP8z8DwnwEJMDGgAcICAIPRAgYCkO9YAAAAAElFTkSuQmCC&quot;,&quot;category&quot;:&quot;shirt&quot;,&quot;mask_quality&quot;:{&quot;status&quot;:&quot;missing&quot;,&quot;source&quot;:&quot;unavailable&quot;},&quot;quality_warnings&quot;:[&quot;semantic_category_unverified&quot;,&quot;mask_quality_unavailable&quot;],&quot;category_verified&quot;:false}]}&#10;assert 200 == 403&#10;[+1 more line; full report in element text]">tmp_path = PosixPath('/root/.hermes/cache/scratch/stylemuse-security-fix/backend-retry/baseline-fixedenv/tmp/test_quote_binds_manual_snapsh1')
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x725ab02d9bf0&gt;
+refresh_race = True
+
+    @pytest.mark.parametrize('refresh_race', [False, True])
+    def test_quote_binds_manual_snapshot_and_refresh_does_not_reauthorize_old_quote(tmp_path, monkeypatch, refresh_race):
+        from test_paid_quotes import client, FundedProvider
+        from test_oauth import HEADERS
+        from test_api import image
+        class ManualProvider(FundedProvider):
+            balance = None
+            def replicate_account(self):
+                return 'user:fixture-owner'
+        c, p = client(tmp_path, monkeypatch, ManualProvider())
+        s = store(tmp_path)
+        s.record_manual_credit('old', 'user:fixture-owner', '.92', 'fixture old statement')
+        inputs = dict(image=image(), request_id='replaced-snapshot')
+        q = c.post('/api/quote', headers=HEADERS, json=dict(action='detect', inputs=inputs)).json()
+        if refresh_race:
+            original = Store.manual_credit
+            def refresh_after_read(self, account):
+                credit = original(self, account)
+                s.record_manual_credit('new', 'user:fixture-owner', '.92', 'fixture refreshed statement')
+                return credit
+            monkeypatch.setattr(Store, 'manual_credit', refresh_after_read)
+        else:
+            s.record_manual_credit('new', 'user:fixture-owner', '.92', 'fixture refreshed statement')
+        result = c.post('/api/detect', headers=HEADERS, json=dict(inputs, confirmed=True, max_total_usd=.05, quote_id=q['quote_id']))
+&gt;       assert result.status_code == 403, result.text
+E       AssertionError: {"job_id":"jfxOKbZXE6Nc_2PjTjVwjt3f9xYcwHJD","items":[{"id":"OCusT9SKw1A1r6rPAlKlmOcfYEBftVmt","preview":"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAYAAACp8Z5+AAAAFUlEQVR4nGP8z8DwnwEJMDGgAcICAIPRAgYCkO9YAAAAAElFTkSuQmCC","category":"shirt","mask_quality":{"status":"missing","source":"unavailable"},"quality_warnings":["semantic_category_unverified","mask_quality_unavailable"],"category_verified":false}]}
+E       assert 200 == 403
+E        +  where 200 = &lt;Response [200 OK]&gt;.status_code
+
+test_manual_credit.py:127: AssertionError</failure></testcase><testcase classname="test_manual_credit" name="test_manual_evidence_fails_closed_without_any_job_or_provider_submission[missing]" time="0.225"><failure message="assert 200 == 402&#10; +  where 200 = &lt;Response [200 OK]&gt;.status_code">tmp_path = PosixPath('/root/.hermes/cache/scratch/stylemuse-security-fix/backend-retry/baseline-fixedenv/tmp/test_manual_evidence_fails_clo0')
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x725ab21f9e50&gt;
+problem = 'missing'
+
+    @pytest.mark.parametrize('problem', ['missing', 'wrong_account', 'expired', 'insufficient', 'identity_failure'])
+    def test_manual_evidence_fails_closed_without_any_job_or_provider_submission(tmp_path, monkeypatch, problem):
+        from test_paid_quotes import client, FundedProvider
+        from test_oauth import HEADERS
+        from test_api import image
+        class ManualProvider(FundedProvider):
+            balance = None
+            def replicate_account(self):
+                if problem == 'identity_failure':
+                    raise RuntimeError('fixture account GET failure')
+                return 'user:wrong' if problem == 'wrong_account' else 'user:fixture-owner'
+        c, p = client(tmp_path, monkeypatch, ManualProvider())
+        s = store(tmp_path)
+        if problem != 'missing':
+            s.record_manual_credit('fixture', 'user:fixture-owner', '.01' if problem == 'insufficient' else '.92', 'fixture statement')
+        if problem == 'expired':
+            with s.tx() as db:
+                db.execute('UPDATE manual_provider_credit SET expires=0')
+        q = c.post('/api/quote', headers=HEADERS, json=dict(action='detect', inputs=dict(image=image(), request_id='fail-closed')))
+&gt;       assert q.status_code == 402
+E       assert 200 == 402
+E        +  where 200 = &lt;Response [200 OK]&gt;.status_code
+
+test_manual_credit.py:150: AssertionError</failure></testcase><testcase classname="test_manual_credit" name="test_manual_evidence_fails_closed_without_any_job_or_provider_submission[wrong_account]" time="0.207"><failure message="assert 200 == 402&#10; +  where 200 = &lt;Response [200 OK]&gt;.status_code">tmp_path = PosixPath('/root/.hermes/cache/scratch/stylemuse-security-fix/backend-retry/baseline-fixedenv/tmp/test_manual_evidence_fails_clo1')
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x725ab1782f90&gt;
+problem = 'wrong_account'
+
+    @pytest.mark.parametrize('problem', ['missing', 'wrong_account', 'expired', 'insufficient', 'identity_failure'])
+    def test_manual_evidence_fails_closed_without_any_job_or_provider_submission(tmp_path, monkeypatch, problem):
+        from test_paid_quotes import client, FundedProvider
+        from test_oauth import HEADERS
+        from test_api import image
+        class ManualProvider(FundedProvider):
+            balance = None
+            def replicate_account(self):
+                if problem == 'identity_failure':
+                    raise RuntimeError('fixture account GET failure')
+                return 'user:wrong' if problem == 'wrong_account' else 'user:fixture-owner'
+        c, p = client(tmp_path, monkeypatch, ManualProvider())
+        s = store(tmp_path)
+        if problem != 'missing':
+            s.record_manual_credit('fixture', 'user:fixture-owner', '.01' if problem == 'insufficient' else '.92', 'fixture statement')
+        if problem == 'expired':
+            with s.tx() as db:
+                db.execute('UPDATE manual_provider_credit SET expires=0')
+        q = c.post('/api/quote', headers=HEADERS, json=dict(action='detect', inputs=dict(image=image(), request_id='fail-closed')))
+&gt;       assert q.status_code == 402
+E       assert 200 == 402
+E        +  where 200 = &lt;Response [200 OK]&gt;.status_code
+
+test_manual_credit.py:150: AssertionError</failure></testcase><testcase classname="test_manual_credit" name="test_manual_evidence_fails_closed_without_any_job_or_provider_submission[expired]" time="0.205"><failure message="assert 200 == 402&#10; +  where 200 = &lt;Response [200 OK]&gt;.status_code">tmp_path = PosixPath('/root/.hermes/cache/scratch/stylemuse-security-fix/backend-retry/baseline-fixedenv/tmp/test_manual_evidence_fails_clo2')
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x725ab0c75440&gt;
+problem = 'expired'
+
+    @pytest.mark.parametrize('problem', ['missing', 'wrong_account', 'expired', 'insufficient', 'identity_failure'])
+    def test_manual_evidence_fails_closed_without_any_job_or_provider_submission(tmp_path, monkeypatch, problem):
+        from test_paid_quotes import client, FundedProvider
+        from test_oauth import HEADERS
+        from test_api import image
+        class ManualProvider(FundedProvider):
+            balance = None
+            def replicate_account(self):
+                if problem == 'identity_failure':
+                    raise RuntimeError('fixture account GET failure')
+                return 'user:wrong' if problem == 'wrong_account' else 'user:fixture-owner'
+        c, p = client(tmp_path, monkeypatch, ManualProvider())
+        s = store(tmp_path)
+        if problem != 'missing':
+            s.record_manual_credit('fixture', 'user:fixture-owner', '.01' if problem == 'insufficient' else '.92', 'fixture statement')
+        if problem == 'expired':
+            with s.tx() as db:
+                db.execute('UPDATE manual_provider_credit SET expires=0')
+        q = c.post('/api/quote', headers=HEADERS, json=dict(action='detect', inputs=dict(image=image(), request_id='fail-closed')))
+&gt;       assert q.status_code == 402
+E       assert 200 == 402
+E        +  where 200 = &lt;Response [200 OK]&gt;.status_code
+
+test_manual_credit.py:150: AssertionError</failure></testcase><testcase classname="test_manual_credit" name="test_manual_evidence_fails_closed_without_any_job_or_provider_submission[insufficient]" time="0.244"><failure message="assert 200 == 402&#10; +  where 200 = &lt;Response [200 OK]&gt;.status_code">tmp_path = PosixPath('/root/.hermes/cache/scratch/stylemuse-security-fix/backend-retry/baseline-fixedenv/tmp/test_manual_evidence_fails_clo3')
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x725ab0ca0050&gt;
+problem = 'insufficient'
+
+    @pytest.mark.parametrize('problem', ['missing', 'wrong_account', 'expired', 'insufficient', 'identity_failure'])
+    def test_manual_evidence_fails_closed_without_any_job_or_provider_submission(tmp_path, monkeypatch, problem):
+        from test_paid_quotes import client, FundedProvider
+        from test_oauth import HEADERS
+        from test_api import image
+        class ManualProvider(FundedProvider):
+            balance = None
+            def replicate_account(self):
+                if problem == 'identity_failure':
+                    raise RuntimeError('fixture account GET failure')
+                return 'user:wrong' if problem == 'wrong_account' else 'user:fixture-owner'
+        c, p = client(tmp_path, monkeypatch, ManualProvider())
+        s = store(tmp_path)
+        if problem != 'missing':
+            s.record_manual_credit('fixture', 'user:fixture-owner', '.01' if problem == 'insufficient' else '.92', 'fixture statement')
+        if problem == 'expired':
+            with s.tx() as db:
+                db.execute('UPDATE manual_provider_credit SET expires=0')
+        q = c.post('/api/quote', headers=HEADERS, json=dict(action='detect', inputs=dict(image=image(), request_id='fail-closed')))
+&gt;       assert q.status_code == 402
+E       assert 200 == 402
+E        +  where 200 = &lt;Response [200 OK]&gt;.status_code
+
+test_manual_credit.py:150: AssertionError</failure></testcase><testcase classname="test_manual_credit" name="test_manual_evidence_fails_closed_without_any_job_or_provider_submission[identity_failure]" time="0.211"><failure message="assert 200 == 402&#10; +  where 200 = &lt;Response [200 OK]&gt;.status_code">tmp_path = PosixPath('/root/.hermes/cache/scratch/stylemuse-security-fix/backend-retry/baseline-fixedenv/tmp/test_manual_evidence_fails_clo4')
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x725ab0c1e850&gt;
+problem = 'identity_failure'
+
+    @pytest.mark.parametrize('problem', ['missing', 'wrong_account', 'expired', 'insufficient', 'identity_failure'])
+    def test_manual_evidence_fails_closed_without_any_job_or_provider_submission(tmp_path, monkeypatch, problem):
+        from test_paid_quotes import client, FundedProvider
+        from test_oauth import HEADERS
+        from test_api import image
+        class ManualProvider(FundedProvider):
+            balance = None
+            def replicate_account(self):
+                if problem == 'identity_failure':
+                    raise RuntimeError('fixture account GET failure')
+                return 'user:wrong' if problem == 'wrong_account' else 'user:fixture-owner'
+        c, p = client(tmp_path, monkeypatch, ManualProvider())
+        s = store(tmp_path)
+        if problem != 'missing':
+            s.record_manual_credit('fixture', 'user:fixture-owner', '.01' if problem == 'insufficient' else '.92', 'fixture statement')
+        if problem == 'expired':
+            with s.tx() as db:
+                db.execute('UPDATE manual_provider_credit SET expires=0')
+        q = c.post('/api/quote', headers=HEADERS, json=dict(action='detect', inputs=dict(image=image(), request_id='fail-closed')))
+&gt;       assert q.status_code == 402
+E       assert 200 == 402
+E        +  where 200 = &lt;Response [200 OK]&gt;.status_code
+
+test_manual_credit.py:150: AssertionError</failure></testcase><testcase classname="test_manual_credit" name="test_manual_debit_is_writer_serialized_insufficient_and_audit_failure_roll_back" time="0.203" /><testcase classname="test_manual_credit" name="test_snapshot_reenrollment_cannot_refresh_time_or_reset_held_estimates" time="0.234" /><testcase classname="test_oauth" name="test_oauth_owner_login_bound_to_original_session_with_pkce" time="0.190" /><testcase classname="test_oauth" name="test_owner_config_disables_private_bearer_bypass" time="0.174" /><testcase classname="test_oauth" name="test_enabled_owner_with_incomplete_oauth_rejected" time="0.001" /><testcase classname="test_oauth" name="test_oauth_owner_gets_paid_admission_and_health_identity" time="0.230" /><testcase classname="test_oauth" name="test_logout_revokes_session_and_pending_states" time="0.185" /><testcase classname="test_oauth" name="test_oauth_paid_routes_do_not_enforce_historical_owner_cap" time="0.357" /><testcase classname="test_oauth" name="test_wrong_github_identity_never_authorizes[user0]" time="0.180" /><testcase classname="test_oauth" name="test_wrong_github_identity_never_authorizes[user1]" time="0.173" /><testcase classname="test_oauth" name="test_wrong_github_identity_never_authorizes[user2]" time="0.180" /><testcase classname="test_oauth" name="test_state_expiration_replay_and_new_start_invalidation" time="0.201" /><testcase classname="test_oauth" name="test_success_state_is_single_use_and_does_not_authorize_other_session" time="0.171" /><testcase classname="test_oauth" name="test_login_start_requires_exact_origin[None]" time="0.169" /><testcase classname="test_oauth" name="test_login_start_requires_exact_origin[null]" time="0.162" /><testcase classname="test_oauth" name="test_login_start_requires_exact_origin[https://yasinaday.github.io.evil]" time="0.169" /><testcase classname="test_oauth" name="test_login_start_requires_exact_origin[https://yasinaday.github.io/]" time="0.174" /><testcase classname="test_oauth" name="test_login_start_requires_existing_session" time="0.167" /><testcase classname="test_oauth" name="test_incomplete_or_unsafe_oauth_configuration_is_closed[changes0]" time="0.183" /><testcase classname="test_oauth" name="test_incomplete_or_unsafe_oauth_configuration_is_closed[changes1]" time="0.162" /><testcase classname="test_oauth" name="test_incomplete_or_unsafe_oauth_configuration_is_closed[changes2]" time="0.175" /><testcase classname="test_oauth" name="test_incomplete_or_unsafe_oauth_configuration_is_closed[changes3]" time="0.187" /><testcase classname="test_oauth" name="test_incomplete_or_unsafe_oauth_configuration_is_closed[changes4]" time="0.168" /><testcase classname="test_oauth" name="test_incomplete_or_unsafe_oauth_configuration_is_closed[changes5]" time="0.193" /><testcase classname="test_oauth" name="test_incomplete_or_unsafe_oauth_configuration_is_closed[changes6]" time="0.194" /><testcase classname="test_oauth" name="test_incomplete_or_unsafe_oauth_configuration_is_closed[changes7]" time="0.205" /><testcase classname="test_oauth" name="test_logout_does_not_restore_auth_on_rebootstrap" time="0.187" /><testcase classname="test_oauth" name="test_oauth_provider_error_is_redacted_and_state_consumed" time="0.186" /><testcase classname="test_oauth" name="test_expired_session_prunes_authorization_memory" time="0.202" /><testcase classname="test_oauth" name="test_env_owner_mode_constructs_provider_without_private_bearer" time="0.166" /><testcase classname="test_oauth" name="test_malformed_github_user_fails_closed_redacted[body0]" time="0.214" /><testcase classname="test_oauth" name="test_malformed_github_user_fails_closed_redacted[None]" time="0.362" /><testcase classname="test_oauth" name="test_malformed_github_user_fails_closed_redacted[invalid]" time="0.238" /><testcase classname="test_oauth" name="test_owner_rate_is_shared_across_reauthentication_and_restart" time="0.265" /><testcase classname="test_oauth" name="test_oauth_missing_configuration_fails_closed" time="0.157" /><testcase classname="test_oauth_browser_binding" name="test_forwarded_authorization_url_never_authorizes_attacker" time="0.174" /><testcase classname="test_oauth_browser_binding" name="test_verified_pages_handoff_binds_top_level_browser_and_original_session" time="0.165" /><testcase classname="test_oauth_browser_binding" name="test_wrong_browser_callback_cannot_consume_legitimate_attempt" time="0.172" /><testcase classname="test_oauth_browser_binding" name="test_forwarded_launch_and_handoff_cannot_bind_other_session" time="0.174" /><testcase classname="test_oauth_browser_binding" name="test_authorize_requires_matching_browser_and_handoff_is_single_use" time="0.164" /><testcase classname="test_oauth_browser_binding" name="test_superseded_callback_cannot_authorize_after_provider_io" time="0.170" /><testcase classname="test_oauth_browser_binding" name="test_oauth_expiring_during_provider_io_cannot_authorize" time="0.176" /><testcase classname="test_owner_budget" name="test_invalid_owner_admission_config_rejected[values0]" time="0.001" /><testcase classname="test_owner_budget" name="test_invalid_owner_admission_config_rejected[values1]" time="0.000" /><testcase classname="test_owner_budget" name="test_invalid_owner_admission_config_rejected[values2]" time="0.000" /><testcase classname="test_owner_budget" name="test_invalid_owner_admission_config_rejected[values3]" time="0.000" /><testcase classname="test_owner_budget" name="test_owner_cap_survives_restart_cannot_increase_and_preserves_global" time="0.161" /><testcase classname="test_owner_budget" name="test_startup_does_not_rewrite_historical_owner_ceiling" time="0.174" /><testcase classname="test_owner_budget" name="test_owner_rate_limit_survives_restart_and_rolls_back_all_admission" time="0.177" /><testcase classname="test_paid_quotes" name="test_detect_requires_server_quote_and_spends_it_once" time="0.212" /><testcase classname="test_paid_quotes" name="test_unverified_or_insufficient_credit_blocks_quote_and_submission[None]" time="0.192"><failure message="assert 200 == 402&#10; +  where 200 = &lt;Response [200 OK]&gt;.status_code">tmp_path = PosixPath('/root/.hermes/cache/scratch/stylemuse-security-fix/backend-retry/baseline-fixedenv/tmp/test_unverified_or_insufficien0')
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x725ab0ca4130&gt;
+balance = None
+
+    @pytest.mark.parametrize('balance', [None, 0, .049, float('nan'), float('inf'), True, '10'])
+    def test_unverified_or_insufficient_credit_blocks_quote_and_submission(tmp_path, monkeypatch, balance):
+        c, p = client(tmp_path, monkeypatch, FundedProvider())
+        inputs = dict(image=image(), request_id='credit')
+        q = c.post('/api/quote', headers=HEADERS, json=dict(action='detect', inputs=inputs)).json()
+        p.balance = balance
+        denied = c.post('/api/quote', headers=HEADERS, json=dict(action='detect', inputs=inputs))
+&gt;       assert denied.status_code == 402
+E       assert 200 == 402
+E        +  where 200 = &lt;Response [200 OK]&gt;.status_code
+
+test_paid_quotes.py:48: AssertionError</failure></testcase><testcase classname="test_paid_quotes" name="test_unverified_or_insufficient_credit_blocks_quote_and_submission[0]" time="0.186"><failure message="assert 200 == 402&#10; +  where 200 = &lt;Response [200 OK]&gt;.status_code">tmp_path = PosixPath('/root/.hermes/cache/scratch/stylemuse-security-fix/backend-retry/baseline-fixedenv/tmp/test_unverified_or_insufficien1')
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x725ab1f42f90&gt;
+balance = 0
+
+    @pytest.mark.parametrize('balance', [None, 0, .049, float('nan'), float('inf'), True, '10'])
+    def test_unverified_or_insufficient_credit_blocks_quote_and_submission(tmp_path, monkeypatch, balance):
+        c, p = client(tmp_path, monkeypatch, FundedProvider())
+        inputs = dict(image=image(), request_id='credit')
+        q = c.post('/api/quote', headers=HEADERS, json=dict(action='detect', inputs=inputs)).json()
+        p.balance = balance
+        denied = c.post('/api/quote', headers=HEADERS, json=dict(action='detect', inputs=inputs))
+&gt;       assert denied.status_code == 402
+E       assert 200 == 402
+E        +  where 200 = &lt;Response [200 OK]&gt;.status_code
+
+test_paid_quotes.py:48: AssertionError</failure></testcase><testcase classname="test_paid_quotes" name="test_unverified_or_insufficient_credit_blocks_quote_and_submission[0.049]" time="0.188"><failure message="assert 200 == 402&#10; +  where 200 = &lt;Response [200 OK]&gt;.status_code">tmp_path = PosixPath('/root/.hermes/cache/scratch/stylemuse-security-fix/backend-retry/baseline-fixedenv/tmp/test_unverified_or_insufficien2')
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x725ab1f41470&gt;
+balance = 0.049
+
+    @pytest.mark.parametrize('balance', [None, 0, .049, float('nan'), float('inf'), True, '10'])
+    def test_unverified_or_insufficient_credit_blocks_quote_and_submission(tmp_path, monkeypatch, balance):
+        c, p = client(tmp_path, monkeypatch, FundedProvider())
+        inputs = dict(image=image(), request_id='credit')
+        q = c.post('/api/quote', headers=HEADERS, json=dict(action='detect', inputs=inputs)).json()
+        p.balance = balance
+        denied = c.post('/api/quote', headers=HEADERS, json=dict(action='detect', inputs=inputs))
+&gt;       assert denied.status_code == 402
+E       assert 200 == 402
+E        +  where 200 = &lt;Response [200 OK]&gt;.status_code
+
+test_paid_quotes.py:48: AssertionError</failure></testcase><testcase classname="test_paid_quotes" name="test_unverified_or_insufficient_credit_blocks_quote_and_submission[nan]" time="0.216"><failure message="assert 200 == 402&#10; +  where 200 = &lt;Response [200 OK]&gt;.status_code">tmp_path = PosixPath('/root/.hermes/cache/scratch/stylemuse-security-fix/backend-retry/baseline-fixedenv/tmp/test_unverified_or_insufficien3')
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x725ab1f404b0&gt;
+balance = nan
+
+    @pytest.mark.parametrize('balance', [None, 0, .049, float('nan'), float('inf'), True, '10'])
+    def test_unverified_or_insufficient_credit_blocks_quote_and_submission(tmp_path, monkeypatch, balance):
+        c, p = client(tmp_path, monkeypatch, FundedProvider())
+        inputs = dict(image=image(), request_id='credit')
+        q = c.post('/api/quote', headers=HEADERS, json=dict(action='detect', inputs=inputs)).json()
+        p.balance = balance
+        denied = c.post('/api/quote', headers=HEADERS, json=dict(action='detect', inputs=inputs))
+&gt;       assert denied.status_code == 402
+E       assert 200 == 402
+E        +  where 200 = &lt;Response [200 OK]&gt;.status_code
+
+test_paid_quotes.py:48: AssertionError</failure></testcase><testcase classname="test_paid_quotes" name="test_unverified_or_insufficient_credit_blocks_quote_and_submission[inf]" time="0.185"><failure message="assert 200 == 402&#10; +  where 200 = &lt;Response [200 OK]&gt;.status_code">tmp_path = PosixPath('/root/.hermes/cache/scratch/stylemuse-security-fix/backend-retry/baseline-fixedenv/tmp/test_unverified_or_insufficien4')
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x725ab0ca54e0&gt;
+balance = inf
+
+    @pytest.mark.parametrize('balance', [None, 0, .049, float('nan'), float('inf'), True, '10'])
+    def test_unverified_or_insufficient_credit_blocks_quote_and_submission(tmp_path, monkeypatch, balance):
+        c, p = client(tmp_path, monkeypatch, FundedProvider())
+        inputs = dict(image=image(), request_id='credit')
+        q = c.post('/api/quote', headers=HEADERS, json=dict(action='detect', inputs=inputs)).json()
+        p.balance = balance
+        denied = c.post('/api/quote', headers=HEADERS, json=dict(action='detect', inputs=inputs))
+&gt;       assert denied.status_code == 402
+E       assert 200 == 402
+E        +  where 200 = &lt;Response [200 OK]&gt;.status_code
+
+test_paid_quotes.py:48: AssertionError</failure></testcase><testcase classname="test_paid_quotes" name="test_unverified_or_insufficient_credit_blocks_quote_and_submission[True]" time="0.226"><failure message="assert 200 == 402&#10; +  where 200 = &lt;Response [200 OK]&gt;.status_code">tmp_path = PosixPath('/root/.hermes/cache/scratch/stylemuse-security-fix/backend-retry/baseline-fixedenv/tmp/test_unverified_or_insufficien5')
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x725ab0b3a3c0&gt;
+balance = True
+
+    @pytest.mark.parametrize('balance', [None, 0, .049, float('nan'), float('inf'), True, '10'])
+    def test_unverified_or_insufficient_credit_blocks_quote_and_submission(tmp_path, monkeypatch, balance):
+        c, p = client(tmp_path, monkeypatch, FundedProvider())
+        inputs = dict(image=image(), request_id='credit')
+        q = c.post('/api/quote', headers=HEADERS, json=dict(action='detect', inputs=inputs)).json()
+        p.balance = balance
+        denied = c.post('/api/quote', headers=HEADERS, json=dict(action='detect', inputs=inputs))
+&gt;       assert denied.status_code == 402
+E       assert 200 == 402
+E        +  where 200 = &lt;Response [200 OK]&gt;.status_code
+
+test_paid_quotes.py:48: AssertionError</failure></testcase><testcase classname="test_paid_quotes" name="test_unverified_or_insufficient_credit_blocks_quote_and_submission[10]" time="0.201"><failure message="assert 200 == 402&#10; +  where 200 = &lt;Response [200 OK]&gt;.status_code">tmp_path = PosixPath('/root/.hermes/cache/scratch/stylemuse-security-fix/backend-retry/baseline-fixedenv/tmp/test_unverified_or_insufficien6')
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x725ab0bb0b40&gt;
+balance = '10'
+
+    @pytest.mark.parametrize('balance', [None, 0, .049, float('nan'), float('inf'), True, '10'])
+    def test_unverified_or_insufficient_credit_blocks_quote_and_submission(tmp_path, monkeypatch, balance):
+        c, p = client(tmp_path, monkeypatch, FundedProvider())
+        inputs = dict(image=image(), request_id='credit')
+        q = c.post('/api/quote', headers=HEADERS, json=dict(action='detect', inputs=inputs)).json()
+        p.balance = balance
+        denied = c.post('/api/quote', headers=HEADERS, json=dict(action='detect', inputs=inputs))
+&gt;       assert denied.status_code == 402
+E       assert 200 == 402
+E        +  where 200 = &lt;Response [200 OK]&gt;.status_code
+
+test_paid_quotes.py:48: AssertionError</failure></testcase><testcase classname="test_paid_quotes" name="test_application_admission_has_no_global_or_owner_ceiling_preserves_history" time="0.301" /><testcase classname="test_paid_quotes" name="test_generate_quote_binds_selection_cost_and_is_one_use" time="0.311" /><testcase classname="test_paid_quotes" name="test_real_credit_adapter_reads_fal_only_and_never_infers_replicate_credit" time="0.001" /><testcase classname="test_paid_quotes" name="test_environment_provider_construction_does_not_require_legacy_cap" time="0.179" /><testcase classname="test_paid_quotes" name="test_generation_rechecks_real_credit_before_each_paid_submission" time="0.291"><failure message="assert 200 == 502&#10; +  where 200 = &lt;Response [200 OK]&gt;.status_code">tmp_path = PosixPath('/root/.hermes/cache/scratch/stylemuse-security-fix/backend-retry/baseline-fixedenv/tmp/test_generation_rechecks_real_0')
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x725ab0982040&gt;
+
+    def test_generation_rechecks_real_credit_before_each_paid_submission(tmp_path, monkeypatch):
+        c, p = client(tmp_path, monkeypatch, FundedProvider())
+        p.detect = lambda _: [dict(category='top', preview=image(), prompt='top') for _ in range(2)]
+        inputs = dict(image=image(), request_id='credit-changes')
+        q = c.post('/api/quote', headers=HEADERS, json=dict(action='detect', inputs=inputs)).json()
+        job = c.post('/api/detect', headers=HEADERS, json=dict(inputs, confirmed=True, max_total_usd=.05, quote_id=q['quote_id'])).json()
+        selection = dict(job_id=job['job_id'], item_ids=[i['id'] for i in job['items']])
+        q = c.post('/api/quote', headers=HEADERS, json=dict(action='generate', inputs=selection)).json()
+        original = p.generate
+        def generate(*args):
+            result = original(*args)
+            p.balance = 0
+            return result
+        p.generate = generate
+        denied = c.post('/api/generate', headers=HEADERS, json=dict(selection, confirmed=True, max_total_usd=.2, quote_id=q['quote_id']))
+&gt;       assert denied.status_code == 502
+E       assert 200 == 502
+E        +  where 200 = &lt;Response [200 OK]&gt;.status_code
+
+test_paid_quotes.py:149: AssertionError</failure></testcase><testcase classname="test_paid_quotes" name="test_detect_quote_rejects_any_changed_binding_without_submission[image]" time="0.198" /><testcase classname="test_paid_quotes" name="test_detect_quote_rejects_any_changed_binding_without_submission[request_id]" time="0.214" /><testcase classname="test_paid_quotes" name="test_detect_quote_rejects_any_changed_binding_without_submission[cost]" time="0.255" /><testcase classname="test_paid_quotes" name="test_detect_quote_rejects_any_changed_binding_without_submission[expired]" time="0.184" /><testcase classname="test_paid_quotes" name="test_detect_quote_rejects_any_changed_binding_without_submission[session]" time="0.196" /><testcase classname="test_paid_quotes" name="test_detect_quote_rejects_any_changed_binding_without_submission[confirmation]" time="0.181" /><testcase classname="test_paid_quotes" name="test_detect_quote_rejects_any_changed_binding_without_submission[fractional_cost]" time="0.216" /><testcase classname="test_paid_quotes" name="test_quote_concurrent_replay_submits_exactly_once" time="0.235" /><testcase classname="test_paid_quotes" name="test_fal_credit_malformed_or_wrong_currency_fails_closed[credits0]" time="0.001" /><testcase classname="test_paid_quotes" name="test_fal_credit_malformed_or_wrong_currency_fails_closed[credits1]" time="0.000" /><testcase classname="test_paid_quotes" name="test_fal_credit_malformed_or_wrong_currency_fails_closed[credits2]" time="0.000" /><testcase classname="test_paid_quotes" name="test_fal_credit_malformed_or_wrong_currency_fails_closed[credits3]" time="0.000" /><testcase classname="test_paid_quotes" name="test_fal_credit_malformed_or_wrong_currency_fails_closed[credits4]" time="0.000" /><testcase classname="test_paid_quotes" name="test_generation_quote_binds_actual_stored_provider_reference" time="0.243" /><testcase classname="test_paid_quotes" name="test_private_bearer_can_never_authorize_paid_inference" time="0.254" /><testcase classname="test_provider_fidelity.FidelityTests" name="test_api_diagnostics_are_bounded_and_legacy_results_are_honest" time="0.001" /><testcase classname="test_provider_fidelity.FidelityTests" name="test_api_preserves_quality_report_and_durable_replay" time="0.260" /><testcase classname="test_provider_fidelity.FidelityTests" name="test_mask_report_is_geometry_only_not_semantic_certainty" time="0.000" /><testcase classname="test_provider_fidelity.FidelityTests" name="test_missing_or_empty_mask_is_explicitly_rejected" time="0.004"><failure message="AssertionError: ProviderError not raised">self = &lt;test_provider_fidelity.FidelityTests testMethod=test_missing_or_empty_mask_is_explicitly_rejected&gt;
+
+    def test_missing_or_empty_mask_is_explicitly_rejected(self):
+        missing = {'input': {'text': 'trousers'}, 'scores': []}
+        for row in (missing, detection('trousers', points=set())):
+            with self.subTest(row=row):
+&gt;               with self.assertRaisesRegex(ProviderError, 'Missing|Empty'):
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E               AssertionError: ProviderError not raised
+
+test_provider_fidelity.py:84: AssertionError</failure></testcase><testcase classname="test_provider_fidelity.FidelityTests" name="test_prompt_only_reconstructs_missing_regions_without_redesign" time="0.000" /><testcase classname="test_provider_fidelity.FidelityTests" name="test_small_and_boundary_masks_report_review_not_success" time="0.000" /><testcase classname="test_provider_fidelity.FidelityTests" name="test_trousers_preserved_when_duplicate_shoes_are_filtered" time="0.002" /><testcase classname="test_providers.SafetyTests" name="test_transport_allowlist_redirect_size_and_auth" time="0.001" /><testcase classname="test_providers.MaskTests" name="test_real_retained_masks_are_cropped_transparent_without_shoes" time="0.495" /><testcase classname="test_providers.DetectTests" name="test_schema_verified_before_single_submit_then_bounded_poll" time="0.002" /><testcase classname="test_providers.GenerateTests" name="test_original_photo_exact_runner_fields_single_png" time="0.013" /><testcase classname="test_providers.LifecycleTests" name="test_poll_exhaustion_cancels_once_for_both_providers" time="0.002" /><testcase classname="test_providers.BoundaryTests" name="test_original_above_one_megapixel_rejected_before_network" time="0.010" /><testcase classname="test_providers.TelemetryTests" name="test_env_bootstrap_inert_and_sanitized_events" time="0.002" /><testcase classname="test_sessions" name="test_bootstrap_cookie_and_disabled_health" time="0.186" /><testcase classname="test_sessions" name="test_bootstrap_rejects_nonexact_origins[None]" time="0.175" /><testcase classname="test_sessions" name="test_bootstrap_rejects_nonexact_origins[null]" time="0.205" /><testcase classname="test_sessions" name="test_bootstrap_rejects_nonexact_origins[https://yasinaday.github.io.evil]" time="0.203" /><testcase classname="test_sessions" name="test_bootstrap_rejects_nonexact_origins[https://yasinaday.github.io/]" time="0.235" /><testcase classname="test_sessions" name="test_cookie_posts_require_origin[None-/api/health-None]" time="0.188" /><testcase classname="test_sessions" name="test_cookie_posts_require_origin[None-/api/detect-payload1]" time="0.168" /><testcase classname="test_sessions" name="test_cookie_posts_require_origin[None-/api/generate-payload2]" time="0.174" /><testcase classname="test_sessions" name="test_cookie_posts_require_origin[https://evil.invalid-/api/health-None]" time="0.177" /><testcase classname="test_sessions" name="test_cookie_posts_require_origin[https://evil.invalid-/api/detect-payload1]" time="0.162" /><testcase classname="test_sessions" name="test_cookie_posts_require_origin[https://evil.invalid-/api/generate-payload2]" time="0.158" /><testcase classname="test_sessions" name="test_anonymous_cannot_spend_even_when_enabled" time="0.164" /><testcase classname="test_sessions" name="test_public_health_is_redacted_bearer_post_retains_costs" time="0.170" /><testcase classname="test_sessions" name="test_credentialed_cors_is_exact" time="0.222" /><testcase classname="test_sessions" name="test_partitioned_cookie_emitted_on_older_python" time="0.177" /><testcase classname="test_sessions" name="test_sessions_are_bounded_expire_and_bootstrap_reuses_valid_session" time="0.206" /><testcase classname="test_sessions" name="test_forged_cookie_and_restart_are_not_sessions" time="0.343" /><testcase classname="test_sessions" name="test_invalid_session_configuration_fails_closed[settings0]" time="0.001" /><testcase classname="test_sessions" name="test_invalid_session_configuration_fails_closed[settings1]" time="0.001" /><testcase classname="test_sessions" name="test_invalid_session_configuration_fails_closed[settings2]" time="0.000" /><testcase classname="test_sessions" name="test_invalid_session_configuration_fails_closed[settings3]" time="0.000" /><testcase classname="test_sessions" name="test_invalid_session_configuration_fails_closed[settings4]" time="0.000" /><testcase classname="test_sessions" name="test_invalid_session_configuration_fails_closed[settings5]" time="0.000" /><testcase classname="test_sessions" name="test_owner_ids_are_isolated_and_not_cookie_tokens" time="0.165" /><testcase classname="test_sessions" name="test_mounted_app_cannot_turn_session_into_paid_capability" time="0.179" /><testcase classname="test_tryon_adapter" name="test_poll_uses_parent_endpoint_and_no_post" time="0.000" /><testcase classname="test_tryon_adapter" name="test_untrusted_result_is_rejected[http://fal.media/x]" time="0.000" /><testcase classname="test_tryon_adapter" name="test_untrusted_result_is_rejected[https://localhost/x]" time="0.000" /><testcase classname="test_tryon_adapter" name="test_untrusted_result_is_rejected[https://fal.media.evil.test/x]" time="0.000" /><testcase classname="test_tryon_adapter" name="test_untrusted_result_is_rejected[https://user:pass@fal.media/x]" time="0.000" /><testcase classname="test_tryon_adapter" name="test_untrusted_result_is_rejected[https://fal.media:444/x]" time="0.000" /><testcase classname="test_tryon_adapter" name="test_real_provider_fal_balance_routes_tryon_to_same_read_only_gate" time="0.007" /><testcase classname="test_virtual_tryon" name="test_tryon_job_cannot_be_reused_as_detection_job" time="0.212" /><testcase classname="test_virtual_tryon" name="test_single_use_quote_async_result_and_replay" time="0.220" /><testcase classname="test_virtual_tryon" name="test_concurrent_completion_cannot_release_a_new_operation_guard" time="0.229" /><testcase classname="test_virtual_tryon" name="test_failed_provider_job_is_terminal_without_refunding_ambiguous_charge" time="0.216" /><testcase classname="test_virtual_tryon" name="test_tampering_and_credit_recheck_make_no_submission[person]" time="0.185" /><testcase classname="test_virtual_tryon" name="test_tampering_and_credit_recheck_make_no_submission[clothing]" time="0.174" /><testcase classname="test_virtual_tryon" name="test_tampering_and_credit_recheck_make_no_submission[amount]" time="0.213" /><testcase classname="test_virtual_tryon" name="test_tampering_and_credit_recheck_make_no_submission[consent]" time="0.175" /><testcase classname="test_virtual_tryon" name="test_tampering_and_credit_recheck_make_no_submission[quote]" time="0.222" /><testcase classname="test_virtual_tryon" name="test_tampering_and_credit_recheck_make_no_submission[expired]" time="0.190" /><testcase classname="test_virtual_tryon" name="test_tampering_and_credit_recheck_make_no_submission[balance]" time="0.218"><failure message="AssertionError: {&quot;job_id&quot;:&quot;tryon-nOLEb_uN6uDqXLzrPxIIEIwgde8NJ-Gc&quot;,&quot;state&quot;:&quot;pending&quot;}&#10;assert 200 in (402, 403)&#10; +  where 200 = &lt;Response [200 OK]&gt;.status_code">tmp_path = PosixPath('/root/.hermes/cache/scratch/stylemuse-security-fix/backend-retry/baseline-fixedenv/tmp/test_tampering_and_credit_rech6')
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x725ab0b381a0&gt;
+mutation = 'balance'
+
+    @pytest.mark.parametrize('mutation', ['person','clothing','amount','consent','quote','expired','balance','origin'])
+    def test_tampering_and_credit_recheck_make_no_submission(tmp_path, monkeypatch, mutation):
+        p = TryFixture()
+        c, _ = client(tmp_path, monkeypatch, p)
+        data = inputs()
+        q = c.post('/api/quote', headers=HEADERS, json=dict(action='tryon', inputs=data)).json()
+        approved = dict(data, quote_id=q['quote_id'], confirmed=True, max_total_usd=.04)
+        headers = dict(HEADERS)
+        import base64
+        changed = 'data:image/png;base64,' + base64.b64encode(base64.b64decode(image().split(',')[1]) + b'fixture').decode()
+        if mutation == 'person': approved['person_image'] = changed
+        if mutation == 'clothing': approved['clothing_image'] = changed
+        if mutation == 'amount': approved['max_total_usd'] = .0399999
+        if mutation == 'consent': approved['confirmed'] = False
+        if mutation == 'quote': approved['quote_id'] = 'fake'
+        if mutation == 'expired':
+            with sqlite3.connect(tmp_path/'db') as db: db.execute('UPDATE payment_quotes SET expires=0')
+        if mutation == 'balance': p.balance = .039
+        if mutation == 'origin': headers['Origin'] = 'https://evil.invalid'
+        result = c.post('/api/tryon', headers=headers, json=approved)
+&gt;       assert result.status_code in (402,403), result.text
+E       AssertionError: {"job_id":"tryon-nOLEb_uN6uDqXLzrPxIIEIwgde8NJ-Gc","state":"pending"}
+E       assert 200 in (402, 403)
+E        +  where 200 = &lt;Response [200 OK]&gt;.status_code
+
+test_virtual_tryon.py:107: AssertionError</failure></testcase><testcase classname="test_virtual_tryon" name="test_tampering_and_credit_recheck_make_no_submission[origin]" time="0.176" /><testcase classname="test_virtual_tryon" name="test_external_or_invalid_images_never_admitted[https://localhost/x]" time="0.163" /><testcase classname="test_virtual_tryon" name="test_external_or_invalid_images_never_admitted[https://example.com/image.png]" time="0.175" /><testcase classname="test_virtual_tryon" name="test_external_or_invalid_images_never_admitted[data:image/png;base64,AAAA]" time="0.190" /><testcase classname="test_virtual_tryon" name="test_anonymous_session_and_no_session_cannot_quote_or_submit" time="0.232" /><testcase classname="test_virtual_tryon" name="test_poll_pending_then_transient_error_then_resume_never_resubmits" time="0.244" /><testcase classname="test_virtual_tryon" name="test_known_failed_job_has_durable_terminal_status" time="0.235" /><testcase classname="test_virtual_tryon" name="test_pending_lookup_recovers_same_job_without_paid_submit" time="0.228" /><testcase classname="test_virtual_tryon" name="test_expired_pending_tryon_can_still_release_guard_after_result" time="0.248" /></testsuite></testsuites>
