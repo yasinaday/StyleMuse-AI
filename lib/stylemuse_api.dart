@@ -146,7 +146,14 @@ class StyleMuseApi {
     return _request(path, body);
   }
 
-  Future<Map<String, dynamic>> account() => post('/api/account', {});
+  Future<Map<String, dynamic>> account() async {
+    try {
+      return await post('/api/account', {});
+    } on StyleMuseApiException catch (error) {
+      if (error.status != 401) rethrow;
+      return post('/api/account', {});
+    }
+  }
   Future<Map<String, dynamic>> signInGoogle(String idToken) =>
       post('/api/auth/google/android', {'credential': idToken});
   Future<void> logout() async {
