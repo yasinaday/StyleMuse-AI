@@ -24,6 +24,7 @@ Future<Map<String, dynamic>?> googleAccountSignIn(StyleMuseApi api) async {
   final google = GoogleSignIn(scopes: ['email'], serverClientId: clientId);
   String? idToken;
   try {
+    await google.signOut();
     final user = await google.signIn();
     if (user == null) return null;
     final authentication = await user.authentication;
