@@ -17,7 +17,11 @@
 
 Girdi PNG/JPEG data URI (`data:image/png;base64,...`); bytes için `base64Encode`. Tryon sonucu HTTPS resim URL'sidir. Sonraki giydirme adımına URL değil, indirilip PNG/JPEG data URI'ye dönüştürülmüş resim verilmelidir. Çok parçalı kombin UI tarafından parça başına sırayla orkestre edilir; adapter sahte kompozit üretmez.
 
-## Backend değişiklikleri (yalnız worktree, deploy YOK)
+## Backend sözleşmesi (15 Kasım 2026 API-only dağıtımı)
+
+Dağıtılan API kaynak revizyonu: `dc27f47e63e466a27d553843de1127de24832202`.
+Aşağıdaki endpointler artık üretimde mevcut; gerçek Android OAuth hazırlığı ise tamamlanmış değildir.
+Ayrıntılı kanıt: `evidence/android-google-auth-deploy-20261115.md`.
 
 - `POST /api/auth/google/android {credential}`: mevcut oturum+exact origin kontrolü; Google `verify_oauth2_token` ile WEB audience/signature/issuer/expiry; Android `azp` allowlist, verified email ve `sub`. Native tokena web GIS nonce zorlanmaz; `/api/auth/google` nonce zorunluluğu aynen kalır.
 - Yeni env `STYLEMUSE_GOOGLE_ANDROID_CLIENT_IDS`: virgülle ayrılan izinli Android OAuth client ID'leri. Eksikse verifier ağına çıkmadan 503. Web audience mevcut `STYLEMUSE_GOOGLE_CLIENT_ID`.
@@ -25,12 +29,12 @@ Girdi PNG/JPEG data URI (`data:image/png;base64,...`); bytes için `base64Encode
   - `{action:'detect',request_id}` → `{state:'done',result}` veya ambiguous.
   - `{action:'generate',job_id,item_ids}` → tüm seçilen claims done ise `{state:'done',result}`, aksi ambiguous.
   - `{action:'tryon',request_id}` → original request'e bağlı job; başka kullanıcının veya başka pending işin sonucuna eşleşmez. Pending job TTL dolsa bile mevcut tryon status davranışıyla uyumlu kurtarılır.
-- Üretim backend yeni endpointleri içermediğinden dağıtım öncesi gerçek Android giriş/kurtarma hazır değildir. Ücretli servis/deploy/canlı hesap çağrısı yapılmadı.
+- Native endpointin önceki 404 hatası, test edilen worktree değişikliklerini içermeyen eski API image'ından kaynaklanıyordu. Artık boş gövde 422; geçersiz credential + anonim oturum 503 `google_android_not_configured` döner. Android allowlist hâlâ eksik; bu, başarılı giriş değildir. Ücretli inference ve gerçek hesap çağrısı yapılmadı.
 
 ## Android OAuth hazır olma durumu
 
 Salt-okunur yerel incelemede `/opt/stylemuse-ai/secrets/runtime.env` içinde web Google client ID mevcut; Android allowlist yok. Hiçbir değer/secret yazdırılmadı veya değiştirilmedi. Android application ID: `com.stylemuse.ai`.
-Gerekenler: aynı Google Cloud projesinde bu package adına Android OAuth client; debug cihaz denemesi için debug SHA-1, üretimde Play App Signing sertifikası SHA-1 (upload sertifikası farklı olabilir); UI Google SDK `serverClientId` için WEB client ID; backend Android client allowlist; yeni endpointler için ayrıca onaylı deployment. Cloud Console kayıtlarının varlığı salt yerel config'ten doğrulanamaz.
+Gerekenler: aynı Google Cloud projesinde bu package adına Android OAuth client kaydını doğrulamak; debug cihaz denemesi için debug SHA-1 `08:EF:41:C0:C6:48:D9:F5:33:FF:CA:62:E1:3A:97:D5:FF:0E:EA:4B`, üretimde Play App Signing sertifikası SHA-1 (upload sertifikası farklı olabilir); UI Google SDK `serverClientId` için mevcut WEB client ID; backend Android client allowlist. Endpoint dağıtımı tamamlandı. Cloud Console Google giriş sayfasına yönlendirdi ve browser vault kayıtlı hesap döndürmedi; mevcut Android OAuth kaydı ve gerçek test hesabı doğrulanamadı. Client ID tahmin edilmedi; web client ID Android allowlist'e kopyalanmadı.
 UI bağımlılıkları: `google_sign_in`, `flutter_secure_storage`. Adapter için HTTP paketi gerekmez. Android secure-storage yedekleme politikasını UI/tooling sahibi ayrıca ayarlamalı.
 
 ## Test/evidence
