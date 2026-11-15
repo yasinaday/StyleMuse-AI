@@ -1,4 +1,9 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
 
 void main() => runApp(const StyleMuseApp());
 
@@ -6,140 +11,214 @@ class StyleMuseApp extends StatelessWidget {
   const StyleMuseApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'StyleMuse AI',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF9B6B80)),
-        useMaterial3: true,
-        scaffoldBackgroundColor: const Color(0xFFFFFAF7),
-      ),
-      home: const WardrobeHome(),
-    );
-  }
+  Widget build(BuildContext context) => MaterialApp(
+        title: 'StyleMuse AI',
+        debugShowCheckedModeBanner: false,
+        theme: ThemeData(
+          colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF76367C)),
+          scaffoldBackgroundColor: const Color(0xFFFFF8FE),
+        ),
+        home: const WardrobePage(),
+      );
 }
 
-class ClothingItem {
-  final String name;
+class Garment {
+  const Garment(this.id, this.category);
+
+  factory Garment.fromJson(Map<String, dynamic> json) =>
+      Garment(json['id'] as String, json['category'] as String);
+
+  final String id;
   final String category;
-  const ClothingItem(this.name, this.category);
+
+  Map<String, String> toJson() => {'id': id, 'category': category};
 }
 
-class WardrobeHome extends StatefulWidget {
-  const WardrobeHome({super.key});
+class WardrobePage extends StatefulWidget {
+  const WardrobePage({super.key});
+
   @override
-  State<WardrobeHome> createState() => _WardrobeHomeState();
+  State<WardrobePage> createState() => _WardrobePageState();
 }
 
-class _WardrobeHomeState extends State<WardrobeHome> {
-  int page = 0;
-  final items = <ClothingItem>[];
-  final categories = ['Top', 'Bottom', 'Dress', 'Shoes', 'Outerwear', 'Accessory'];
+class _WardrobePageState extends State<WardrobePage> {
+  static const categories = ['Üst giyim', 'Alt giyim', 'Elbise', 'Dış giyim', 'Çanta'];
+  final _picker = ImagePicker();
+  late final Future<Directory> _load = _openWardrobe();
+  List<Garment> _items = [];
+  bool _busy = false;
 
-  Future<void> addItem() async {
-    final controller = TextEditingController();
-    String category = categories.first;
-    final item = await showDialog<ClothingItem>(
+  Future<Directory> _openWardrobe() async {
+    final root = await getApplicationDocumentsDirectory();
+    final directory = await Directory('${root.path}/wardrobe').create(recursive: true);
+    final index = File('${directory.path}/items.json');
+    if (await index.exists()) {
+      final entries = jsonDecode(await index.readAsString()) as List<dynamic>;
+      _items = entries.map((entry) => Garment.fromJson(entry as Map<String, dynamic>)).toList();
+    }
+    return directory;
+  }
+
+  Future<void> _save(Directory directory, List<Garment> items) async {
+    final temporary = File('${directory.path}/items.tmp');
+    await temporary.writeAsString(jsonEncode(items), flush: true);
+    await temporary.rename('${directory.path}/items.json');
+    if (mounted) setState(() => _items = items);
+  }
+
+  File _photo(Directory directory, Garment item) => File('${directory.path}/${item.id}.jpg');
+
+  void _notify(String message) {
+    if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<String?> _chooseCategory(String current) {
+    return showModalBottomSheet<String>(
       context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, update) => AlertDialog(
-          title: const Text('Add clothing'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(controller: controller, decoration: const InputDecoration(labelText: 'Item name')),
-              DropdownButtonFormField<String>(
-                initialValue: category,
-                items: categories.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
-                onChanged: (value) => update(() => category = value ?? category),
+      builder: (sheet) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (final category in categories)
+              ListTile(
+                title: Text(category),
+                trailing: current == category ? const Icon(Icons.check) : null,
+                onTap: () => Navigator.pop(sheet, category),
               ),
-            ],
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-            FilledButton(
-              onPressed: () {
-                final name = controller.text.trim();
-                if (name.isNotEmpty) Navigator.pop(context, ClothingItem(name, category));
-              },
-              child: const Text('Save'),
-            ),
           ],
         ),
       ),
     );
-    controller.dispose();
-    if (item != null && mounted) setState(() => items.add(item));
+  }
+
+  Future<void> _add(Directory directory) async {
+    setState(() => _busy = true);
+    try {
+      final picture = await _picker.pickImage(source: ImageSource.gallery, maxWidth: 1600, maxHeight: 1600, imageQuality: 90);
+      if (!mounted || picture == null) return;
+      final category = await _chooseCategory(categories.first);
+      if (!mounted || category == null) return;
+      final item = Garment(DateTime.now().microsecondsSinceEpoch.toString(), category);
+      final destination = _photo(directory, item);
+      try {
+        await picture.saveTo(destination.path);
+        await _save(directory, [..._items, item]);
+      } catch (_) {
+        if (await destination.exists()) await destination.delete();
+        rethrow;
+      }
+    } catch (_) {
+      _notify('Fotoğraf kaydedilemedi.');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _edit(Directory directory, Garment item) async {
+    setState(() => _busy = true);
+    try {
+      final category = await _chooseCategory(item.category);
+      if (category == null || category == item.category || !mounted) return;
+      await _save(directory, [
+        for (final garment in _items)
+          if (garment.id == item.id) Garment(item.id, category) else garment,
+      ]);
+    } catch (_) {
+      _notify('Kategori kaydedilemedi.');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _delete(Directory directory, Garment item) async {
+    setState(() => _busy = true);
+    try {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (dialog) => AlertDialog(
+          title: const Text('Kıyafet silinsin mi?'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(dialog, false), child: const Text('Vazgeç')),
+            FilledButton(onPressed: () => Navigator.pop(dialog, true), child: const Text('Sil')),
+          ],
+        ),
+      );
+      if (confirmed != true || !mounted) return;
+      await _save(directory, _items.where((garment) => garment.id != item.id).toList());
+      final photo = _photo(directory, item);
+      if (await photo.exists()) await photo.delete();
+    } catch (_) {
+      _notify('Silme işlemi tamamlanamadı.');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   @override
-  Widget build(BuildContext context) {
-    final titles = ['Discover', 'My Wardrobe', 'Outfits', 'Settings'];
-    return Scaffold(
-      appBar: AppBar(
-        title: Row(
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(7),
-              child: Image.asset('assets/stylemuse-icon.png', width: 32, height: 32, excludeFromSemantics: true),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text('StyleMuse AI · ${titles[page]}', overflow: TextOverflow.ellipsis),
-            ),
-          ],
-        ),
-      ),
-      body: SafeArea(
-        child: switch (page) {
-          0 => ListView(padding: const EdgeInsets.all(20), children: [
-            const Text('Your style, every day.', style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 16),
-            Card(child: ListTile(title: const Text('Your wardrobe'), subtitle: Text('${items.length} pieces added'), trailing: const Icon(Icons.chevron_right), onTap: () => setState(() => page = 1))),
-            const Card(child: ListTile(title: Text('Outfit inspiration'), subtitle: Text('Build looks using clothes you own.'))),
-          ]),
-          1 => items.isEmpty
-              ? const Center(child: Text('Your wardrobe is empty. Tap + to add clothing.'))
-              : ListView.builder(
-                  itemCount: items.length,
-                  itemBuilder: (context, index) => ListTile(
-                    leading: const Icon(Icons.checkroom),
-                    title: Text(items[index].name),
-                    subtitle: Text(items[index].category),
-                    trailing: IconButton(
-                      icon: const Icon(Icons.delete_outline),
-                      onPressed: () => setState(() => items.removeAt(index)),
-                    ),
-                  ),
+  Widget build(BuildContext context) => FutureBuilder<Directory>(
+        future: _load,
+        builder: (context, snapshot) {
+          final directory = snapshot.data;
+          return Scaffold(
+            appBar: AppBar(
+              leading: Padding(
+                padding: const EdgeInsets.all(9),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Image.asset('assets/stylemuse-icon.png', excludeFromSemantics: true),
                 ),
-          2 => Center(child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Text(items.length < 2
-                ? 'Add at least two clothing items to start creating outfits.'
-                : 'Your ${items.length} items are ready. Outfit builder is coming next.',
-                textAlign: TextAlign.center),
-          )),
-          _ => const ListView(children: [
-            ListTile(title: Text('Language'), subtitle: Text('English (initial release)')),
-            ListTile(title: Text('Data'), subtitle: Text('Prototype: changes are not yet saved after closing the app')),
-            ListTile(title: Text('Premium'), subtitle: Text('Coming later')),
-          ]),
+              ),
+              title: const Text('Giysiler'),
+            ),
+            floatingActionButton: directory == null
+                ? null
+                : FloatingActionButton.extended(
+                    onPressed: _busy ? null : () => _add(directory),
+                    icon: const Icon(Icons.add_a_photo_outlined),
+                    label: const Text('Kıyafet ekle'),
+                  ),
+            body: SafeArea(
+              child: directory == null
+                  ? Center(child: snapshot.hasError
+                      ? const Text('Dolap açılamadı.')
+                      : const CircularProgressIndicator())
+                  : _items.isEmpty
+                      ? const Center(child: Text('Dolabın boş. Bir kıyafet fotoğrafı ekle.'))
+                      : GridView.builder(
+                          padding: const EdgeInsets.fromLTRB(12, 12, 12, 96),
+                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 2, crossAxisSpacing: 8, mainAxisSpacing: 8, mainAxisExtent: 220,
+                          ),
+                          itemCount: _items.length,
+                          itemBuilder: (context, index) {
+                            final item = _items[index];
+                            return Card(
+                              clipBehavior: Clip.antiAlias,
+                              child: Column(
+                                children: [
+                                  Expanded(child: Image.file(
+                                    _photo(directory, item),
+                                    width: double.infinity,
+                                    fit: BoxFit.contain,
+                                    errorBuilder: (_, __, ___) => const Icon(Icons.broken_image_outlined),
+                                  )),
+                                  ListTile(
+                                    dense: true,
+                                    title: Text(item.category),
+                                    onTap: _busy ? null : () => _edit(directory, item),
+                                    trailing: IconButton(
+                                      onPressed: _busy ? null : () => _delete(directory, item),
+                                      tooltip: 'Sil',
+                                      icon: const Icon(Icons.delete_outline),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+            ),
+          );
         },
-      ),
-      floatingActionButton: page == 1 ? FloatingActionButton.extended(
-        onPressed: addItem, icon: const Icon(Icons.add), label: const Text('Add item'),
-      ) : null,
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: page,
-        onDestinationSelected: (value) => setState(() => page = value),
-        destinations: const [
-          NavigationDestination(icon: Icon(Icons.home_outlined), label: 'Home'),
-          NavigationDestination(icon: Icon(Icons.checkroom_outlined), label: 'Wardrobe'),
-          NavigationDestination(icon: Icon(Icons.auto_awesome_outlined), label: 'Outfits'),
-          NavigationDestination(icon: Icon(Icons.settings_outlined), label: 'Settings'),
-        ],
-      ),
-    );
-  }
+      );
 }
