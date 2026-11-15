@@ -507,7 +507,19 @@ class _StyleMuseShellState extends State<StyleMuseShell> {
             builder: (_) => AnalysisReviewPage(
                 store: store,
                 workflow: workflow,
-                confirmTokens: confirmTokens)));
+                confirmTokens: confirmTokens,
+                manualCrop: () async {
+                  final source = store.review?['sourceImage'];
+                  if (source is! String || !safeImage(source)) return;
+                  final cropped = await Navigator.push<Uint8List>(context,
+                    MaterialPageRoute(builder: (_) => PhotoCropPage(
+                      bytes: base64Decode(source.split(',').last), tr: tr)));
+                  if (cropped == null || !mounted) return;
+                  final category = await chooseCategory(initial: addCategory);
+                  if (category == null) return;
+                  await store.addGarment(image: 'data:image/jpeg;base64,${base64Encode(cropped)}',
+                    category: category);
+                })));
   }
 
   Future<void> recoverOperation() async {
@@ -574,7 +586,9 @@ class _StyleMuseShellState extends State<StyleMuseShell> {
     }
   }
 
-  Future<void> extractPhoto() async {
+  Uint8List? croppedAnalysisPhoto;
+
+  Future<void> extractPhoto({bool usePreview = false}) async {
     if (busy) return;
     setState(() => busy = true);
     try {
@@ -582,15 +596,24 @@ class _StyleMuseShellState extends State<StyleMuseShell> {
         await openReview();
         return;
       }
-      final bytes = await selectPhoto();
-      if (bytes == null || !mounted) return;
+      if (!usePreview) {
+        final bytes = await selectPhoto();
+        if (bytes == null || !mounted) return;
+        setState(() => croppedAnalysisPhoto = bytes);
+        return;
+      }
+      final bytes = croppedAnalysisPhoto;
+      if (bytes == null) return;
       final result = await workflow.extract(
           'data:image/jpeg;base64,${base64Encode(bytes)}',
           confirm: confirmTokens);
       if (result == null || !mounted) return;
       if (result['items'] is! List)
         throw const FormatException('Invalid analysis');
-      await store.saveReview(result);
+      await store.saveReview({
+        ...result, 'sourceImage': 'data:image/jpeg;base64,${base64Encode(bytes)}'
+      });
+      if (mounted) setState(() => croppedAnalysisPhoto = null);
       await workflow.acknowledge();
       if (mounted) await openReview();
     } catch (e) {
@@ -726,6 +749,15 @@ class _StyleMuseShellState extends State<StyleMuseShell> {
               'Yapay zekâ fotoğraftaki kıyafetleri bulur ve ayrı ayrı önerir. Kaydetmeden önce kontrol edebilirsin.',
               style: TextStyle(
                   fontSize: 13, color: Color(0xFF70566E), height: 1.45)),
+          if (croppedAnalysisPhoto != null) ...[
+            const SizedBox(height: 8),
+            ClipRRect(borderRadius: BorderRadius.circular(18),
+              child: SizedBox(height: 280, child: Image.memory(
+                croppedAnalysisPhoto!, fit: BoxFit.contain))),
+            FilledButton(
+              onPressed: busy ? null : () => extractPhoto(usePreview: true),
+              child: SmText(busy ? 'Fotoğraf analiz ediliyor…' : 'AI ile analiz et')),
+          ],
           const Divider(height: 12),
           const SmText('Dolaba Kıyafet Ekleme',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
