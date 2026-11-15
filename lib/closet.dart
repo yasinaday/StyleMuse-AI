@@ -38,14 +38,12 @@ class ClosetStore extends ChangeNotifier {
   Future<void> restore(String encoded) async {
     if (encoded.length > 100 * 1024 * 1024)
       throw const FormatException('Yedek dosyası 100 MB sınırını aşıyor.');
-    final decoded = jsonDecode(encoded);
-    validateBackup(decoded);
-    final data = decoded as Map<String, dynamic>;
+    final data = normalizeBackup(jsonDecode(encoded));
     final imported = (data['items'] as List)
         .map((x) => ClosetItem.fromJson(Map<String, dynamic>.from(x)))
         .toList();
-    final outfits = (data['looks'] as List)
-        .map((x) => Map<String, dynamic>.from(x))
+    final outfits = (data['looks'] as List?)
+        ?.map((x) => Map<String, dynamic>.from(x))
         .toList();
     final preferences = Map<String, dynamic>.from(data['preferences'] as Map);
     final style = Map<String, String>.from(
@@ -54,7 +52,7 @@ class ClosetStore extends ChangeNotifier {
     final avatar = preferences['sm-profile-photo'];
     await _change(() {
       items = imported;
-      looks = outfits;
+      if (outfits != null) looks = outfits;
       profile = {
         ...style,
         if (name is String) 'name': name,
@@ -239,7 +237,40 @@ bool safeImage(Object? image) =>
     image.length <= 30 * 1024 * 1024 &&
     RegExp(r'^data:image/(?:jpeg|png|webp|gif);base64,[A-Za-z0-9+/]+={0,2}$')
         .hasMatch(image);
+bool safeOutfitPhoto(Object? value) {
+  if (safeImage(value)) return true;
+  if (value is! String || value.contains(RegExp(r'\s'))) return false;
+  final uri = Uri.tryParse(value);
+  return uri != null &&
+      uri.scheme == 'https' &&
+      uri.userInfo.isEmpty &&
+      uri.port == 443 &&
+      const {'fal.media', 'v3.fal.media', 'v3b.fal.media'}.contains(uri.host);
+}
+
 void validateBackup(Object? raw) {
+  normalizeBackup(raw);
+}
+
+Map<String, dynamic> normalizeBackup(Object? raw) {
+  if (raw is Map<String, dynamic> && raw['version'] == 1) {
+    final items = jsonDecode(raw['sm-items'] as String? ?? 'null');
+    final looks = jsonDecode(raw['sm-combos'] as String? ?? 'null');
+    if (items is! List) throw const FormatException('Invalid legacy backup');
+    final checked = normalizeBackup({
+      'version': 2,
+      'items': [
+        for (var i = 0; i < items.length; i++)
+          if (items[i] is String)
+            {'id': i, 'image': items[i], 'category': 'Diğer'}
+          else items[i],
+      ],
+      'looks': looks ?? [],
+      'preferences': raw,
+    });
+    if (looks == null) checked['looks'] = null;
+    return checked;
+  }
   Never invalid() =>
       throw const FormatException('Geçerli bir StyleMuse yedek dosyası seç.');
   if (raw is! Map<String, dynamic> ||
@@ -260,7 +291,7 @@ void validateBackup(Object? raw) {
     if (x is! Map ||
         x['images'] is! List ||
         !(x['images'] as List).every(safeImage) ||
-        (x['aiImage'] != null && !safeImage(x['aiImage'])) ||
+        (x['aiImage'] != null && !safeOutfitPhoto(x['aiImage'])) ||
         (x['occasion'] != null && x['occasion'] is! String) ||
         (x['date'] != null && x['date'] is! String)) invalid();
     if (x['itemIds'] != null &&
@@ -285,4 +316,5 @@ void validateBackup(Object? raw) {
     final p = jsonDecode(prefs['sm-style-profile'] as String);
     if (p is! Map || p.values.any((v) => v is! String)) invalid();
   }
+  return Map<String, dynamic>.of(raw);
 }
