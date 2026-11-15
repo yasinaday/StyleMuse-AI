@@ -19,7 +19,8 @@ String normalizeCategory(Object? category) {
 
 class AnalysisReviewPage extends StatefulWidget {
   const AnalysisReviewPage(
-      {super.key, required this.store, this.workflow, this.confirmTokens});
+      {super.key, required this.store, this.workflow, this.confirmTokens, this.manualCrop});
+  final Future<void> Function()? manualCrop;
   final ClosetStore store;
   final TokenWorkflowController? workflow;
   final TokenConfirmation? confirmTokens;
@@ -34,7 +35,8 @@ class _AnalysisReviewPageState extends State<AnalysisReviewPage> {
             'category': normalizeCategory(x['category'])
           })
       .toList();
-  late final selected = {for (var i = 0; i < parts.length; i++) i};
+  final selected = <int>{};
+  bool detail = false;
   bool busy = false;
   String? error;
   Future<void> enhance() async {
@@ -84,62 +86,108 @@ class _AnalysisReviewPageState extends State<AnalysisReviewPage> {
       language: widget.store.language,
       child: Scaffold(
           key: const Key('analysis-review'),
-          appBar:
-              AppBar(title: const SmText('Önce seçtiğin parçaları incele.')),
+          appBar: AppBar(title: SmText(detail
+              ? 'Seçilen parçaların analizi' : 'Fotoğraf analizi · Ürün seçimi')),
           body: SafeArea(
               child: Column(children: [
-            Expanded(
-                child: ListView(padding: const EdgeInsets.all(20), children: [
-              for (var i = 0; i < parts.length; i++)
-                Card(
-                    margin: const EdgeInsets.only(bottom: 16),
-                    child: Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: Column(children: [
-                          SizedBox(
-                              height: 220,
-                              width: double.infinity,
-                              child: photo(
-                                  (parts[i]['image'] ?? parts[i]['preview'])
-                                          as String? ??
-                                      '',
-                                  fit: BoxFit.contain)),
-                          CheckboxListTile(
-                              value: selected.contains(i),
-                              title: SmText('Ürün ${i + 1}'),
-                              onChanged: busy
-                                  ? null
-                                  : (value) => setState(() {
-                                        if (value!) {
-                                          selected.add(i);
-                                        } else {
-                                          selected.remove(i);
-                                        }
-                                      })),
-                          DropdownButtonFormField<String>(
-                              initialValue: parts[i]['category'] as String,
-                              decoration: InputDecoration(
-                                  labelText: translate('Bu parça nedir?',
-                                      widget.store.language)),
-                              items: [
-                                for (final c in wardrobeCategories)
-                                  DropdownMenuItem(value: c, child: SmText(c))
-                              ],
-                              onChanged: busy
-                                  ? null
-                                  : (c) =>
-                                      setState(() => parts[i]['category'] = c)),
-                        ]))),
-              if (error != null) SmText(error!),
-            ])),
-            if (widget.workflow != null)
+            Expanded(child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                Expanded(flex: 32, child: ListView(children: [
+                  for (var i = 0; i < parts.length; i++)
+                    if (!detail || selected.contains(i))
+                      Card(child: Column(children: [
+                        SizedBox(height: 90, child: photo(
+                          (parts[i]['image'] ?? parts[i]['preview']) as String? ?? '',
+                          fit: BoxFit.contain)),
+                        SmText(parts[i]['category'] as String),
+                        if (!detail) Checkbox(
+                          value: selected.contains(i),
+                          onChanged: busy ? null : (value) => setState(() {
+                            if (value == true) { selected.add(i); }
+                            else { selected.remove(i); }
+                          })),
+                      ])),
+                ])),
+                const SizedBox(width: 8),
+                Expanded(flex: 68, child: ColoredBox(color: const Color(0xFFF5E7F4),
+                  child: photo(
+                    (widget.store.review?['sourceImage'] ??
+                      (parts.isEmpty ? '' : parts.first['image'] ?? parts.first['preview'])) as String? ?? '',
+                    fit: BoxFit.contain))),
+              ]),
+            )),
+            SmText('${selected.length} ürün seçili'),
+            if (error != null) SmText(error!),
+            if (!detail)
+              FilledButton(
+                onPressed: selected.isEmpty ? null : () => setState(() => detail = true),
+                child: const SmText('Seçilen parçaları incele')),
+            if (detail)
+              Flexible(child: ListView(shrinkWrap: true, padding: const EdgeInsets.all(12), children: [
+                for (final i in selected)
+                  DropdownButtonFormField<String>(
+                    key: ValueKey('review-category-$i'),
+                    initialValue: parts[i]['category'] as String,
+                    decoration: InputDecoration(labelText:
+                      translate('Ürün ${i + 1}', widget.store.language)),
+                    items: [
+                      for (final c in wardrobeCategories)
+                        DropdownMenuItem(value: c, child: SmText(c)),
+                    ],
+                    onChanged: busy ? null : (c) => setState(() => parts[i]['category'] = c),
+                  ),
+              ])),
+            if (detail)
+              TextButton(
+                onPressed: busy ? null : () => setState(() => detail = false),
+                child: const SmText('Ürün seçimine geri dön')),
+            if (detail && widget.workflow != null)
               OutlinedButton.icon(
                   key: const Key('enhance-analysis'),
                   onPressed: busy || selected.isEmpty ? null : enhance,
                   icon: const Icon(Icons.auto_awesome),
                   label: SmText(
                       '${selected.length * 2} Stil Jetonu · ${translate('İyileştir', widget.store.language)}')),
-            Padding(
+            if (widget.manualCrop != null && safeImage(widget.store.review?['sourceImage']))
+              OutlinedButton(
+                onPressed: busy ? null : () async {
+                  setState(() => busy = true);
+                  try {
+                    await widget.manualCrop!();
+                  } catch (_) {
+                    if (mounted) setState(() => error = 'Kıyafet kaydedilemedi. Telefonun depolama alanını kontrol et.');
+                  } finally {
+                    if (mounted) setState(() => busy = false);
+                  }
+                },
+                child: const SmText('Elle kırp'),
+              ),
+            TextButton(
+              onPressed: busy ? null : () async {
+                final confirmed = await showDialog<bool>(
+                  context: context,
+                  builder: (dialog) => LocalStrings(language: widget.store.language,
+                    child: AlertDialog(
+                      content: const SmText('Analizi iptal edersen kaydedilmemiş sonuçlar silinir. Kullanılan Stil Jetonu geri yüklenmez. Analiz iptal edilsin mi?'),
+                      actions: [
+                        TextButton(onPressed: () => Navigator.pop(dialog, false), child: const SmText('Vazgeç')),
+                        FilledButton(onPressed: () => Navigator.pop(dialog, true), child: const SmText('Onayla')),
+                      ],
+                    )),
+                );
+                if (confirmed != true || !mounted || busy) return;
+                setState(() => busy = true);
+                try {
+                  await widget.store.saveReview(null);
+                  if (context.mounted) Navigator.pop(context);
+                } catch (_) {
+                  if (mounted) setState(() { busy = false; error = 'Kaydedilemedi.'; });
+                }
+              },
+              child: const SmText('Analizi iptal et'),
+            ),
+            if (detail) Padding(
                 padding: const EdgeInsets.all(16),
                 child: SizedBox(
                     width: double.infinity,
