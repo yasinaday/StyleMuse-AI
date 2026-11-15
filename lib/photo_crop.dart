@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show compute;
 import 'dart:math' as math;
 import 'dart:typed_data';
 import 'package:material_ui/material_ui.dart';
@@ -24,6 +25,9 @@ Uint8List cropPhoto(Uint8List bytes,
   return Uint8List.fromList(img.encodeJpg(result, quality: 90));
 }
 
+Uint8List _cropInBackground((Uint8List, double, double, double) request) =>
+    cropPhoto(request.$1, zoom: request.$2, panX: request.$3, panY: request.$4);
+
 class PhotoCropPage extends StatefulWidget {
   const PhotoCropPage({super.key, required this.bytes, required this.tr});
   final Uint8List bytes;
@@ -42,18 +46,21 @@ class _PhotoCropPageState extends State<PhotoCropPage> {
     super.dispose();
   }
 
-  void save() {
+  Future<void> save() async {
+    if (saving) return;
     setState(() => saving = true);
     try {
       final matrix = controller.value;
       final zoom = matrix.getMaxScaleOnAxis();
       // InteractiveViewer scales from the upper-left; compensate its center.
-      final result = cropPhoto(widget.bytes,
-          zoom: zoom,
-          panX: matrix.storage[12] / size + (zoom - 1) / 2,
-          panY: matrix.storage[13] / size + (zoom - 1) / 2);
-      Navigator.pop(context, result);
+      final result = await compute(_cropInBackground, (
+        widget.bytes, zoom,
+        matrix.storage[12] / size + (zoom - 1) / 2,
+        matrix.storage[13] / size + (zoom - 1) / 2,
+      ));
+      if (mounted) Navigator.pop(context, result);
     } catch (_) {
+      if (!mounted) return;
       setState(() => saving = false);
       ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(widget.tr('Fotoğraf açılamadı.'))));
@@ -62,7 +69,7 @@ class _PhotoCropPageState extends State<PhotoCropPage> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(title: Text(widget.tr('Kırp ve devam et'))),
+        appBar: AppBar(title: Text(widget.tr('Fotoğrafı düzenle'))),
         body: SafeArea(
             child: ListView(padding: const EdgeInsets.all(20), children: [
           Text(widget.tr(
@@ -88,18 +95,36 @@ class _PhotoCropPageState extends State<PhotoCropPage> {
                                       color: Color(0xFFD6B7F6), width: 2))))),
                     ])));
           }),
-          const SizedBox(height: 16),
-          Text(widget.tr('Analizde yalnızca seçtiğin alan kullanılır.')),
-          const SizedBox(height: 16),
-          FilledButton.icon(
+          const SizedBox(height: 10),
+          Text(widget.tr('Yakınlaştır')),
+          ValueListenableBuilder<Matrix4>(
+            valueListenable: controller,
+            builder: (context, matrix, child) => Slider(
+              min: 1,
+              max: 5,
+              value: matrix.getMaxScaleOnAxis().clamp(1.0, 5.0).toDouble(),
+              onChanged: saving ? null : (zoom) {
+                final offset = size * (1 - zoom) / 2;
+                controller.value = Matrix4.diagonal3Values(zoom, zoom, zoom)
+                  ..setTranslationRaw(offset, offset, 0);
+              },
+            ),
+          ),
+          Row(children: [
+            Expanded(child: OutlinedButton(
+              onPressed: saving ? null : () => Navigator.pop(context),
+              child: Text(widget.tr('Vazgeç')),
+            )),
+            const SizedBox(width: 8),
+            Expanded(child: FilledButton(
               key: const Key('crop-confirm'),
               onPressed: saving ? null : save,
-              icon: const Icon(Icons.crop),
-              label: Text(widget.tr('Kırp ve devam et'))),
-          TextButton(
-              onPressed: () =>
-                  setState(() => controller.value = Matrix4.identity()),
-              child: const Text('↺')),
+              child: Text(widget.tr('Kırp ve devam et'), textAlign: TextAlign.center),
+            )),
+          ]),
+          const SizedBox(height: 8),
+          Text(widget.tr('Analizde yalnızca seçtiğin alan kullanılır.'),
+            textAlign: TextAlign.center),
         ])),
       );
 }
