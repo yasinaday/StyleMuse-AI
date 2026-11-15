@@ -36,6 +36,14 @@ class PaidFixtureClient(TestClient):
             assert login(self, patcher).status_code == 303
         finally:
             patcher.patcher.stop()
+        # Explicit synthetic funding for positive non-admission regressions.
+        # Raw admission/security tests do not use this fixture client.
+        import inspect
+        endpoint = next(r.endpoint for r in self.app.routes if r.path == '/api/account')
+        store = inspect.getclosurevars(endpoint).nonlocals['store']
+        with store.tx() as db:
+            db.execute('INSERT OR IGNORE INTO style_tokens VALUES(?,100)',
+                       ('github:' + CONFIG['github_owner_id'],))
 
     def post(self, url, **kwargs):
         payload = kwargs.get('json')
@@ -49,4 +57,6 @@ class PaidFixtureClient(TestClient):
             q = quoted.json()
             if payload.get('max_total_usd', 0) >= q['estimated_cost_usd']:
                 kwargs['json'] = dict(payload, quote_id=q['quote_id'], max_total_usd=q['estimated_cost_usd'])
+                if action == 'generate':
+                    kwargs['json']['approved_style_tokens'] = q['style_tokens']
         return super().post(url, **kwargs)

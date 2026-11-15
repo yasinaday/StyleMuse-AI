@@ -252,7 +252,10 @@ class Store:
             if changed != 1:
                 raise RuntimeError('operation_not_reserved')
             owner = db.execute(f'SELECT owner FROM {table} WHERE id=?', (operation,)).fetchone()['owner']
-            if owner and owner.startswith('google:'):
+            # Legacy GitHub detect/try-on remain uncharged; enhancement is
+            # identified by its operation namespace, not a coincidental amount.
+            if owner and (owner.startswith('google:') or
+                          owner.startswith('github:') and operation.startswith('generate:')):
                 debit = db.execute('UPDATE style_tokens SET balance=balance-? WHERE owner=? AND balance>=?', (style_tokens, owner, style_tokens))
                 if debit.rowcount != 1:
                     from fastapi import HTTPException

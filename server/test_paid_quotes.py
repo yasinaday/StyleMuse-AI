@@ -12,6 +12,9 @@ def client(tmp_path, monkeypatch, provider=None, **settings):
     c = TestClient(api.create_app(dict(CONFIG, enabled=True, lifetime_budget_usd=1,
         db_path=str(tmp_path/'db'), storage_dir=str(tmp_path/'images'), **settings), p), base_url='https://testserver')
     assert login(c, monkeypatch).status_code == 303
+    # Explicit synthetic token allowance for positive paid-quote fixtures.
+    with sqlite3.connect(tmp_path/'db') as db:
+        db.execute('INSERT INTO style_tokens VALUES(?,100)', ('github:12345',))
     return c, p
 
 class FundedProvider(Provider):
@@ -85,7 +88,8 @@ def test_generate_quote_binds_selection_cost_and_is_one_use(tmp_path, monkeypatc
     assert quote.status_code == 200, quote.text
     q = quote.json()
     assert q['estimated_cost_usd'] == .1
-    approved = dict(selection, quote_id=q['quote_id'], confirmed=True, max_total_usd=.1)
+    approved = dict(selection, quote_id=q['quote_id'], confirmed=True, max_total_usd=.1,
+                    approved_style_tokens=q['style_tokens'])
     result = c.post('/api/generate', headers=HEADERS, json=approved)
     assert result.status_code == 200, result.text
     assert p.generate_calls == 1
@@ -145,7 +149,7 @@ def test_generation_rechecks_real_credit_before_each_paid_submission(tmp_path, m
         p.balance = 0
         return result
     p.generate = generate
-    denied = c.post('/api/generate', headers=HEADERS, json=dict(selection, confirmed=True, max_total_usd=.2, quote_id=q['quote_id']))
+    denied = c.post('/api/generate', headers=HEADERS, json=dict(selection, confirmed=True, max_total_usd=.2, quote_id=q['quote_id'], approved_style_tokens=q['style_tokens']))
     assert denied.status_code == 502
     assert p.generate_calls == 1
     with sqlite3.connect(tmp_path/'db') as db:

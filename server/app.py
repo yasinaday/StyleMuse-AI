@@ -803,7 +803,7 @@ def create_app(settings=None, provider=None):
             cost = units(s.generation_reservation_usd)*len(pending)
             consume_quote(db, payload, request, who, 'generate', generation_quote_inputs(payload, job), cost)
             if pending:
-                if who.startswith('google:'):
+                if who.startswith(('google:', 'github:')):
                     tokens_due = ENHANCEMENT_TOKENS_PER_PART * len(pending)
                     if payload.approved_style_tokens != tokens_due:
                         raise HTTPException(403, 'cost_confirmation_required')
