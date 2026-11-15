@@ -119,8 +119,10 @@ void main() {
     };
     final c = TokenWorkflowController(
         api: StyleMuseApi(storage: s, transport: t), storage: s);
-    await expectLater(c.enhance('j', ['a'], confirm: (_) async => true),
-        throwsA(isA<TimeoutException>()));
+    await expectLater(
+        c.enhance('j', ['a'], confirm: (_) async => true),
+        throwsA(isA<StyleMuseApiException>()
+            .having((e) => e.code, 'code', 'api_timeout')));
     expect((await c.recover())?['items'], isNotEmpty);
     expect(t.calls.where((p) => p == '/api/generate').length, 1);
   });
@@ -192,8 +194,10 @@ void main() {
         api: StyleMuseApi(storage: s, transport: t),
         storage: s,
         requestId: () => 'original');
-    await expectLater(c.tryOn('p', 'c', confirm: (_) async => true),
-        throwsA(isA<TimeoutException>()));
+    await expectLater(
+        c.tryOn('p', 'c', confirm: (_) async => true),
+        throwsA(isA<StyleMuseApiException>()
+            .having((e) => e.code, 'code', 'api_timeout')));
     final restored = TokenWorkflowController(
         api: StyleMuseApi(storage: s, transport: t), storage: s);
     expect((await restored.recover())?['state'], 'pending');
@@ -296,7 +300,8 @@ void main() {
     await expectLater(
         TokenWorkflowController(api: a, storage: s, requestId: () => 'r')
             .extract('image', confirm: (_) async => true),
-        throwsA(isA<TimeoutException>()));
+        throwsA(isA<StyleMuseApiException>()
+            .having((e) => e.code, 'code', 'api_timeout')));
     final c = TokenWorkflowController(
         api: StyleMuseApi(storage: s, transport: t), storage: s);
     expect((await c.recover())?['job_id'], 'recovered');

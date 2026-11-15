@@ -94,16 +94,29 @@ class StyleMuseApi {
 
   Future<Map<String, dynamic>> _request(
       String path, Map<String, dynamic> body) async {
-    final response = await transport
-        .post(
-            baseUrl.resolve(path),
-            {
-              'Content-Type': 'application/json',
-              'Origin': origin,
-              if (_cookie != null) 'Cookie': _cookie!,
-            },
-            body)
-        .timeout(timeout);
+    final ApiResponse response;
+    try {
+      response = await transport
+          .post(
+              baseUrl.resolve(path),
+              {
+                'Content-Type': 'application/json',
+                'Origin': origin,
+                if (_cookie != null) 'Cookie': _cookie!,
+              },
+              body)
+          .timeout(timeout);
+    } on SocketException {
+      throw const StyleMuseApiException('api_network_error');
+    } on HandshakeException {
+      throw const StyleMuseApiException('api_network_error');
+    } on HttpException {
+      throw const StyleMuseApiException('api_network_error');
+    } on TimeoutException {
+      throw const StyleMuseApiException('api_timeout');
+    } on FormatException {
+      throw const StyleMuseApiException('invalid_server_response');
+    }
     if (response.sessionCookie != null) {
       await storage.write(_cookieKey, response.sessionCookie!);
       _cookie = response.sessionCookie;
