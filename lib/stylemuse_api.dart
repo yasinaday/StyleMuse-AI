@@ -146,6 +146,13 @@ class StyleMuseApi {
     return _request(path, body);
   }
 
+  /// Restore only an existing session; first launch must stay network-free.
+  Future<Map<String, dynamic>?> restoreAccount() async {
+    final saved = await storage.read(_cookieKey);
+    if (saved == null || saved.isEmpty) return null;
+    return account();
+  }
+
   Future<Map<String, dynamic>> account() async {
     try {
       return await post('/api/account', {});
@@ -154,6 +161,7 @@ class StyleMuseApi {
       return post('/api/account', {});
     }
   }
+
   Future<Map<String, dynamic>> signInGoogle(String idToken) =>
       post('/api/auth/google/android', {'credential': idToken});
   Future<void> logout() async {

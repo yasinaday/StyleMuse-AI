@@ -1104,7 +1104,7 @@ async function approvePaidQuote(action,inputs,tokens,label){
    tokens=quote.style_tokens;
    if(tokens&&!await canUseStyleTokens(tokens))return null;
   }
-  if(!await confirmStyleTokens(label+' · '+tokens+' Stil Jetonu kullanılacak. Devam edilsin mi?'))return null;
+  if(!await confirmStyleTokens(label+' · '+tokens+' Stil Jetonu kullanılacak. Sunucu teklifindeki toplam maliyet: '+quote.estimated_cost_usd+' USD. Bu tutar ek ücret veya ödeme değildir. Devam edilsin mi?'))return null;
   if(Math.max(performance.now()-started,Date.now()-wallStarted)>=quote.expires_in_seconds*1000)continue;
   return quote;
  }
@@ -1417,6 +1417,7 @@ function persistWardrobe(items){
  wardrobeWriteQueue=job;return job;
 }
 async function importWardrobePackage(event){
+ if(styleMuseAccount?.user?.admin!==true)return;
  const input=event.target,file=input.files&&input.files[0],status=document.getElementById('wardrobe-import-status');if(!file)return;
  try{
   if(file.size>15000000)throw Error('Paket 15 MB sınırını aşıyor.');
@@ -1581,45 +1582,57 @@ function readStyleProfile(){
 }
 let styleMuseAccount=null,googleScriptPromise=null;
 let tokenLoadId=null;
+let adminOperationVersion=0;
 const tokenLoadStatus=document.getElementById('token-load-status');
 const tokenConfirmForm=document.getElementById('token-confirm-form');
 document.getElementById('token-load-form').addEventListener('submit',async event=>{
  event.preventDefault();
+ if(styleMuseAccount?.user?.admin!==true)return;
  const button=event.currentTarget.querySelector('button');
+ const version=adminOperationVersion;
  button.disabled=true;
  try{
   const amount=Number(document.getElementById('token-load-amount').value);
   const result=await aiPost('/api/admin/tokens/request',{amount},20000);
+  if(version!==adminOperationVersion||styleMuseAccount?.user?.admin!==true)return;
   tokenLoadId=result.request_id;
   tokenConfirmForm.reset();
   tokenConfirmForm.hidden=false;
   tokenLoadStatus.textContent=amount+' jeton için kod e-postana gönderildi.';
  }catch(error){
+  if(version!==adminOperationVersion||styleMuseAccount?.user?.admin!==true)return;
   tokenLoadStatus.textContent=error.code==='token_load_rate_limited'?'Yeni kod istemeden önce bekle.':error.code==='token_email_not_configured'?'Sunucuda e-posta gönderimi henüz ayarlanmadı.':'Doğrulama kodu gönderilemedi.';
  }finally{button.disabled=false}
 });
 tokenConfirmForm.addEventListener('submit',async event=>{
  event.preventDefault();
+ if(styleMuseAccount?.user?.admin!==true)return;
  if(!tokenLoadId)return;
  const button=tokenConfirmForm.querySelector('button');
+ const version=adminOperationVersion;
  button.disabled=true;
  try{
   const code=document.getElementById('token-load-code').value;
   const result=await aiPost('/api/admin/tokens/confirm',{request_id:tokenLoadId,code},12000);
+  if(version!==adminOperationVersion||styleMuseAccount?.user?.admin!==true)return;
   tokenLoadId=null;
   tokenConfirmForm.reset();
   tokenConfirmForm.hidden=true;
   renderStyleMuseAccount({...styleMuseAccount,balance:result.balance});
   tokenLoadStatus.textContent='Jetonlar yüklendi.';
   void refreshStyleMuseAccount().catch(()=>{});
- }catch{tokenLoadStatus.textContent='Kod geçersiz veya süresi dolmuş.'}
+ }catch{if(version===adminOperationVersion&&styleMuseAccount?.user?.admin===true)tokenLoadStatus.textContent='Kod geçersiz veya süresi dolmuş.'}
  finally{button.disabled=false}
 });
 function renderStyleMuseAccount(data){
+ ++adminOperationVersion;
  const previousNameKey=profileNameKey();
  styleMuseAccount=data;
  if(previousNameKey!==profileNameKey()||document.getElementById('profile-name-actions').hidden)resetProfileName();
  if(data?.user?.admin!==true){
+  ++replicateCreditVersion;
+  for(const id of ['sm-fal-credit','sm-replicate-stamp','token-load-status','analysis-history','analysis-copy-status'])document.getElementById(id).textContent='';
+  document.getElementById('sm-replicate-credit').value='';
   tokenLoadId=null;
   document.getElementById('token-confirm-form').reset();
   document.getElementById('token-confirm-form').hidden=true;
@@ -2175,12 +2188,14 @@ function suggestMannequin(){
 }
 async function checkAiHealth(){const el=document.getElementById('ai-connection-state');if(!el)return;el.textContent='Sunucu kontrol ediliyor…';try{const data=await aiPost('/api/health',{});if(data.status!=='ok'||typeof data.enabled!=='boolean')throw Error('Geçersiz sağlık yanıtı');el.textContent=data.authenticated!==true?'Giriş yapman gerekiyor.':data.enabled?'Yapay zekâ hazır.':'Yapay zekâ şu anda kullanılamıyor.';}catch(e){el.textContent='Sunucu bağlantısı veya oturum doğrulanamadı. Manuel kıyafet ekleme kullanılabilir.';}}
 async function refreshFalCredit(){
+ if(styleMuseAccount?.user?.admin!==true)return;
  const status=document.getElementById('sm-fal-credit');
  if(document.getElementById('profile-management').hidden||status.getAttribute('aria-busy')==='true')return;
  status.setAttribute('aria-busy','true');
  status.textContent='Bakiye kontrol ediliyor…';
  try{
   const {available_usd}=await aiPost('/api/admin/fal-credit/status',{},12000);
+  if(styleMuseAccount?.user?.admin!==true)return;
   status.textContent=Number.isFinite(available_usd)
    ?new Intl.NumberFormat(document.documentElement.lang,{style:'currency',currency:'USD'}).format(available_usd)
    :'Bakiye okunamadı. Billing sayfasından kontrol et.';
@@ -2198,6 +2213,7 @@ function showReplicateCredit(record){
 }
 let replicateCreditVersion=0;
 async function refreshReplicateCredit(){
+ if(styleMuseAccount?.user?.admin!==true)return;
  if(document.getElementById('sm-replicate-save').disabled)return;
  const version=++replicateCreditVersion;
  try{
@@ -2208,6 +2224,7 @@ async function refreshReplicateCredit(){
  }
 }
 async function saveProviderBalance(){
+ if(styleMuseAccount?.user?.admin!==true)return;
  const input=document.getElementById('sm-replicate-credit');
  const stamp=document.getElementById('sm-replicate-stamp');
  const button=document.getElementById('sm-replicate-save');

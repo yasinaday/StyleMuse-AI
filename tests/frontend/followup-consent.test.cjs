@@ -8,7 +8,7 @@ async function offline(fn){const browser=await chromium.launch({headless:true,ar
 async function setupPaid(page,action='detect'){
  await page.evaluate(({png,action})=>{
  window.requests=[];window.quoteNumber=0;canUseStyleTokens=async()=>true;
- aiPost=async(path,payload)=>{requests.push({path,payload});if(path==='/api/health')return {authenticated:true,status:'ok',enabled:true};if(path==='/api/quote')return {action:payload.action,quote_id:'quote-'+(++quoteNumber),estimated_cost_usd:payload.action==='generate'?.246:.073,expires_in_seconds:90};if(path==='/api/detect')return {job_id:'job',items:[]};if(path==='/api/generate')return {items:payload.item_ids.map(id=>({id,image:png}))};throw Error('Unexpected offline endpoint '+path)};
+ aiPost=async(path,payload)=>{requests.push({path,payload});if(path==='/api/health')return {authenticated:true,status:'ok',enabled:true};if(path==='/api/quote')return {action:payload.action,quote_id:'quote-'+(++quoteNumber),estimated_cost_usd:payload.action==='generate'?.246:.073,...(payload.action==='generate'?{style_tokens:2}:{}),expires_in_seconds:90};if(path==='/api/detect')return {job_id:'job',items:[]};if(path==='/api/generate')return {items:payload.item_ids.map(id=>({id,image:png}))};throw Error('Unexpected offline endpoint '+path)};
  multiSource=png;
  if(action==='generate'){aiJobId='job';aiReviewPhase='detail';aiParts=['one','two'].map(id=>({id,image:png,category:'Üst giyim',selected:true,generated:false,mask_quality:'verified',category_verified:true,quality_warnings:[]}));}
  window.pendingPaid=action==='generate'?generateAiParts():analyzeClothes();
@@ -23,7 +23,7 @@ for(const approved of [false,true])test('analysis displays quote and tokens toge
 }));
 for(const approved of [false,true])test('multi-item generation uses one server TOTAL and exact selected inputs; approval '+approved,()=>offline(async page=>{
  await setupPaid(page,'generate');const message=await page.locator('#style-confirm-message').textContent();assert.equal(await page.evaluate(()=>requests.filter(r=>r.path==='/api/quote').length),1);assert.match(message,/2 Stil Jetonu/);assert.match(message,/0\.246 USD/);assert.doesNotMatch(message,/0\.492/);assert.equal(await page.evaluate(()=>requests.filter(r=>r.path==='/api/generate').length),0);
- await page.locator(approved?'#style-confirm-approve':'#style-confirm-cancel').click();await page.evaluate(()=>pendingPaid);const requests=await page.evaluate(()=>window.requests);const paid=requests.filter(r=>r.path==='/api/generate');assert.equal(paid.length,approved?1:0);if(approved)assert.deepEqual(paid[0].payload,{job_id:'job',item_ids:['one','two'],quote_id:'quote-1',max_total_usd:.246,confirmed:true});
+ await page.locator(approved?'#style-confirm-approve':'#style-confirm-cancel').click();await page.evaluate(()=>pendingPaid);const requests=await page.evaluate(()=>window.requests);const paid=requests.filter(r=>r.path==='/api/generate');assert.equal(paid.length,approved?1:0);if(approved)assert.deepEqual(paid[0].payload,{job_id:'job',item_ids:['one','two'],quote_id:'quote-1',approved_style_tokens:2,max_total_usd:.246,confirmed:true});
 }));
 for(const approveRenewal of [false,true])test('90-second expiry requires fresh quote and NEW explicit approval; renewed approval '+approveRenewal,()=>offline(async page=>{
  await page.evaluate(()=>{const now=performance.now.bind(performance);window.timeOffset=0;performance.now=()=>now()+timeOffset});
@@ -76,7 +76,7 @@ test('invalid quotes never reach approval; zero-cost cached generation remains v
  for(const mutation of [{action:'detect'},{quote_id:''},{quote_id:7},{estimated_cost_usd:'0.04'},{estimated_cost_usd:-1},{estimated_cost_usd:NaN},{estimated_cost_usd:Infinity},{estimated_cost_usd:0},{expires_in_seconds:undefined},{expires_in_seconds:0},{expires_in_seconds:91},{expires_in_seconds:'90'}]){
  aiPost=async()=>({...base,...mutation});let rejected=false;try{await approvePaidQuote('tryon',{},1,'Step')}catch{rejected=true}results.push({rejected,approvals});
  }
- aiPost=async()=>({...base,action:'generate',estimated_cost_usd:0});const cached=await approvePaidQuote('generate',{},2,'Cached');return {results,cached,approvals};
+ aiPost=async()=>({...base,action:'generate',estimated_cost_usd:0,style_tokens:0});const cached=await approvePaidQuote('generate',{item_ids:['cached']},2,'Cached');return {results,cached,approvals};
  });
  for(const result of results.results)assert.deepEqual(result,{rejected:true,approvals:0});assert.equal(results.cached.estimated_cost_usd,0);assert.equal(results.approvals,1);
 }));

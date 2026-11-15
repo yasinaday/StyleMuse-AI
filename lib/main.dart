@@ -937,8 +937,11 @@ class _StyleMuseShellState extends State<StyleMuseShell> {
         await api.logout();
         if (mounted) setState(() => account = null);
       } else {
-        final next =
-            signIn ? await googleAccountSignIn(api) : await api.account();
+        final next = signIn
+            ? await googleAccountSignIn(api)
+            : silent
+                ? await api.restoreAccount()
+                : await api.account();
         if (mounted && next != null) setState(() => account = next);
       }
     } catch (e) {

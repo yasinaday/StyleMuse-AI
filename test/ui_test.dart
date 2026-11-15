@@ -14,9 +14,11 @@ void main() {
     expect(find.byKey(const Key('token-packs')), findsOneWidget);
     await tester.tap(find.byKey(const Key('token-packs')));
     await tester.pumpAndSettle();
-    expect(find.text('USD 20.00'), findsOneWidget);
-    expect(find.text('USD 3.00'), findsOneWidget);
-    expect(find.text('USD 6.25'), findsOneWidget);
+    expect(find.text('USD 20,00'), findsOneWidget);
+    expect(find.text('USD 3,00'), findsOneWidget);
+    expect(find.text('USD 6,25'), findsOneWidget);
+    expect(find.text('USD 10,00'), findsOneWidget);
+    expect(find.text('USD 15,00'), findsOneWidget);
     expect(
         tester
             .widget<FilledButton>(find.byKey(const Key('purchase-disabled')))
@@ -104,7 +106,7 @@ void main() {
     expect(find.byKey(const Key('app-language')), findsOneWidget);
     await tester.tap(find.byKey(const Key('app-language')));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('English').last);
+    await tester.tap(find.text('🇬🇧 English').last);
     await tester.pumpAndSettle();
     expect(store.language, 'en');
     expect(find.text('Discover'), findsOneWidget);
@@ -119,8 +121,15 @@ void main() {
     expect(find.text('Stil Profilim'), findsOneWidget);
     await tester.tap(find.text('Stil Profilim'));
     await tester.pumpAndSettle();
-    await tester.enterText(find.byKey(const Key('profile-name')), 'Ada');
+    expect(find.byKey(const Key('profile-name')), findsNothing);
     await tester.enterText(find.byKey(const Key('profile-height')), '172');
+    await tester.tap(find.byKey(const Key('save-profile')));
+    await tester.pumpAndSettle();
+    expect(store.profile['height'], '172');
+    await tester.tap(find.text('Bilgilerim'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('profile-height')), findsNothing);
+    await tester.enterText(find.byKey(const Key('profile-name')), 'Ada');
     await tester.tap(find.byKey(const Key('save-profile')));
     await tester.pumpAndSettle();
     expect(store.profile['name'], 'Ada');
