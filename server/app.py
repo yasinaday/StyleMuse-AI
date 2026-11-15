@@ -35,11 +35,15 @@ class GoogleLogin(BaseModel):
     model_config = ConfigDict(extra='forbid')
     credential: str = Field(min_length=1, max_length=8192)
 
+ENHANCEMENT_TOKENS_PER_PART = 2
+
+
 class GenerateRequest(BaseModel):
     model_config = ConfigDict(extra='forbid')
     job_id: str = Field(min_length=1,max_length=128)
     quote_id: str = Field(default='', max_length=128)
     item_ids: list[str] = Field(min_length=1,max_length=20)
+    approved_style_tokens: int = Field(default=0, ge=0, le=40, strict=True)
     confirmed: bool = Field(default=False, strict=True)
     max_total_usd: float = Field(default=0,ge=0,allow_inf_nan=False)
 
@@ -679,10 +683,11 @@ def create_app(settings=None, provider=None):
                 raise ValueError()
             action = body['action']
             payload = {'detect': DetectRequest, 'generate': GenerateRequest, 'tryon': TryOnRequest}[action].model_validate(body['inputs'])
-            if payload.confirmed or payload.quote_id or payload.max_total_usd:
+            if payload.confirmed or payload.quote_id or payload.max_total_usd or getattr(payload, 'approved_style_tokens', 0):
                 raise ValueError()
         except Exception:
             raise HTTPException(422, 'invalid_request') from None
+        style_tokens = 1
         if action == 'tryon':
             normalize(payload.person_image, s, upload=True)
             normalize(payload.clothing_image, s, preserve_alpha=True, upload=True)
@@ -705,7 +710,9 @@ def create_app(settings=None, provider=None):
                 old = {r['item']: r for r in db.execute('SELECT * FROM claims WHERE job=?', (payload.job_id,))}
                 if any(i in old and old[i]['state'] != 'done' for i in payload.item_ids):
                     raise HTTPException(409, 'generation_already_claimed')
-                cost = units(s.generation_reservation_usd) * sum(i not in old for i in payload.item_ids)
+                pending_count = sum(i not in old for i in payload.item_ids)
+                cost = units(s.generation_reservation_usd) * pending_count
+                style_tokens = ENHANCEMENT_TOKENS_PER_PART * pending_count
                 inputs = generation_quote_inputs(payload, job)
 
         qid = secrets.token_urlsafe(32)
@@ -714,7 +721,7 @@ def create_app(settings=None, provider=None):
                 (qid, who, request.cookies.get(cookie_name, ''), quote_digest(action, inputs),
                  cost, time.time() + 90, action))
         return {'quote_id': qid, 'action': action, 'estimated_cost_usd': cost/1000000,
-                'expires_in_seconds': 90, 'provider_credit': None, 'app_spending_ceiling_usd': None}
+                'expires_in_seconds': 90, 'style_tokens': style_tokens, 'provider_credit': None, 'app_spending_ceiling_usd': None}
 
     def generation_quote_inputs(payload, job):
         return {'job_id': payload.job_id, 'item_ids': payload.item_ids,
@@ -796,7 +803,13 @@ def create_app(settings=None, provider=None):
             cost = units(s.generation_reservation_usd)*len(pending)
             consume_quote(db, payload, request, who, 'generate', generation_quote_inputs(payload, job), cost)
             if pending:
-
+                if who.startswith(('google:', 'github:')):
+                    tokens_due = ENHANCEMENT_TOKENS_PER_PART * len(pending)
+                    if payload.approved_style_tokens != tokens_due:
+                        raise HTTPException(403, 'cost_confirmation_required')
+                    balance = db.execute('SELECT balance FROM style_tokens WHERE owner=?', (who,)).fetchone()
+                    if not balance or balance['balance'] < tokens_due:
+                        raise HTTPException(402, 'style_tokens_empty')
                 store.capacity(db,len(pending)*(s.max_image_bytes*4//3+100))
                 store.reserve(db,cost, owner=who, enforce_budget=False)
                 for i in pending:
@@ -809,9 +822,9 @@ def create_app(settings=None, provider=None):
                 from providers import RealProviders
                 operation = 'generate:' + payload.job_id + ':' + i
                 if type(provider) is RealProviders:
-                    generated = provider.generate(job['original'], available[i], before_submit=lambda: store.mark_submitted(operation))
+                    generated = provider.generate(job['original'], available[i], before_submit=lambda: store.mark_submitted(operation, style_tokens=ENHANCEMENT_TOKENS_PER_PART))
                 else:
-                    store.mark_submitted(operation)
+                    store.mark_submitted(operation, style_tokens=ENHANCEMENT_TOKENS_PER_PART)
                     generated = provider.generate(job['original'], available[i])
                 result = normalize(generated,s)
                 with store.tx() as db:

@@ -98,7 +98,8 @@ def approved(c, path, payload):
     if quote.status_code != 200:
         return quote
     q = quote.json()
-    return c.post(path, headers=HEADERS, json=dict(inputs, confirmed=True, quote_id=q['quote_id'], max_total_usd=q['estimated_cost_usd']))
+    approval = {'approved_style_tokens': q['style_tokens']} if path == '/api/generate' else {}
+    return c.post(path, headers=HEADERS, json=dict(inputs, confirmed=True, quote_id=q['quote_id'], max_total_usd=q['estimated_cost_usd'], **approval))
 
 
 def test_oauth_owner_gets_paid_admission_and_health_identity(tmp_path, monkeypatch):
@@ -139,6 +140,9 @@ def test_oauth_paid_routes_do_not_enforce_historical_owner_cap(tmp_path, monkeyp
     first = approved(c, '/api/detect', payload)
     assert first.status_code == 200
     job = first.json()
+    import sqlite3
+    with sqlite3.connect(tmp_path/'db') as db:
+        db.execute('INSERT INTO style_tokens VALUES(?,10)', ('github:12345',))
     generated = approved(c, '/api/generate', dict(job_id=job['job_id'],
         item_ids=[job['items'][0]['id']], confirmed=True, max_total_usd=.1))
     assert generated.status_code == 200
