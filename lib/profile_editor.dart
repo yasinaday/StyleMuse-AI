@@ -1,10 +1,12 @@
 import 'package:material_ui/material_ui.dart';
 import 'closet.dart';
 import 'localization.dart';
-import 'main.dart' show SmText, LocalStrings;
+import 'main.dart' show SmText, LocalStrings, photo;
 
 class ProfileEditor extends StatefulWidget {
-  const ProfileEditor({super.key, required this.store});
+  const ProfileEditor({super.key, required this.store, this.personal = false, this.pickPhoto});
+  final bool personal;
+  final Future<String?> Function()? pickPhoto;
   final ClosetStore store;
   @override
   State<ProfileEditor> createState() => _ProfileEditorState();
@@ -13,13 +15,14 @@ class ProfileEditor extends StatefulWidget {
 class _ProfileEditorState extends State<ProfileEditor> {
   final form = GlobalKey<FormState>();
   late final fields = {
-    for (final key in ['name', 'height', 'weight'])
+    for (final key in (widget.personal ? ['name'] : ['height', 'weight']))
       key: TextEditingController(text: widget.store.profile[key] ?? '')
   };
   late String tone = widget.store.profile['tone'] ?? 'medium';
   late String shape = widget.store.profile['shape'] ?? 'straight';
   late String size = widget.store.profile['size'] ?? 'M';
   bool saving = false;
+  late String? avatar = widget.store.profile['photo'];
   String tr(String s) => translate(s, widget.store.language);
   @override
   void dispose() {
@@ -63,14 +66,33 @@ class _ProfileEditorState extends State<ProfileEditor> {
   Widget build(BuildContext context) => LocalStrings(
       language: widget.store.language,
       child: Scaffold(
-        appBar: AppBar(title: const SmText('Stil Profilim')),
+        appBar: AppBar(title: SmText(widget.personal ? 'Bilgilerim' : 'Stil Profilim')),
         body: SafeArea(
             child: Column(children: [
           Expanded(
               child: Form(
                   key: form,
                   child: ListView(padding: const EdgeInsets.all(20), children: [
-                    field('name', 'Adın'),
+                    if (widget.personal) ...[
+                      field('name', 'Adın'),
+                      if (avatar != null)
+                        photo(avatar!, width: 88, height: 88, fit: BoxFit.contain),
+                      OutlinedButton(
+                        onPressed: saving ? null : () async {
+                          setState(() => saving = true);
+                          try {
+                            final image = await widget.pickPhoto?.call();
+                            if (mounted && image != null) setState(() => avatar = image);
+                          } catch (_) {
+                            if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text(tr('Fotoğraf açılamadı.'))));
+                          } finally {
+                            if (mounted) setState(() => saving = false);
+                          }
+                        },
+                        child: const SmText('Profil fotoğrafını değiştir'),
+                      ),
+                    ] else ...[
                     Row(children: [
                       Expanded(
                           child:
@@ -115,6 +137,7 @@ class _ProfileEditorState extends State<ProfileEditor> {
                         (x) => size = x),
                     const SmText(
                         'Bu profili kaydettiğinde hazır manken görünümün ten rengine, vücut tipine ve ölçülerine göre güncellenir.'),
+                    ],
                   ]))),
           Padding(
               padding: const EdgeInsets.all(16),
@@ -131,9 +154,8 @@ class _ProfileEditorState extends State<ProfileEditor> {
                                 await widget.store.updateProfile({
                                   for (final x in fields.entries)
                                     x.key: x.value.text.trim(),
-                                  'tone': tone,
-                                  'shape': shape,
-                                  'size': size
+                                  if (widget.personal && avatar != null) 'photo': avatar!,
+                                  if (!widget.personal) ...{'tone': tone, 'shape': shape, 'size': size}
                                 });
                                 if (context.mounted) Navigator.pop(context);
                               } catch (_) {
