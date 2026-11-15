@@ -1,0 +1,18 @@
+   Woah! You appear to be trying to run flutter as root.
+   We strongly recommend running the flutter tool without superuser privileges.
+  /
+📎
+00:00 +0: loading /opt/stylemuse-flutter-play/test/stylemuse_api_test.dart
+test/stylemuse_api_test.dart:32:13: Error: Method not found: 'TokenWorkflowController'.
+    final c=TokenWorkflowController(api:StyleMuseApi(storage:store,transport:t),storage:store,requestId:()=> 'request_1');
+            ^^^^^^^^^^^^^^^^^^^^^^^
+00:00 +0 -1: loading /opt/stylemuse-flutter-play/test/stylemuse_api_test.dart [E]
+  Failed to load "/opt/stylemuse-flutter-play/test/stylemuse_api_test.dart":
+  Compilation failed for testPath=/opt/stylemuse-flutter-play/test/stylemuse_api_test.dart: test/stylemuse_api_test.dart:32:13: Error: Method not found: 'TokenWorkflowController'.
+      final c=TokenWorkflowController(api:StyleMuseApi(storage:store,transport:t),storage:store,requestId:()=> 'request_1');
+              ^^^^^^^^^^^^^^^^^^^^^^^
+  .
+00:00 +0 -1: Some tests failed.
+
+Failing tests:
+  /opt/stylemuse-flutter-play/test/stylemuse_api_test.dart: loading /opt/stylemuse-flutter-play/test/stylemuse_api_test.dart

@@ -1,0 +1,517 @@
+...................................F.................................... [ 29%]
+.................F..FFFFFFF............................................. [ 59%]
+.....FFFFFFF....F........................................... [ 84%]
+............................F.........                                   [100%]
+=================================== FAILURES ===================================
+__________ test_real_unknown_credit_blocks_before_reservation_or_job ___________
+
+tmp_path = PosixPath('/root/.hermes/cache/scratch/pytest-of-root/pytest-24/test_real_unknown_credit_block0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x70f8f5187650>
+
+    def test_real_unknown_credit_blocks_before_reservation_or_job(tmp_path, monkeypatch):
+        from fastapi.testclient import TestClient
+        from app import create_app
+        from providers import RealProviders
+        from test_api import image
+        provider = RealProviders('', '')
+        from test_oauth import CONFIG, HEADERS, login
+        client = TestClient(create_app(dict(CONFIG, enabled=True,
+            lifetime_budget_usd=.5, db_path=str(tmp_path/'db'), storage_dir=str(tmp_path/'images')), provider), base_url='https://testserver')
+        assert login(client, monkeypatch).status_code == 303
+        client.headers.update(HEADERS)
+        payload = dict(image=image(), request_id='preflight', confirmed=True, max_total_usd=.05)
+>       assert client.post('/api/detect', json=payload).status_code == 402
+E       AssertionError: assert 403 == 402
+E        +  where 403 = <Response [403 Forbidden]>.status_code
+E        +    where <Response [403 Forbidden]> = post('/api/detect', json={'image': 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAIAAAAmkwkpAAAAEElEQVR4nGP8z4AATAxEcQAz0QEHOoQ+uAAAAABJRU5ErkJggg==', 'request_id': 'preflight', 'confirmed': True, 'max_total_usd': 0.05})
+E        +      where post = <starlette.testclient.TestClient object at 0x70f8f506d260>.post
+
+server/test_budget_accounting.py:109: AssertionError
+______ test_manual_fallback_quote_discloses_risk_and_preserves_single_use ______
+
+tmp_path = PosixPath('/root/.hermes/cache/scratch/pytest-of-root/pytest-24/test_manual_fallback_quote_dis0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x70f8eff68670>
+
+    def test_manual_fallback_quote_discloses_risk_and_preserves_single_use(tmp_path, monkeypatch):
+        from test_paid_quotes import client, FundedProvider
+        from test_oauth import HEADERS
+        from test_api import image
+        class ManualProvider(FundedProvider):
+            balance = None
+            def replicate_account(self):
+                return 'user:fixture-owner'
+        c, p = client(tmp_path, monkeypatch, ManualProvider())
+        store(tmp_path).record_manual_credit('fixture-snapshot', 'user:fixture-owner', '.92', 'fixture Billing evidence')
+        health = c.post('/api/health', headers=HEADERS).json()
+        assert health['app_spending_ceiling_usd'] is None
+        assert health['historical_budget_metadata'] is True
+        inputs = dict(image=image(), request_id='manual-fixture')
+        q = c.post('/api/quote', headers=HEADERS, json=dict(action='detect', inputs=inputs))
+        assert q.status_code == 200, q.text
+        credit = q.json()['provider_credit']
+>       assert credit['source'] == 'manual_non_realtime' and credit['overspend_risk']
+               ^^^^^^^^^^^^^^^^
+E       TypeError: 'NoneType' object is not subscriptable
+
+server/test_manual_credit.py:54: TypeError
+_ test_quote_binds_manual_snapshot_and_refresh_does_not_reauthorize_old_quote[False] _
+
+tmp_path = PosixPath('/root/.hermes/cache/scratch/pytest-of-root/pytest-24/test_quote_binds_manual_snapsh0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x70f8eeb59780>
+refresh_race = False
+
+    @pytest.mark.parametrize('refresh_race', [False, True])
+    def test_quote_binds_manual_snapshot_and_refresh_does_not_reauthorize_old_quote(tmp_path, monkeypatch, refresh_race):
+        from test_paid_quotes import client, FundedProvider
+        from test_oauth import HEADERS
+        from test_api import image
+        class ManualProvider(FundedProvider):
+            balance = None
+            def replicate_account(self):
+                return 'user:fixture-owner'
+        c, p = client(tmp_path, monkeypatch, ManualProvider())
+        s = store(tmp_path)
+        s.record_manual_credit('old', 'user:fixture-owner', '.92', 'fixture old statement')
+        inputs = dict(image=image(), request_id='replaced-snapshot')
+        q = c.post('/api/quote', headers=HEADERS, json=dict(action='detect', inputs=inputs)).json()
+        if refresh_race:
+            original = Store.manual_credit
+            def refresh_after_read(self, account):
+                credit = original(self, account)
+                s.record_manual_credit('new', 'user:fixture-owner', '.92', 'fixture refreshed statement')
+                return credit
+            monkeypatch.setattr(Store, 'manual_credit', refresh_after_read)
+        else:
+            s.record_manual_credit('new', 'user:fixture-owner', '.92', 'fixture refreshed statement')
+        result = c.post('/api/detect', headers=HEADERS, json=dict(inputs, confirmed=True, max_total_usd=.05, quote_id=q['quote_id']))
+>       assert result.status_code == 403, result.text
+E       AssertionError: {"job_id":"RvJSHgPFdOVB-Fi5JC-_dDm7OH8mIwrG","items":[{"id":"JNwmvZcn_Xa4VrW3nIIJjRT8S-kxi2nQ","preview":"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAYAAACp8Z5+AAAAFUlEQVR4nGP8z8DwnwEJMDGgAcICAIPRAgYCkO9YAAAAAElFTkSuQmCC","category":"shirt","mask_quality":{"status":"missing","source":"unavailable"},"quality_warnings":["semantic_category_unverified","mask_quality_unavailable"],"category_verified":false}]}
+E       assert 200 == 403
+E        +  where 200 = <Response [200 OK]>.status_code
+
+server/test_manual_credit.py:127: AssertionError
+_ test_quote_binds_manual_snapshot_and_refresh_does_not_reauthorize_old_quote[True] _
+
+tmp_path = PosixPath('/root/.hermes/cache/scratch/pytest-of-root/pytest-24/test_quote_binds_manual_snapsh1')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x70f8f510fa10>
+refresh_race = True
+
+    @pytest.mark.parametrize('refresh_race', [False, True])
+    def test_quote_binds_manual_snapshot_and_refresh_does_not_reauthorize_old_quote(tmp_path, monkeypatch, refresh_race):
+        from test_paid_quotes import client, FundedProvider
+        from test_oauth import HEADERS
+        from test_api import image
+        class ManualProvider(FundedProvider):
+            balance = None
+            def replicate_account(self):
+                return 'user:fixture-owner'
+        c, p = client(tmp_path, monkeypatch, ManualProvider())
+        s = store(tmp_path)
+        s.record_manual_credit('old', 'user:fixture-owner', '.92', 'fixture old statement')
+        inputs = dict(image=image(), request_id='replaced-snapshot')
+        q = c.post('/api/quote', headers=HEADERS, json=dict(action='detect', inputs=inputs)).json()
+        if refresh_race:
+            original = Store.manual_credit
+            def refresh_after_read(self, account):
+                credit = original(self, account)
+                s.record_manual_credit('new', 'user:fixture-owner', '.92', 'fixture refreshed statement')
+                return credit
+            monkeypatch.setattr(Store, 'manual_credit', refresh_after_read)
+        else:
+            s.record_manual_credit('new', 'user:fixture-owner', '.92', 'fixture refreshed statement')
+        result = c.post('/api/detect', headers=HEADERS, json=dict(inputs, confirmed=True, max_total_usd=.05, quote_id=q['quote_id']))
+>       assert result.status_code == 403, result.text
+E       AssertionError: {"job_id":"OBDy8c_OQAtBGbLDTOu0GsquoA1ErTuW","items":[{"id":"NHgV8bAEIL3RyNj70UAjUS7eUV0r9ZAG","preview":"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAYAAACp8Z5+AAAAFUlEQVR4nGP8z8DwnwEJMDGgAcICAIPRAgYCkO9YAAAAAElFTkSuQmCC","category":"shirt","mask_quality":{"status":"missing","source":"unavailable"},"quality_warnings":["semantic_category_unverified","mask_quality_unavailable"],"category_verified":false}]}
+E       assert 200 == 403
+E        +  where 200 = <Response [200 OK]>.status_code
+
+server/test_manual_credit.py:127: AssertionError
+_ test_manual_evidence_fails_closed_without_any_job_or_provider_submission[missing] _
+
+tmp_path = PosixPath('/root/.hermes/cache/scratch/pytest-of-root/pytest-24/test_manual_evidence_fails_clo0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x70f8f510f930>
+problem = 'missing'
+
+    @pytest.mark.parametrize('problem', ['missing', 'wrong_account', 'expired', 'insufficient', 'identity_failure'])
+    def test_manual_evidence_fails_closed_without_any_job_or_provider_submission(tmp_path, monkeypatch, problem):
+        from test_paid_quotes import client, FundedProvider
+        from test_oauth import HEADERS
+        from test_api import image
+        class ManualProvider(FundedProvider):
+            balance = None
+            def replicate_account(self):
+                if problem == 'identity_failure':
+                    raise RuntimeError('fixture account GET failure')
+                return 'user:wrong' if problem == 'wrong_account' else 'user:fixture-owner'
+        c, p = client(tmp_path, monkeypatch, ManualProvider())
+        s = store(tmp_path)
+        if problem != 'missing':
+            s.record_manual_credit('fixture', 'user:fixture-owner', '.01' if problem == 'insufficient' else '.92', 'fixture statement')
+        if problem == 'expired':
+            with s.tx() as db:
+                db.execute('UPDATE manual_provider_credit SET expires=0')
+        q = c.post('/api/quote', headers=HEADERS, json=dict(action='detect', inputs=dict(image=image(), request_id='fail-closed')))
+>       assert q.status_code == 402
+E       assert 200 == 402
+E        +  where 200 = <Response [200 OK]>.status_code
+
+server/test_manual_credit.py:150: AssertionError
+_ test_manual_evidence_fails_closed_without_any_job_or_provider_submission[wrong_account] _
+
+tmp_path = PosixPath('/root/.hermes/cache/scratch/pytest-of-root/pytest-24/test_manual_evidence_fails_clo1')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x70f8f504e200>
+problem = 'wrong_account'
+
+    @pytest.mark.parametrize('problem', ['missing', 'wrong_account', 'expired', 'insufficient', 'identity_failure'])
+    def test_manual_evidence_fails_closed_without_any_job_or_provider_submission(tmp_path, monkeypatch, problem):
+        from test_paid_quotes import client, FundedProvider
+        from test_oauth import HEADERS
+        from test_api import image
+        class ManualProvider(FundedProvider):
+            balance = None
+            def replicate_account(self):
+                if problem == 'identity_failure':
+                    raise RuntimeError('fixture account GET failure')
+                return 'user:wrong' if problem == 'wrong_account' else 'user:fixture-owner'
+        c, p = client(tmp_path, monkeypatch, ManualProvider())
+        s = store(tmp_path)
+        if problem != 'missing':
+            s.record_manual_credit('fixture', 'user:fixture-owner', '.01' if problem == 'insufficient' else '.92', 'fixture statement')
+        if problem == 'expired':
+            with s.tx() as db:
+                db.execute('UPDATE manual_provider_credit SET expires=0')
+        q = c.post('/api/quote', headers=HEADERS, json=dict(action='detect', inputs=dict(image=image(), request_id='fail-closed')))
+>       assert q.status_code == 402
+E       assert 200 == 402
+E        +  where 200 = <Response [200 OK]>.status_code
+
+server/test_manual_credit.py:150: AssertionError
+_ test_manual_evidence_fails_closed_without_any_job_or_provider_submission[expired] _
+
+tmp_path = PosixPath('/root/.hermes/cache/scratch/pytest-of-root/pytest-24/test_manual_evidence_fails_clo2')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x70f8f504de10>
+problem = 'expired'
+
+    @pytest.mark.parametrize('problem', ['missing', 'wrong_account', 'expired', 'insufficient', 'identity_failure'])
+    def test_manual_evidence_fails_closed_without_any_job_or_provider_submission(tmp_path, monkeypatch, problem):
+        from test_paid_quotes import client, FundedProvider
+        from test_oauth import HEADERS
+        from test_api import image
+        class ManualProvider(FundedProvider):
+            balance = None
+            def replicate_account(self):
+                if problem == 'identity_failure':
+                    raise RuntimeError('fixture account GET failure')
+                return 'user:wrong' if problem == 'wrong_account' else 'user:fixture-owner'
+        c, p = client(tmp_path, monkeypatch, ManualProvider())
+        s = store(tmp_path)
+        if problem != 'missing':
+            s.record_manual_credit('fixture', 'user:fixture-owner', '.01' if problem == 'insufficient' else '.92', 'fixture statement')
+        if problem == 'expired':
+            with s.tx() as db:
+                db.execute('UPDATE manual_provider_credit SET expires=0')
+        q = c.post('/api/quote', headers=HEADERS, json=dict(action='detect', inputs=dict(image=image(), request_id='fail-closed')))
+>       assert q.status_code == 402
+E       assert 200 == 402
+E        +  where 200 = <Response [200 OK]>.status_code
+
+server/test_manual_credit.py:150: AssertionError
+_ test_manual_evidence_fails_closed_without_any_job_or_provider_submission[insufficient] _
+
+tmp_path = PosixPath('/root/.hermes/cache/scratch/pytest-of-root/pytest-24/test_manual_evidence_fails_clo3')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x70f8f5809d30>
+problem = 'insufficient'
+
+    @pytest.mark.parametrize('problem', ['missing', 'wrong_account', 'expired', 'insufficient', 'identity_failure'])
+    def test_manual_evidence_fails_closed_without_any_job_or_provider_submission(tmp_path, monkeypatch, problem):
+        from test_paid_quotes import client, FundedProvider
+        from test_oauth import HEADERS
+        from test_api import image
+        class ManualProvider(FundedProvider):
+            balance = None
+            def replicate_account(self):
+                if problem == 'identity_failure':
+                    raise RuntimeError('fixture account GET failure')
+                return 'user:wrong' if problem == 'wrong_account' else 'user:fixture-owner'
+        c, p = client(tmp_path, monkeypatch, ManualProvider())
+        s = store(tmp_path)
+        if problem != 'missing':
+            s.record_manual_credit('fixture', 'user:fixture-owner', '.01' if problem == 'insufficient' else '.92', 'fixture statement')
+        if problem == 'expired':
+            with s.tx() as db:
+                db.execute('UPDATE manual_provider_credit SET expires=0')
+        q = c.post('/api/quote', headers=HEADERS, json=dict(action='detect', inputs=dict(image=image(), request_id='fail-closed')))
+>       assert q.status_code == 402
+E       assert 200 == 402
+E        +  where 200 = <Response [200 OK]>.status_code
+
+server/test_manual_credit.py:150: AssertionError
+_ test_manual_evidence_fails_closed_without_any_job_or_provider_submission[identity_failure] _
+
+tmp_path = PosixPath('/root/.hermes/cache/scratch/pytest-of-root/pytest-24/test_manual_evidence_fails_clo4')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x70f8f4e36120>
+problem = 'identity_failure'
+
+    @pytest.mark.parametrize('problem', ['missing', 'wrong_account', 'expired', 'insufficient', 'identity_failure'])
+    def test_manual_evidence_fails_closed_without_any_job_or_provider_submission(tmp_path, monkeypatch, problem):
+        from test_paid_quotes import client, FundedProvider
+        from test_oauth import HEADERS
+        from test_api import image
+        class ManualProvider(FundedProvider):
+            balance = None
+            def replicate_account(self):
+                if problem == 'identity_failure':
+                    raise RuntimeError('fixture account GET failure')
+                return 'user:wrong' if problem == 'wrong_account' else 'user:fixture-owner'
+        c, p = client(tmp_path, monkeypatch, ManualProvider())
+        s = store(tmp_path)
+        if problem != 'missing':
+            s.record_manual_credit('fixture', 'user:fixture-owner', '.01' if problem == 'insufficient' else '.92', 'fixture statement')
+        if problem == 'expired':
+            with s.tx() as db:
+                db.execute('UPDATE manual_provider_credit SET expires=0')
+        q = c.post('/api/quote', headers=HEADERS, json=dict(action='detect', inputs=dict(image=image(), request_id='fail-closed')))
+>       assert q.status_code == 402
+E       assert 200 == 402
+E        +  where 200 = <Response [200 OK]>.status_code
+
+server/test_manual_credit.py:150: AssertionError
+___ test_unverified_or_insufficient_credit_blocks_quote_and_submission[None] ___
+
+tmp_path = PosixPath('/root/.hermes/cache/scratch/pytest-of-root/pytest-24/test_unverified_or_insufficien0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x70f8f4e36f20>
+balance = None
+
+    @pytest.mark.parametrize('balance', [None, 0, .049, float('nan'), float('inf'), True, '10'])
+    def test_unverified_or_insufficient_credit_blocks_quote_and_submission(tmp_path, monkeypatch, balance):
+        c, p = client(tmp_path, monkeypatch, FundedProvider())
+        inputs = dict(image=image(), request_id='credit')
+        q = c.post('/api/quote', headers=HEADERS, json=dict(action='detect', inputs=inputs)).json()
+        p.balance = balance
+        denied = c.post('/api/quote', headers=HEADERS, json=dict(action='detect', inputs=inputs))
+>       assert denied.status_code == 402
+E       assert 200 == 402
+E        +  where 200 = <Response [200 OK]>.status_code
+
+server/test_paid_quotes.py:51: AssertionError
+____ test_unverified_or_insufficient_credit_blocks_quote_and_submission[0] _____
+
+tmp_path = PosixPath('/root/.hermes/cache/scratch/pytest-of-root/pytest-24/test_unverified_or_insufficien1')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x70f8eeb5b7e0>
+balance = 0
+
+    @pytest.mark.parametrize('balance', [None, 0, .049, float('nan'), float('inf'), True, '10'])
+    def test_unverified_or_insufficient_credit_blocks_quote_and_submission(tmp_path, monkeypatch, balance):
+        c, p = client(tmp_path, monkeypatch, FundedProvider())
+        inputs = dict(image=image(), request_id='credit')
+        q = c.post('/api/quote', headers=HEADERS, json=dict(action='detect', inputs=inputs)).json()
+        p.balance = balance
+        denied = c.post('/api/quote', headers=HEADERS, json=dict(action='detect', inputs=inputs))
+>       assert denied.status_code == 402
+E       assert 200 == 402
+E        +  where 200 = <Response [200 OK]>.status_code
+
+server/test_paid_quotes.py:51: AssertionError
+__ test_unverified_or_insufficient_credit_blocks_quote_and_submission[0.049] ___
+
+tmp_path = PosixPath('/root/.hermes/cache/scratch/pytest-of-root/pytest-24/test_unverified_or_insufficien2')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x70f8eff6ac10>
+balance = 0.049
+
+    @pytest.mark.parametrize('balance', [None, 0, .049, float('nan'), float('inf'), True, '10'])
+    def test_unverified_or_insufficient_credit_blocks_quote_and_submission(tmp_path, monkeypatch, balance):
+        c, p = client(tmp_path, monkeypatch, FundedProvider())
+        inputs = dict(image=image(), request_id='credit')
+        q = c.post('/api/quote', headers=HEADERS, json=dict(action='detect', inputs=inputs)).json()
+        p.balance = balance
+        denied = c.post('/api/quote', headers=HEADERS, json=dict(action='detect', inputs=inputs))
+>       assert denied.status_code == 402
+E       assert 200 == 402
+E        +  where 200 = <Response [200 OK]>.status_code
+
+server/test_paid_quotes.py:51: AssertionError
+___ test_unverified_or_insufficient_credit_blocks_quote_and_submission[nan] ____
+
+tmp_path = PosixPath('/root/.hermes/cache/scratch/pytest-of-root/pytest-24/test_unverified_or_insufficien3')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x70f8f4e34fa0>
+balance = nan
+
+    @pytest.mark.parametrize('balance', [None, 0, .049, float('nan'), float('inf'), True, '10'])
+    def test_unverified_or_insufficient_credit_blocks_quote_and_submission(tmp_path, monkeypatch, balance):
+        c, p = client(tmp_path, monkeypatch, FundedProvider())
+        inputs = dict(image=image(), request_id='credit')
+        q = c.post('/api/quote', headers=HEADERS, json=dict(action='detect', inputs=inputs)).json()
+        p.balance = balance
+        denied = c.post('/api/quote', headers=HEADERS, json=dict(action='detect', inputs=inputs))
+>       assert denied.status_code == 402
+E       assert 200 == 402
+E        +  where 200 = <Response [200 OK]>.status_code
+
+server/test_paid_quotes.py:51: AssertionError
+___ test_unverified_or_insufficient_credit_blocks_quote_and_submission[inf] ____
+
+tmp_path = PosixPath('/root/.hermes/cache/scratch/pytest-of-root/pytest-24/test_unverified_or_insufficien4')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x70f8f53cb460>
+balance = inf
+
+    @pytest.mark.parametrize('balance', [None, 0, .049, float('nan'), float('inf'), True, '10'])
+    def test_unverified_or_insufficient_credit_blocks_quote_and_submission(tmp_path, monkeypatch, balance):
+        c, p = client(tmp_path, monkeypatch, FundedProvider())
+        inputs = dict(image=image(), request_id='credit')
+        q = c.post('/api/quote', headers=HEADERS, json=dict(action='detect', inputs=inputs)).json()
+        p.balance = balance
+        denied = c.post('/api/quote', headers=HEADERS, json=dict(action='detect', inputs=inputs))
+>       assert denied.status_code == 402
+E       assert 200 == 402
+E        +  where 200 = <Response [200 OK]>.status_code
+
+server/test_paid_quotes.py:51: AssertionError
+___ test_unverified_or_insufficient_credit_blocks_quote_and_submission[True] ___
+
+tmp_path = PosixPath('/root/.hermes/cache/scratch/pytest-of-root/pytest-24/test_unverified_or_insufficien5')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x70f8f4b7e890>
+balance = True
+
+    @pytest.mark.parametrize('balance', [None, 0, .049, float('nan'), float('inf'), True, '10'])
+    def test_unverified_or_insufficient_credit_blocks_quote_and_submission(tmp_path, monkeypatch, balance):
+        c, p = client(tmp_path, monkeypatch, FundedProvider())
+        inputs = dict(image=image(), request_id='credit')
+        q = c.post('/api/quote', headers=HEADERS, json=dict(action='detect', inputs=inputs)).json()
+        p.balance = balance
+        denied = c.post('/api/quote', headers=HEADERS, json=dict(action='detect', inputs=inputs))
+>       assert denied.status_code == 402
+E       assert 200 == 402
+E        +  where 200 = <Response [200 OK]>.status_code
+
+server/test_paid_quotes.py:51: AssertionError
+____ test_unverified_or_insufficient_credit_blocks_quote_and_submission[10] ____
+
+tmp_path = PosixPath('/root/.hermes/cache/scratch/pytest-of-root/pytest-24/test_unverified_or_insufficien6')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x70f8eff6b540>
+balance = '10'
+
+    @pytest.mark.parametrize('balance', [None, 0, .049, float('nan'), float('inf'), True, '10'])
+    def test_unverified_or_insufficient_credit_blocks_quote_and_submission(tmp_path, monkeypatch, balance):
+        c, p = client(tmp_path, monkeypatch, FundedProvider())
+        inputs = dict(image=image(), request_id='credit')
+        q = c.post('/api/quote', headers=HEADERS, json=dict(action='detect', inputs=inputs)).json()
+        p.balance = balance
+        denied = c.post('/api/quote', headers=HEADERS, json=dict(action='detect', inputs=inputs))
+>       assert denied.status_code == 402
+E       assert 200 == 402
+E        +  where 200 = <Response [200 OK]>.status_code
+
+server/test_paid_quotes.py:51: AssertionError
+_______ test_generation_rechecks_real_credit_before_each_paid_submission _______
+
+tmp_path = PosixPath('/root/.hermes/cache/scratch/pytest-of-root/pytest-24/test_generation_rechecks_real_0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x70f8eff6b2a0>
+
+    def test_generation_rechecks_real_credit_before_each_paid_submission(tmp_path, monkeypatch):
+        c, p = client(tmp_path, monkeypatch, FundedProvider())
+        p.detect = lambda _: [dict(category='top', preview=image(), prompt='top') for _ in range(2)]
+        inputs = dict(image=image(), request_id='credit-changes')
+        q = c.post('/api/quote', headers=HEADERS, json=dict(action='detect', inputs=inputs)).json()
+        job = c.post('/api/detect', headers=HEADERS, json=dict(inputs, confirmed=True, max_total_usd=.05, quote_id=q['quote_id'])).json()
+        selection = dict(job_id=job['job_id'], item_ids=[i['id'] for i in job['items']])
+        q = c.post('/api/quote', headers=HEADERS, json=dict(action='generate', inputs=selection)).json()
+        original = p.generate
+        def generate(*args):
+            result = original(*args)
+            p.balance = 0
+            return result
+        p.generate = generate
+        denied = c.post('/api/generate', headers=HEADERS, json=dict(selection, confirmed=True, max_total_usd=.2, quote_id=q['quote_id'], approved_style_tokens=q['style_tokens']))
+>       assert denied.status_code == 502
+E       assert 200 == 502
+E        +  where 200 = <Response [200 OK]>.status_code
+
+server/test_paid_quotes.py:153: AssertionError
+_ FidelityTests.test_missing_or_empty_mask_is_explicitly_rejected (row={'input': {'text': 'trousers'}, 'scores': [0.9], 'masks': [[[0, 0, 0, 0, 0, 0, ...], [0, 0, 0, 0, 0, 0, ...], [0, 0, 0, 0, 0, 0, ...], [0, 0, 0, 0, 0, 0, ...], [0, 0, 0, 0, 0, 0, ...], [0, 0, 0, 0, 0, 0, ...], ...]]}) _
+
+self = <test_provider_fidelity.FidelityTests testMethod=test_missing_or_empty_mask_is_explicitly_rejected>
+
+    def test_missing_or_empty_mask_is_explicitly_rejected(self):
+        missing = {'input': {'text': 'trousers'}, 'scores': []}
+        for row in (missing, detection('trousers', points=set())):
+            with self.subTest(row=row):
+>               with self.assertRaisesRegex(ProviderError, 'Missing|Empty'):
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E               AssertionError: ProviderError not raised
+
+server/test_provider_fidelity.py:84: AssertionError
+________ test_tampering_and_credit_recheck_make_no_submission[balance] _________
+
+tmp_path = PosixPath('/root/.hermes/cache/scratch/pytest-of-root/pytest-24/test_tampering_and_credit_rech6')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x70f8eeb5bd90>
+mutation = 'balance'
+
+    @pytest.mark.parametrize('mutation', ['person','clothing','amount','consent','quote','expired','balance','origin'])
+    def test_tampering_and_credit_recheck_make_no_submission(tmp_path, monkeypatch, mutation):
+        p = TryFixture()
+        c, _ = client(tmp_path, monkeypatch, p)
+        data = inputs()
+        q = c.post('/api/quote', headers=HEADERS, json=dict(action='tryon', inputs=data)).json()
+        approved = dict(data, quote_id=q['quote_id'], confirmed=True, max_total_usd=.04)
+        headers = dict(HEADERS)
+        import base64
+        changed = 'data:image/png;base64,' + base64.b64encode(base64.b64decode(image().split(',')[1]) + b'fixture').decode()
+        if mutation == 'person': approved['person_image'] = changed
+        if mutation == 'clothing': approved['clothing_image'] = changed
+        if mutation == 'amount': approved['max_total_usd'] = .0399999
+        if mutation == 'consent': approved['confirmed'] = False
+        if mutation == 'quote': approved['quote_id'] = 'fake'
+        if mutation == 'expired':
+            with sqlite3.connect(tmp_path/'db') as db: db.execute('UPDATE payment_quotes SET expires=0')
+        if mutation == 'balance': p.balance = .039
+        if mutation == 'origin': headers['Origin'] = 'https://evil.invalid'
+        result = c.post('/api/tryon', headers=headers, json=approved)
+>       assert result.status_code in (402,403), result.text
+E       AssertionError: {"job_id":"tryon-IdH0d9r5FcGgHzou4isn3qVAc36xByFY","state":"pending"}
+E       assert 200 in (402, 403)
+E        +  where 200 = <Response [200 OK]>.status_code
+
+server/test_virtual_tryon.py:107: AssertionError
+=============================== warnings summary ===============================
+../../root/.hermes/cache/scratch/stylemuse-flutter-tests/lib/python3.14/site-packages/starlette/testclient.py:37
+  /root/.hermes/cache/scratch/stylemuse-flutter-tests/lib/python3.14/site-packages/starlette/testclient.py:37: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = typing.Callable[[], typing.ContextManager[anyio.abc.BlockingPortal]]
+
+../../root/.hermes/cache/scratch/stylemuse-flutter-tests/lib/python3.14/site-packages/fastapi/routing.py:233: 24 warnings
+server/test_android_auth.py: 264 warnings
+server/test_api.py: 336 warnings
+server/test_budget_accounting.py: 72 warnings
+server/test_footwear_removal.py: 432 warnings
+server/test_image_normalization.py: 72 warnings
+server/test_manual_credit.py: 192 warnings
+server/test_oauth.py: 792 warnings
+server/test_oauth_browser_binding.py: 168 warnings
+server/test_paid_quotes.py: 528 warnings
+server/test_provider_fidelity.py: 24 warnings
+server/test_sessions.py: 480 warnings
+server/test_virtual_tryon.py: 480 warnings
+  /root/.hermes/cache/scratch/stylemuse-flutter-tests/lib/python3.14/site-packages/fastapi/routing.py:233: DeprecationWarning: 'asyncio.iscoroutinefunction' is deprecated and slated for removal in Python 3.16; use inspect.iscoroutinefunction() instead
+    is_coroutine = asyncio.iscoroutinefunction(dependant.call)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED server/test_budget_accounting.py::test_real_unknown_credit_blocks_before_reservation_or_job
+FAILED server/test_manual_credit.py::test_manual_fallback_quote_discloses_risk_and_preserves_single_use
+FAILED server/test_manual_credit.py::test_quote_binds_manual_snapshot_and_refresh_does_not_reauthorize_old_quote[False]
+FAILED server/test_manual_credit.py::test_quote_binds_manual_snapshot_and_refresh_does_not_reauthorize_old_quote[True]
+FAILED server/test_manual_credit.py::test_manual_evidence_fails_closed_without_any_job_or_provider_submission[missing]
+FAILED server/test_manual_credit.py::test_manual_evidence_fails_closed_without_any_job_or_provider_submission[wrong_account]
+FAILED server/test_manual_credit.py::test_manual_evidence_fails_closed_without_any_job_or_provider_submission[expired]
+FAILED server/test_manual_credit.py::test_manual_evidence_fails_closed_without_any_job_or_provider_submission[insufficient]
+FAILED server/test_manual_credit.py::test_manual_evidence_fails_closed_without_any_job_or_provider_submission[identity_failure]
+FAILED server/test_paid_quotes.py::test_unverified_or_insufficient_credit_blocks_quote_and_submission[None]
+FAILED server/test_paid_quotes.py::test_unverified_or_insufficient_credit_blocks_quote_and_submission[0]
+FAILED server/test_paid_quotes.py::test_unverified_or_insufficient_credit_blocks_quote_and_submission[0.049]
+FAILED server/test_paid_quotes.py::test_unverified_or_insufficient_credit_blocks_quote_and_submission[nan]
+FAILED server/test_paid_quotes.py::test_unverified_or_insufficient_credit_blocks_quote_and_submission[inf]
+FAILED server/test_paid_quotes.py::test_unverified_or_insufficient_credit_blocks_quote_and_submission[True]
+FAILED server/test_paid_quotes.py::test_unverified_or_insufficient_credit_blocks_quote_and_submission[10]
+FAILED server/test_paid_quotes.py::test_generation_rechecks_real_credit_before_each_paid_submission
+SUBFAILED(row={'input': {'text': 'trousers'}, 'scores': [0.9], 'masks': [[[0, 0, 0, 0, 0, 0, ...], [0, 0, 0, 0, 0, 0, ...], [0, 0, 0, 0, 0, 0, ...], [0, 0, 0, 0, 0, 0, ...], [0, 0, 0, 0, 0, 0, ...], [0, 0, 0, 0, 0, 0, ...], ...]]}) server/test_provider_fidelity.py::FidelityTests::test_missing_or_empty_mask_is_explicitly_rejected
+FAILED server/test_virtual_tryon.py::test_tampering_and_credit_recheck_make_no_submission[balance]
+19 failed, 224 passed, 3865 warnings, 11 subtests passed in 99.00s (0:01:38)

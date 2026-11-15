@@ -1,0 +1,33 @@
+.F.........                                                              [100%]
+=================================== FAILURES ===================================
+____________ test_android_unconfigured_fails_before_google_network _____________
+
+case = (<starlette.testclient.TestClient object at 0x76e9bcbd1450>, {'sub': 'android-user', 'email': 'fixture@example.invalid', 'email_verified': True, 'aud': 'web.apps.googleusercontent.com', ...}, [('signed', 'web.apps.googleusercontent.com')])
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x76e9bd9d6b10>
+
+    def test_android_unconfigured_fails_before_google_network(case, monkeypatch):
+        c, _, calls = case
+        monkeypatch.delenv('STYLEMUSE_GOOGLE_ANDROID_CLIENT_IDS')
+        r = c.post('/api/auth/google/android', json={'credential':'signed'})
+        assert r.status_code == 503
+>       assert calls == []
+E       AssertionError: assert [('signed', '...content.com')] == []
+E         
+E         Left contains one more item: ('signed', 'web.apps.googleusercontent.com')
+E         Use -v to get more diff
+
+server/test_android_auth.py:41: AssertionError
+=============================== warnings summary ===============================
+../../root/.hermes/cache/scratch/stylemuse-flutter-tests/lib/python3.14/site-packages/starlette/testclient.py:37
+  /root/.hermes/cache/scratch/stylemuse-flutter-tests/lib/python3.14/site-packages/starlette/testclient.py:37: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = typing.Callable[[], typing.ContextManager[anyio.abc.BlockingPortal]]
+
+../../root/.hermes/cache/scratch/stylemuse-flutter-tests/lib/python3.14/site-packages/fastapi/routing.py:233: 24 warnings
+server/test_android_auth.py: 264 warnings
+  /root/.hermes/cache/scratch/stylemuse-flutter-tests/lib/python3.14/site-packages/fastapi/routing.py:233: DeprecationWarning: 'asyncio.iscoroutinefunction' is deprecated and slated for removal in Python 3.16; use inspect.iscoroutinefunction() instead
+    is_coroutine = asyncio.iscoroutinefunction(dependant.call)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED server/test_android_auth.py::test_android_unconfigured_fails_before_google_network
+1 failed, 10 passed, 289 warnings in 2.54s

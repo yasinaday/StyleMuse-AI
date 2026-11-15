@@ -1,0 +1,36 @@
+.F                                                                       [100%]
+=================================== FAILURES ===================================
+___ test_recovery_is_read_only_owner_bound_and_returns_completed_extraction ____
+
+case = (<starlette.testclient.TestClient object at 0x7e65b1aee350>, {'sub': 'android-user', 'email': 'fixture@example.invalid', 'email_verified': True, 'aud': 'web.apps.googleusercontent.com', ...}, [('signed', 'web.apps.googleusercontent.com')])
+tmp_path = PosixPath('/root/.hermes/cache/scratch/pytest-of-root/pytest-15/test_recovery_is_read_only_own0')
+
+    def test_recovery_is_read_only_owner_bound_and_returns_completed_extraction(case, tmp_path):
+        import sqlite3, json, time
+        c, _, _ = case
+        assert c.post('/api/auth/google/android', json={'credential':'signed'}).status_code == 200
+        with sqlite3.connect(tmp_path/'db') as db:
+            item = dict(id='i', preview='data:image/png;base64,AA==', category='top')
+            db.execute('INSERT INTO jobs VALUES(?,?,?,?,?,?,?,?)',
+                ('j','google:android-user','extract1','hash','done','source',json.dumps([item]),time.time()+60))
+        r = c.post('/api/operations/recover', json={'action':'detect','request_id':'extract1'})
+>       assert r.status_code == 200, r.text
+E       AssertionError: {"detail":"Not Found"}
+E       assert 404 == 200
+E        +  where 404 = <Response [404 Not Found]>.status_code
+
+server/test_android_auth.py:45: AssertionError
+=============================== warnings summary ===============================
+../../root/.hermes/cache/scratch/stylemuse-flutter-tests/lib/python3.14/site-packages/starlette/testclient.py:37
+  /root/.hermes/cache/scratch/stylemuse-flutter-tests/lib/python3.14/site-packages/starlette/testclient.py:37: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = typing.Callable[[], typing.ContextManager[anyio.abc.BlockingPortal]]
+
+../../root/.hermes/cache/scratch/stylemuse-flutter-tests/lib/python3.14/site-packages/fastapi/routing.py:233: 23 warnings
+server/test_android_auth.py: 46 warnings
+  /root/.hermes/cache/scratch/stylemuse-flutter-tests/lib/python3.14/site-packages/fastapi/routing.py:233: DeprecationWarning: 'asyncio.iscoroutinefunction' is deprecated and slated for removal in Python 3.16; use inspect.iscoroutinefunction() instead
+    is_coroutine = asyncio.iscoroutinefunction(dependant.call)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED server/test_android_auth.py::test_recovery_is_read_only_owner_bound_and_returns_completed_extraction
+1 failed, 1 passed, 70 warnings in 0.82s

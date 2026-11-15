@@ -1,0 +1,516 @@
+........................F............................................... [ 31%]
+......F..FFFFFFF..................................................FFFFFF [ 62%]
+F....F...................................................... [ 88%]
+.................F.........                                              [100%]
+=================================== FAILURES ===================================
+__________ test_real_unknown_credit_blocks_before_reservation_or_job ___________
+
+tmp_path = PosixPath('/root/.hermes/cache/scratch/pytest-of-root/pytest-26/test_real_unknown_credit_block0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x71276d865400>
+
+    def test_real_unknown_credit_blocks_before_reservation_or_job(tmp_path, monkeypatch):
+        from fastapi.testclient import TestClient
+        from app import create_app
+        from providers import RealProviders
+        from test_api import image
+        provider = RealProviders('', '')
+        from test_oauth import CONFIG, HEADERS, login
+        client = TestClient(create_app(dict(CONFIG, enabled=True,
+            lifetime_budget_usd=.5, db_path=str(tmp_path/'db'), storage_dir=str(tmp_path/'images')), provider), base_url='https://testserver')
+        assert login(client, monkeypatch).status_code == 303
+        client.headers.update(HEADERS)
+        payload = dict(image=image(), request_id='preflight', confirmed=True, max_total_usd=.05)
+>       assert client.post('/api/detect', json=payload).status_code == 402
+E       AssertionError: assert 403 == 402
+E        +  where 403 = <Response [403 Forbidden]>.status_code
+E        +    where <Response [403 Forbidden]> = post('/api/detect', json={'image': 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAIAAAAmkwkpAAAAEElEQVR4nGP8z4AATAxEcQAz0QEHOoQ+uAAAAABJRU5ErkJggg==', 'request_id': 'preflight', 'confirmed': True, 'max_total_usd': 0.05})
+E        +      where post = <starlette.testclient.TestClient object at 0x71276d7908a0>.post
+
+/root/.hermes/cache/scratch/stylemuse-api-baseline/server/test_budget_accounting.py:109: AssertionError
+______ test_manual_fallback_quote_discloses_risk_and_preserves_single_use ______
+
+tmp_path = PosixPath('/root/.hermes/cache/scratch/pytest-of-root/pytest-26/test_manual_fallback_quote_dis0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x71276d7e8370>
+
+    def test_manual_fallback_quote_discloses_risk_and_preserves_single_use(tmp_path, monkeypatch):
+        from test_paid_quotes import client, FundedProvider
+        from test_oauth import HEADERS
+        from test_api import image
+        class ManualProvider(FundedProvider):
+            balance = None
+            def replicate_account(self):
+                return 'user:fixture-owner'
+        c, p = client(tmp_path, monkeypatch, ManualProvider())
+        store(tmp_path).record_manual_credit('fixture-snapshot', 'user:fixture-owner', '.92', 'fixture Billing evidence')
+        health = c.post('/api/health', headers=HEADERS).json()
+        assert health['app_spending_ceiling_usd'] is None
+        assert health['historical_budget_metadata'] is True
+        inputs = dict(image=image(), request_id='manual-fixture')
+        q = c.post('/api/quote', headers=HEADERS, json=dict(action='detect', inputs=inputs))
+        assert q.status_code == 200, q.text
+        credit = q.json()['provider_credit']
+>       assert credit['source'] == 'manual_non_realtime' and credit['overspend_risk']
+               ^^^^^^^^^^^^^^^^
+E       TypeError: 'NoneType' object is not subscriptable
+
+/root/.hermes/cache/scratch/stylemuse-api-baseline/server/test_manual_credit.py:54: TypeError
+_ test_quote_binds_manual_snapshot_and_refresh_does_not_reauthorize_old_quote[False] _
+
+tmp_path = PosixPath('/root/.hermes/cache/scratch/pytest-of-root/pytest-26/test_quote_binds_manual_snapsh0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x71276d7f0290>
+refresh_race = False
+
+    @pytest.mark.parametrize('refresh_race', [False, True])
+    def test_quote_binds_manual_snapshot_and_refresh_does_not_reauthorize_old_quote(tmp_path, monkeypatch, refresh_race):
+        from test_paid_quotes import client, FundedProvider
+        from test_oauth import HEADERS
+        from test_api import image
+        class ManualProvider(FundedProvider):
+            balance = None
+            def replicate_account(self):
+                return 'user:fixture-owner'
+        c, p = client(tmp_path, monkeypatch, ManualProvider())
+        s = store(tmp_path)
+        s.record_manual_credit('old', 'user:fixture-owner', '.92', 'fixture old statement')
+        inputs = dict(image=image(), request_id='replaced-snapshot')
+        q = c.post('/api/quote', headers=HEADERS, json=dict(action='detect', inputs=inputs)).json()
+        if refresh_race:
+            original = Store.manual_credit
+            def refresh_after_read(self, account):
+                credit = original(self, account)
+                s.record_manual_credit('new', 'user:fixture-owner', '.92', 'fixture refreshed statement')
+                return credit
+            monkeypatch.setattr(Store, 'manual_credit', refresh_after_read)
+        else:
+            s.record_manual_credit('new', 'user:fixture-owner', '.92', 'fixture refreshed statement')
+        result = c.post('/api/detect', headers=HEADERS, json=dict(inputs, confirmed=True, max_total_usd=.05, quote_id=q['quote_id']))
+>       assert result.status_code == 403, result.text
+E       AssertionError: {"job_id":"5teCGyzjsFI9j6NX28OjaUYGIIfz2JII","items":[{"id":"nf7R5Nu8CelJWXF8ESJzutOt0fFtgTah","preview":"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAYAAACp8Z5+AAAAFUlEQVR4nGP8z8DwnwEJMDGgAcICAIPRAgYCkO9YAAAAAElFTkSuQmCC","category":"shirt","mask_quality":{"status":"missing","source":"unavailable"},"quality_warnings":["semantic_category_unverified","mask_quality_unavailable"],"category_verified":false}]}
+E       assert 200 == 403
+E        +  where 200 = <Response [200 OK]>.status_code
+
+/root/.hermes/cache/scratch/stylemuse-api-baseline/server/test_manual_credit.py:127: AssertionError
+_ test_quote_binds_manual_snapshot_and_refresh_does_not_reauthorize_old_quote[True] _
+
+tmp_path = PosixPath('/root/.hermes/cache/scratch/pytest-of-root/pytest-26/test_quote_binds_manual_snapsh1')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x71276d8698d0>
+refresh_race = True
+
+    @pytest.mark.parametrize('refresh_race', [False, True])
+    def test_quote_binds_manual_snapshot_and_refresh_does_not_reauthorize_old_quote(tmp_path, monkeypatch, refresh_race):
+        from test_paid_quotes import client, FundedProvider
+        from test_oauth import HEADERS
+        from test_api import image
+        class ManualProvider(FundedProvider):
+            balance = None
+            def replicate_account(self):
+                return 'user:fixture-owner'
+        c, p = client(tmp_path, monkeypatch, ManualProvider())
+        s = store(tmp_path)
+        s.record_manual_credit('old', 'user:fixture-owner', '.92', 'fixture old statement')
+        inputs = dict(image=image(), request_id='replaced-snapshot')
+        q = c.post('/api/quote', headers=HEADERS, json=dict(action='detect', inputs=inputs)).json()
+        if refresh_race:
+            original = Store.manual_credit
+            def refresh_after_read(self, account):
+                credit = original(self, account)
+                s.record_manual_credit('new', 'user:fixture-owner', '.92', 'fixture refreshed statement')
+                return credit
+            monkeypatch.setattr(Store, 'manual_credit', refresh_after_read)
+        else:
+            s.record_manual_credit('new', 'user:fixture-owner', '.92', 'fixture refreshed statement')
+        result = c.post('/api/detect', headers=HEADERS, json=dict(inputs, confirmed=True, max_total_usd=.05, quote_id=q['quote_id']))
+>       assert result.status_code == 403, result.text
+E       AssertionError: {"job_id":"ngzdgZe5OBbQS4fWwfmsoKCXilz4I7g7","items":[{"id":"qAUBh9mOzcUx6oi_ifFvTgXrfUWT0IB8","preview":"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAYAAACp8Z5+AAAAFUlEQVR4nGP8z8DwnwEJMDGgAcICAIPRAgYCkO9YAAAAAElFTkSuQmCC","category":"shirt","mask_quality":{"status":"missing","source":"unavailable"},"quality_warnings":["semantic_category_unverified","mask_quality_unavailable"],"category_verified":false}]}
+E       assert 200 == 403
+E        +  where 200 = <Response [200 OK]>.status_code
+
+/root/.hermes/cache/scratch/stylemuse-api-baseline/server/test_manual_credit.py:127: AssertionError
+_ test_manual_evidence_fails_closed_without_any_job_or_provider_submission[missing] _
+
+tmp_path = PosixPath('/root/.hermes/cache/scratch/pytest-of-root/pytest-26/test_manual_evidence_fails_clo0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x71276d6a9e50>
+problem = 'missing'
+
+    @pytest.mark.parametrize('problem', ['missing', 'wrong_account', 'expired', 'insufficient', 'identity_failure'])
+    def test_manual_evidence_fails_closed_without_any_job_or_provider_submission(tmp_path, monkeypatch, problem):
+        from test_paid_quotes import client, FundedProvider
+        from test_oauth import HEADERS
+        from test_api import image
+        class ManualProvider(FundedProvider):
+            balance = None
+            def replicate_account(self):
+                if problem == 'identity_failure':
+                    raise RuntimeError('fixture account GET failure')
+                return 'user:wrong' if problem == 'wrong_account' else 'user:fixture-owner'
+        c, p = client(tmp_path, monkeypatch, ManualProvider())
+        s = store(tmp_path)
+        if problem != 'missing':
+            s.record_manual_credit('fixture', 'user:fixture-owner', '.01' if problem == 'insufficient' else '.92', 'fixture statement')
+        if problem == 'expired':
+            with s.tx() as db:
+                db.execute('UPDATE manual_provider_credit SET expires=0')
+        q = c.post('/api/quote', headers=HEADERS, json=dict(action='detect', inputs=dict(image=image(), request_id='fail-closed')))
+>       assert q.status_code == 402
+E       assert 200 == 402
+E        +  where 200 = <Response [200 OK]>.status_code
+
+/root/.hermes/cache/scratch/stylemuse-api-baseline/server/test_manual_credit.py:150: AssertionError
+_ test_manual_evidence_fails_closed_without_any_job_or_provider_submission[wrong_account] _
+
+tmp_path = PosixPath('/root/.hermes/cache/scratch/pytest-of-root/pytest-26/test_manual_evidence_fails_clo1')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x71276d812f90>
+problem = 'wrong_account'
+
+    @pytest.mark.parametrize('problem', ['missing', 'wrong_account', 'expired', 'insufficient', 'identity_failure'])
+    def test_manual_evidence_fails_closed_without_any_job_or_provider_submission(tmp_path, monkeypatch, problem):
+        from test_paid_quotes import client, FundedProvider
+        from test_oauth import HEADERS
+        from test_api import image
+        class ManualProvider(FundedProvider):
+            balance = None
+            def replicate_account(self):
+                if problem == 'identity_failure':
+                    raise RuntimeError('fixture account GET failure')
+                return 'user:wrong' if problem == 'wrong_account' else 'user:fixture-owner'
+        c, p = client(tmp_path, monkeypatch, ManualProvider())
+        s = store(tmp_path)
+        if problem != 'missing':
+            s.record_manual_credit('fixture', 'user:fixture-owner', '.01' if problem == 'insufficient' else '.92', 'fixture statement')
+        if problem == 'expired':
+            with s.tx() as db:
+                db.execute('UPDATE manual_provider_credit SET expires=0')
+        q = c.post('/api/quote', headers=HEADERS, json=dict(action='detect', inputs=dict(image=image(), request_id='fail-closed')))
+>       assert q.status_code == 402
+E       assert 200 == 402
+E        +  where 200 = <Response [200 OK]>.status_code
+
+/root/.hermes/cache/scratch/stylemuse-api-baseline/server/test_manual_credit.py:150: AssertionError
+_ test_manual_evidence_fails_closed_without_any_job_or_provider_submission[expired] _
+
+tmp_path = PosixPath('/root/.hermes/cache/scratch/pytest-of-root/pytest-26/test_manual_evidence_fails_clo2')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x71276d70fa10>
+problem = 'expired'
+
+    @pytest.mark.parametrize('problem', ['missing', 'wrong_account', 'expired', 'insufficient', 'identity_failure'])
+    def test_manual_evidence_fails_closed_without_any_job_or_provider_submission(tmp_path, monkeypatch, problem):
+        from test_paid_quotes import client, FundedProvider
+        from test_oauth import HEADERS
+        from test_api import image
+        class ManualProvider(FundedProvider):
+            balance = None
+            def replicate_account(self):
+                if problem == 'identity_failure':
+                    raise RuntimeError('fixture account GET failure')
+                return 'user:wrong' if problem == 'wrong_account' else 'user:fixture-owner'
+        c, p = client(tmp_path, monkeypatch, ManualProvider())
+        s = store(tmp_path)
+        if problem != 'missing':
+            s.record_manual_credit('fixture', 'user:fixture-owner', '.01' if problem == 'insufficient' else '.92', 'fixture statement')
+        if problem == 'expired':
+            with s.tx() as db:
+                db.execute('UPDATE manual_provider_credit SET expires=0')
+        q = c.post('/api/quote', headers=HEADERS, json=dict(action='detect', inputs=dict(image=image(), request_id='fail-closed')))
+>       assert q.status_code == 402
+E       assert 200 == 402
+E        +  where 200 = <Response [200 OK]>.status_code
+
+/root/.hermes/cache/scratch/stylemuse-api-baseline/server/test_manual_credit.py:150: AssertionError
+_ test_manual_evidence_fails_closed_without_any_job_or_provider_submission[insufficient] _
+
+tmp_path = PosixPath('/root/.hermes/cache/scratch/pytest-of-root/pytest-26/test_manual_evidence_fails_clo3')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x71276d7635b0>
+problem = 'insufficient'
+
+    @pytest.mark.parametrize('problem', ['missing', 'wrong_account', 'expired', 'insufficient', 'identity_failure'])
+    def test_manual_evidence_fails_closed_without_any_job_or_provider_submission(tmp_path, monkeypatch, problem):
+        from test_paid_quotes import client, FundedProvider
+        from test_oauth import HEADERS
+        from test_api import image
+        class ManualProvider(FundedProvider):
+            balance = None
+            def replicate_account(self):
+                if problem == 'identity_failure':
+                    raise RuntimeError('fixture account GET failure')
+                return 'user:wrong' if problem == 'wrong_account' else 'user:fixture-owner'
+        c, p = client(tmp_path, monkeypatch, ManualProvider())
+        s = store(tmp_path)
+        if problem != 'missing':
+            s.record_manual_credit('fixture', 'user:fixture-owner', '.01' if problem == 'insufficient' else '.92', 'fixture statement')
+        if problem == 'expired':
+            with s.tx() as db:
+                db.execute('UPDATE manual_provider_credit SET expires=0')
+        q = c.post('/api/quote', headers=HEADERS, json=dict(action='detect', inputs=dict(image=image(), request_id='fail-closed')))
+>       assert q.status_code == 402
+E       assert 200 == 402
+E        +  where 200 = <Response [200 OK]>.status_code
+
+/root/.hermes/cache/scratch/stylemuse-api-baseline/server/test_manual_credit.py:150: AssertionError
+_ test_manual_evidence_fails_closed_without_any_job_or_provider_submission[identity_failure] _
+
+tmp_path = PosixPath('/root/.hermes/cache/scratch/pytest-of-root/pytest-26/test_manual_evidence_fails_clo4')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x71276d810d70>
+problem = 'identity_failure'
+
+    @pytest.mark.parametrize('problem', ['missing', 'wrong_account', 'expired', 'insufficient', 'identity_failure'])
+    def test_manual_evidence_fails_closed_without_any_job_or_provider_submission(tmp_path, monkeypatch, problem):
+        from test_paid_quotes import client, FundedProvider
+        from test_oauth import HEADERS
+        from test_api import image
+        class ManualProvider(FundedProvider):
+            balance = None
+            def replicate_account(self):
+                if problem == 'identity_failure':
+                    raise RuntimeError('fixture account GET failure')
+                return 'user:wrong' if problem == 'wrong_account' else 'user:fixture-owner'
+        c, p = client(tmp_path, monkeypatch, ManualProvider())
+        s = store(tmp_path)
+        if problem != 'missing':
+            s.record_manual_credit('fixture', 'user:fixture-owner', '.01' if problem == 'insufficient' else '.92', 'fixture statement')
+        if problem == 'expired':
+            with s.tx() as db:
+                db.execute('UPDATE manual_provider_credit SET expires=0')
+        q = c.post('/api/quote', headers=HEADERS, json=dict(action='detect', inputs=dict(image=image(), request_id='fail-closed')))
+>       assert q.status_code == 402
+E       assert 200 == 402
+E        +  where 200 = <Response [200 OK]>.status_code
+
+/root/.hermes/cache/scratch/stylemuse-api-baseline/server/test_manual_credit.py:150: AssertionError
+___ test_unverified_or_insufficient_credit_blocks_quote_and_submission[None] ___
+
+tmp_path = PosixPath('/root/.hermes/cache/scratch/pytest-of-root/pytest-26/test_unverified_or_insufficien0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x71276d761ef0>
+balance = None
+
+    @pytest.mark.parametrize('balance', [None, 0, .049, float('nan'), float('inf'), True, '10'])
+    def test_unverified_or_insufficient_credit_blocks_quote_and_submission(tmp_path, monkeypatch, balance):
+        c, p = client(tmp_path, monkeypatch, FundedProvider())
+        inputs = dict(image=image(), request_id='credit')
+        q = c.post('/api/quote', headers=HEADERS, json=dict(action='detect', inputs=inputs)).json()
+        p.balance = balance
+        denied = c.post('/api/quote', headers=HEADERS, json=dict(action='detect', inputs=inputs))
+>       assert denied.status_code == 402
+E       assert 200 == 402
+E        +  where 200 = <Response [200 OK]>.status_code
+
+/root/.hermes/cache/scratch/stylemuse-api-baseline/server/test_paid_quotes.py:51: AssertionError
+____ test_unverified_or_insufficient_credit_blocks_quote_and_submission[0] _____
+
+tmp_path = PosixPath('/root/.hermes/cache/scratch/pytest-of-root/pytest-26/test_unverified_or_insufficien1')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x71276d813a10>
+balance = 0
+
+    @pytest.mark.parametrize('balance', [None, 0, .049, float('nan'), float('inf'), True, '10'])
+    def test_unverified_or_insufficient_credit_blocks_quote_and_submission(tmp_path, monkeypatch, balance):
+        c, p = client(tmp_path, monkeypatch, FundedProvider())
+        inputs = dict(image=image(), request_id='credit')
+        q = c.post('/api/quote', headers=HEADERS, json=dict(action='detect', inputs=inputs)).json()
+        p.balance = balance
+        denied = c.post('/api/quote', headers=HEADERS, json=dict(action='detect', inputs=inputs))
+>       assert denied.status_code == 402
+E       assert 200 == 402
+E        +  where 200 = <Response [200 OK]>.status_code
+
+/root/.hermes/cache/scratch/stylemuse-api-baseline/server/test_paid_quotes.py:51: AssertionError
+__ test_unverified_or_insufficient_credit_blocks_quote_and_submission[0.049] ___
+
+tmp_path = PosixPath('/root/.hermes/cache/scratch/pytest-of-root/pytest-26/test_unverified_or_insufficien2')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x71276f52a430>
+balance = 0.049
+
+    @pytest.mark.parametrize('balance', [None, 0, .049, float('nan'), float('inf'), True, '10'])
+    def test_unverified_or_insufficient_credit_blocks_quote_and_submission(tmp_path, monkeypatch, balance):
+        c, p = client(tmp_path, monkeypatch, FundedProvider())
+        inputs = dict(image=image(), request_id='credit')
+        q = c.post('/api/quote', headers=HEADERS, json=dict(action='detect', inputs=inputs)).json()
+        p.balance = balance
+        denied = c.post('/api/quote', headers=HEADERS, json=dict(action='detect', inputs=inputs))
+>       assert denied.status_code == 402
+E       assert 200 == 402
+E        +  where 200 = <Response [200 OK]>.status_code
+
+/root/.hermes/cache/scratch/stylemuse-api-baseline/server/test_paid_quotes.py:51: AssertionError
+___ test_unverified_or_insufficient_credit_blocks_quote_and_submission[nan] ____
+
+tmp_path = PosixPath('/root/.hermes/cache/scratch/pytest-of-root/pytest-26/test_unverified_or_insufficien3')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x71276d895fd0>
+balance = nan
+
+    @pytest.mark.parametrize('balance', [None, 0, .049, float('nan'), float('inf'), True, '10'])
+    def test_unverified_or_insufficient_credit_blocks_quote_and_submission(tmp_path, monkeypatch, balance):
+        c, p = client(tmp_path, monkeypatch, FundedProvider())
+        inputs = dict(image=image(), request_id='credit')
+        q = c.post('/api/quote', headers=HEADERS, json=dict(action='detect', inputs=inputs)).json()
+        p.balance = balance
+        denied = c.post('/api/quote', headers=HEADERS, json=dict(action='detect', inputs=inputs))
+>       assert denied.status_code == 402
+E       assert 200 == 402
+E        +  where 200 = <Response [200 OK]>.status_code
+
+/root/.hermes/cache/scratch/stylemuse-api-baseline/server/test_paid_quotes.py:51: AssertionError
+___ test_unverified_or_insufficient_credit_blocks_quote_and_submission[inf] ____
+
+tmp_path = PosixPath('/root/.hermes/cache/scratch/pytest-of-root/pytest-26/test_unverified_or_insufficien4')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x71276f4a7bd0>
+balance = inf
+
+    @pytest.mark.parametrize('balance', [None, 0, .049, float('nan'), float('inf'), True, '10'])
+    def test_unverified_or_insufficient_credit_blocks_quote_and_submission(tmp_path, monkeypatch, balance):
+        c, p = client(tmp_path, monkeypatch, FundedProvider())
+        inputs = dict(image=image(), request_id='credit')
+        q = c.post('/api/quote', headers=HEADERS, json=dict(action='detect', inputs=inputs)).json()
+        p.balance = balance
+        denied = c.post('/api/quote', headers=HEADERS, json=dict(action='detect', inputs=inputs))
+>       assert denied.status_code == 402
+E       assert 200 == 402
+E        +  where 200 = <Response [200 OK]>.status_code
+
+/root/.hermes/cache/scratch/stylemuse-api-baseline/server/test_paid_quotes.py:51: AssertionError
+___ test_unverified_or_insufficient_credit_blocks_quote_and_submission[True] ___
+
+tmp_path = PosixPath('/root/.hermes/cache/scratch/pytest-of-root/pytest-26/test_unverified_or_insufficien5')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x71276d619c50>
+balance = True
+
+    @pytest.mark.parametrize('balance', [None, 0, .049, float('nan'), float('inf'), True, '10'])
+    def test_unverified_or_insufficient_credit_blocks_quote_and_submission(tmp_path, monkeypatch, balance):
+        c, p = client(tmp_path, monkeypatch, FundedProvider())
+        inputs = dict(image=image(), request_id='credit')
+        q = c.post('/api/quote', headers=HEADERS, json=dict(action='detect', inputs=inputs)).json()
+        p.balance = balance
+        denied = c.post('/api/quote', headers=HEADERS, json=dict(action='detect', inputs=inputs))
+>       assert denied.status_code == 402
+E       assert 200 == 402
+E        +  where 200 = <Response [200 OK]>.status_code
+
+/root/.hermes/cache/scratch/stylemuse-api-baseline/server/test_paid_quotes.py:51: AssertionError
+____ test_unverified_or_insufficient_credit_blocks_quote_and_submission[10] ____
+
+tmp_path = PosixPath('/root/.hermes/cache/scratch/pytest-of-root/pytest-26/test_unverified_or_insufficien6')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x71276f5182f0>
+balance = '10'
+
+    @pytest.mark.parametrize('balance', [None, 0, .049, float('nan'), float('inf'), True, '10'])
+    def test_unverified_or_insufficient_credit_blocks_quote_and_submission(tmp_path, monkeypatch, balance):
+        c, p = client(tmp_path, monkeypatch, FundedProvider())
+        inputs = dict(image=image(), request_id='credit')
+        q = c.post('/api/quote', headers=HEADERS, json=dict(action='detect', inputs=inputs)).json()
+        p.balance = balance
+        denied = c.post('/api/quote', headers=HEADERS, json=dict(action='detect', inputs=inputs))
+>       assert denied.status_code == 402
+E       assert 200 == 402
+E        +  where 200 = <Response [200 OK]>.status_code
+
+/root/.hermes/cache/scratch/stylemuse-api-baseline/server/test_paid_quotes.py:51: AssertionError
+_______ test_generation_rechecks_real_credit_before_each_paid_submission _______
+
+tmp_path = PosixPath('/root/.hermes/cache/scratch/pytest-of-root/pytest-26/test_generation_rechecks_real_0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x71276d895630>
+
+    def test_generation_rechecks_real_credit_before_each_paid_submission(tmp_path, monkeypatch):
+        c, p = client(tmp_path, monkeypatch, FundedProvider())
+        p.detect = lambda _: [dict(category='top', preview=image(), prompt='top') for _ in range(2)]
+        inputs = dict(image=image(), request_id='credit-changes')
+        q = c.post('/api/quote', headers=HEADERS, json=dict(action='detect', inputs=inputs)).json()
+        job = c.post('/api/detect', headers=HEADERS, json=dict(inputs, confirmed=True, max_total_usd=.05, quote_id=q['quote_id'])).json()
+        selection = dict(job_id=job['job_id'], item_ids=[i['id'] for i in job['items']])
+        q = c.post('/api/quote', headers=HEADERS, json=dict(action='generate', inputs=selection)).json()
+        original = p.generate
+        def generate(*args):
+            result = original(*args)
+            p.balance = 0
+            return result
+        p.generate = generate
+        denied = c.post('/api/generate', headers=HEADERS, json=dict(selection, confirmed=True, max_total_usd=.2, quote_id=q['quote_id'], approved_style_tokens=q['style_tokens']))
+>       assert denied.status_code == 502
+E       assert 200 == 502
+E        +  where 200 = <Response [200 OK]>.status_code
+
+/root/.hermes/cache/scratch/stylemuse-api-baseline/server/test_paid_quotes.py:153: AssertionError
+_ FidelityTests.test_missing_or_empty_mask_is_explicitly_rejected (row={'input': {'text': 'trousers'}, 'scores': [0.9], 'masks': [[[0, 0, 0, 0, 0, 0, ...], [0, 0, 0, 0, 0, 0, ...], [0, 0, 0, 0, 0, 0, ...], [0, 0, 0, 0, 0, 0, ...], [0, 0, 0, 0, 0, 0, ...], [0, 0, 0, 0, 0, 0, ...], ...]]}) _
+
+self = <test_provider_fidelity.FidelityTests testMethod=test_missing_or_empty_mask_is_explicitly_rejected>
+
+    def test_missing_or_empty_mask_is_explicitly_rejected(self):
+        missing = {'input': {'text': 'trousers'}, 'scores': []}
+        for row in (missing, detection('trousers', points=set())):
+            with self.subTest(row=row):
+>               with self.assertRaisesRegex(ProviderError, 'Missing|Empty'):
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E               AssertionError: ProviderError not raised
+
+/root/.hermes/cache/scratch/stylemuse-api-baseline/server/test_provider_fidelity.py:84: AssertionError
+________ test_tampering_and_credit_recheck_make_no_submission[balance] _________
+
+tmp_path = PosixPath('/root/.hermes/cache/scratch/pytest-of-root/pytest-26/test_tampering_and_credit_rech6')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x71276d61b070>
+mutation = 'balance'
+
+    @pytest.mark.parametrize('mutation', ['person','clothing','amount','consent','quote','expired','balance','origin'])
+    def test_tampering_and_credit_recheck_make_no_submission(tmp_path, monkeypatch, mutation):
+        p = TryFixture()
+        c, _ = client(tmp_path, monkeypatch, p)
+        data = inputs()
+        q = c.post('/api/quote', headers=HEADERS, json=dict(action='tryon', inputs=data)).json()
+        approved = dict(data, quote_id=q['quote_id'], confirmed=True, max_total_usd=.04)
+        headers = dict(HEADERS)
+        import base64
+        changed = 'data:image/png;base64,' + base64.b64encode(base64.b64decode(image().split(',')[1]) + b'fixture').decode()
+        if mutation == 'person': approved['person_image'] = changed
+        if mutation == 'clothing': approved['clothing_image'] = changed
+        if mutation == 'amount': approved['max_total_usd'] = .0399999
+        if mutation == 'consent': approved['confirmed'] = False
+        if mutation == 'quote': approved['quote_id'] = 'fake'
+        if mutation == 'expired':
+            with sqlite3.connect(tmp_path/'db') as db: db.execute('UPDATE payment_quotes SET expires=0')
+        if mutation == 'balance': p.balance = .039
+        if mutation == 'origin': headers['Origin'] = 'https://evil.invalid'
+        result = c.post('/api/tryon', headers=headers, json=approved)
+>       assert result.status_code in (402,403), result.text
+E       AssertionError: {"job_id":"tryon-KFfLjkcRol6qCMkplBzBBhQ8Mnf3gYnw","state":"pending"}
+E       assert 200 in (402, 403)
+E        +  where 200 = <Response [200 OK]>.status_code
+
+/root/.hermes/cache/scratch/stylemuse-api-baseline/server/test_virtual_tryon.py:107: AssertionError
+=============================== warnings summary ===============================
+../../root/.hermes/cache/scratch/stylemuse-flutter-tests/lib/python3.14/site-packages/starlette/testclient.py:37
+  /root/.hermes/cache/scratch/stylemuse-flutter-tests/lib/python3.14/site-packages/starlette/testclient.py:37: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = typing.Callable[[], typing.ContextManager[anyio.abc.BlockingPortal]]
+
+../../root/.hermes/cache/scratch/stylemuse-flutter-tests/lib/python3.14/site-packages/fastapi/routing.py:233: 22 warnings
+test_api.py: 308 warnings
+test_budget_accounting.py: 66 warnings
+test_footwear_removal.py: 396 warnings
+test_image_normalization.py: 66 warnings
+test_manual_credit.py: 176 warnings
+test_oauth.py: 726 warnings
+test_oauth_browser_binding.py: 154 warnings
+test_paid_quotes.py: 484 warnings
+test_provider_fidelity.py: 22 warnings
+test_sessions.py: 440 warnings
+test_virtual_tryon.py: 440 warnings
+  /root/.hermes/cache/scratch/stylemuse-flutter-tests/lib/python3.14/site-packages/fastapi/routing.py:233: DeprecationWarning: 'asyncio.iscoroutinefunction' is deprecated and slated for removal in Python 3.16; use inspect.iscoroutinefunction() instead
+    is_coroutine = asyncio.iscoroutinefunction(dependant.call)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED ../../root/.hermes/cache/scratch/stylemuse-api-baseline/server/test_budget_accounting.py::test_real_unknown_credit_blocks_before_reservation_or_job
+FAILED ../../root/.hermes/cache/scratch/stylemuse-api-baseline/server/test_manual_credit.py::test_manual_fallback_quote_discloses_risk_and_preserves_single_use
+FAILED ../../root/.hermes/cache/scratch/stylemuse-api-baseline/server/test_manual_credit.py::test_quote_binds_manual_snapshot_and_refresh_does_not_reauthorize_old_quote[False]
+FAILED ../../root/.hermes/cache/scratch/stylemuse-api-baseline/server/test_manual_credit.py::test_quote_binds_manual_snapshot_and_refresh_does_not_reauthorize_old_quote[True]
+FAILED ../../root/.hermes/cache/scratch/stylemuse-api-baseline/server/test_manual_credit.py::test_manual_evidence_fails_closed_without_any_job_or_provider_submission[missing]
+FAILED ../../root/.hermes/cache/scratch/stylemuse-api-baseline/server/test_manual_credit.py::test_manual_evidence_fails_closed_without_any_job_or_provider_submission[wrong_account]
+FAILED ../../root/.hermes/cache/scratch/stylemuse-api-baseline/server/test_manual_credit.py::test_manual_evidence_fails_closed_without_any_job_or_provider_submission[expired]
+FAILED ../../root/.hermes/cache/scratch/stylemuse-api-baseline/server/test_manual_credit.py::test_manual_evidence_fails_closed_without_any_job_or_provider_submission[insufficient]
+FAILED ../../root/.hermes/cache/scratch/stylemuse-api-baseline/server/test_manual_credit.py::test_manual_evidence_fails_closed_without_any_job_or_provider_submission[identity_failure]
+FAILED ../../root/.hermes/cache/scratch/stylemuse-api-baseline/server/test_paid_quotes.py::test_unverified_or_insufficient_credit_blocks_quote_and_submission[None]
+FAILED ../../root/.hermes/cache/scratch/stylemuse-api-baseline/server/test_paid_quotes.py::test_unverified_or_insufficient_credit_blocks_quote_and_submission[0]
+FAILED ../../root/.hermes/cache/scratch/stylemuse-api-baseline/server/test_paid_quotes.py::test_unverified_or_insufficient_credit_blocks_quote_and_submission[0.049]
+FAILED ../../root/.hermes/cache/scratch/stylemuse-api-baseline/server/test_paid_quotes.py::test_unverified_or_insufficient_credit_blocks_quote_and_submission[nan]
+FAILED ../../root/.hermes/cache/scratch/stylemuse-api-baseline/server/test_paid_quotes.py::test_unverified_or_insufficient_credit_blocks_quote_and_submission[inf]
+FAILED ../../root/.hermes/cache/scratch/stylemuse-api-baseline/server/test_paid_quotes.py::test_unverified_or_insufficient_credit_blocks_quote_and_submission[True]
+FAILED ../../root/.hermes/cache/scratch/stylemuse-api-baseline/server/test_paid_quotes.py::test_unverified_or_insufficient_credit_blocks_quote_and_submission[10]
+FAILED ../../root/.hermes/cache/scratch/stylemuse-api-baseline/server/test_paid_quotes.py::test_generation_rechecks_real_credit_before_each_paid_submission
+SUBFAILED(row={'input': {'text': 'trousers'}, 'scores': [0.9], 'masks': [[[0, 0, 0, 0, 0, 0, ...], [0, 0, 0, 0, 0, 0, ...], [0, 0, 0, 0, 0, 0, ...], [0, 0, 0, 0, 0, 0, ...], [0, 0, 0, 0, 0, 0, ...], [0, 0, 0, 0, 0, 0, ...], ...]]}) ../../root/.hermes/cache/scratch/stylemuse-api-baseline/server/test_provider_fidelity.py::FidelityTests::test_missing_or_empty_mask_is_explicitly_rejected
+FAILED ../../root/.hermes/cache/scratch/stylemuse-api-baseline/server/test_virtual_tryon.py::test_tampering_and_credit_recheck_make_no_submission[balance]
+19 failed, 213 passed, 3301 warnings, 11 subtests passed in 109.23s (0:01:49)

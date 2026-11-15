@@ -1,0 +1,20 @@
+   Woah! You appear to be trying to run flutter as root.
+   We strongly recommend running the flutter tool without superuser privileges.
+  /
+📎
+00:00 +0: loading /opt/stylemuse-flutter-play/test/stylemuse_api_test.dart
+00:00 +0: secure storage write failure prevents paid submission
+00:00 +1: declined confirmation and mismatched quote cannot spend
+00:00 +2: expired quote is not retried and a pending operation blocks a second charge
+00:00 +3: enhancement lost response uses read-only item recovery
+00:00 +4: cancel during durable save still prevents paid submission
+00:00 +5: a different signed-in account cannot read cached completed result
+00:00 +6: lost tryon submission is recovered by original request id, not resubmitted
+00:00 +7: cancel after submission retains late result but suppresses UI continuation
+00:00 +8: cancellation while confirmation is open never submits or persists paid work
+00:00 +9: tryon is one token per garment and restart polls same job
+00:00 +10: lost extraction response recovers after restart without paid resubmission
+00:00 +11: enhance two items approves four tokens explicitly
+00:00 +12: extraction quotes one token, persists before paid POST, and returns actual server result
+00:00 +13: bootstrap persists cookie securely and Android ID token is verified by server
+00:00 +14: All tests passed!

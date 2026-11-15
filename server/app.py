@@ -569,8 +569,15 @@ def create_app(settings=None, provider=None):
                 'legacy_session': bool(identity and not user),
                 'nonce': entry[0] if google_client_id and not identity else None}
 
+    @app.post('/api/auth/google/android')
+    def google_android_login(payload: GoogleLogin, request: Request):
+        return google_login(payload, request, android=True)
+
     @app.post('/api/auth/google')
-    def google_login(payload: GoogleLogin, request: Request):
+    def google_web_login(payload: GoogleLogin, request: Request):
+        return google_login(payload, request)
+
+    def google_login(payload: GoogleLogin, request: Request, *, android=False):
         exact_origin(request)
         if not google_client_id:
             raise HTTPException(503, 'google_not_configured')
@@ -579,6 +586,10 @@ def create_app(settings=None, provider=None):
             entry = sessions.get(token)
             if not entry or entry[1] <= time.monotonic() or token in authorized:
                 raise HTTPException(401, 'unauthorized')
+        android_clients = {v.strip() for v in os.environ.get(
+            'STYLEMUSE_GOOGLE_ANDROID_CLIENT_IDS', '').split(',') if v.strip()}
+        if android and not android_clients:
+            raise HTTPException(503, 'google_android_not_configured')
         from google.oauth2 import id_token
         from google.auth.transport.requests import Request as GoogleRequest
         from google.auth.exceptions import GoogleAuthError
@@ -588,7 +599,12 @@ def create_app(settings=None, provider=None):
             raise HTTPException(401, 'google_identity_invalid') from None
         email = claims.get('email', '')
         sub = claims.get('sub')
-        if (claims.get('nonce') != entry[0] or claims.get('email_verified') is not True
+        # Native Google Sign-In requests a web/server audience and identifies the
+        # Android OAuth client in azp. Native tokens do not carry the GIS nonce.
+        # Android client allowlist was checked before any verifier network access.
+        invalid_binding = (claims.get('azp') not in android_clients if android
+                           else claims.get('nonce') != entry[0])
+        if (invalid_binding or claims.get('email_verified') is not True
                 or not isinstance(email, str) or not email
                 or not isinstance(sub, str) or not sub):
             raise HTTPException(401, 'google_identity_invalid')
@@ -726,6 +742,53 @@ def create_app(settings=None, provider=None):
     def generation_quote_inputs(payload, job):
         return {'job_id': payload.job_id, 'item_ids': payload.item_ids,
                 'source_hash': hashlib.sha256(job['original'].encode()).hexdigest(), 'result_hash': hashlib.sha256(job['result'].encode()).hexdigest()}
+
+    @app.post('/api/operations/recover')
+    async def recover_operation(request: Request, authorization: str | None = Header(None)):
+        """Read-only recovery: never quotes, reserves, submits, or retries work."""
+        who = owner(authorization, request, paid=True)
+        body = await request.json()
+        if isinstance(body, dict) and body.get('action') == 'tryon':
+            if set(body) != {'action', 'request_id'} or not isinstance(body.get('request_id'), str):
+                raise HTTPException(422, 'invalid_request')
+            with store.tx() as db:
+                row = db.execute('SELECT * FROM jobs WHERE owner=? AND request_id=?',
+                                 (who, 'tryon:' + body['request_id'])).fetchone()
+            if not row or (row['expires'] <= time.time() and row['state'] != 'pending'):
+                raise HTTPException(404, 'operation_not_found')
+            if row['state'] == 'pending':
+                return {'state': 'pending', 'job_id': row['id']}
+            if row['state'] == 'done':
+                return {'state': 'done', 'result': json.loads(row['result'])}
+            if row['state'] == 'failed':
+                return {'state': 'done', 'result': {'state': 'failed', 'job_id': row['id']}}
+            return {'state': 'ambiguous', 'job_id': row['id']}
+        if isinstance(body, dict) and body.get('action') == 'generate':
+            if (set(body) != {'action', 'job_id', 'item_ids'} or not isinstance(body.get('job_id'), str)
+                    or not isinstance(body.get('item_ids'), list) or not 1 <= len(body['item_ids']) <= 20
+                    or any(not isinstance(i, str) or not i for i in body['item_ids'])
+                    or len(set(body['item_ids'])) != len(body['item_ids'])):
+                raise HTTPException(422, 'invalid_request')
+            with store.tx() as db:
+                job = db.execute('SELECT * FROM jobs WHERE id=? AND owner=? AND expires>?',
+                                 (body['job_id'], who, time.time())).fetchone()
+                if not job or job['request_id'].startswith('tryon:'):
+                    raise HTTPException(404, 'job_not_found')
+                claims = {r['item']: r for r in db.execute('SELECT * FROM claims WHERE job=?', (job['id'],))}
+            if any(i not in claims or claims[i]['state'] != 'done' for i in body['item_ids']):
+                return {'state': 'ambiguous'}
+            return {'state': 'done', 'result': {'items': [
+                {'id': i, 'image': claims[i]['image']} for i in body['item_ids']]}}
+        if not isinstance(body, dict) or body.get('action') != 'detect' or set(body) != {'action', 'request_id'} or not isinstance(body.get('request_id'), str):
+            raise HTTPException(422, 'invalid_request')
+        with store.tx() as db:
+            row = db.execute('SELECT * FROM jobs WHERE owner=? AND request_id=? AND expires>?',
+                             (who, body['request_id'], time.time())).fetchone()
+        if not row or row['request_id'].startswith('tryon:'):
+            raise HTTPException(404, 'operation_not_found')
+        if row['state'] != 'done':
+            return {'state': 'ambiguous', 'job_id': row['id']}
+        return {'state': 'done', 'result': public_result(row['id'], json.loads(row['result']))}
 
     @app.post('/api/detect')
     def detect(payload: DetectRequest, request: Request, authorization: str | None = Header(None)):

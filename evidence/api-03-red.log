@@ -1,0 +1,22 @@
+   Woah! You appear to be trying to run flutter as root.
+   We strongly recommend running the flutter tool without superuser privileges.
+  /
+📎
+00:00 +0: loading /opt/stylemuse-flutter-play/test/stylemuse_api_test.dart
+test/stylemuse_api_test.dart:32:21: Error: The method 'enhance' isn't defined for the type 'TokenWorkflowController'.
+ - 'TokenWorkflowController' is from 'lib/stylemuse_api.dart'.
+Try correcting the name to the name of an existing method, or defining a method named 'enhance'.
+    expect((await c.enhance('j',['a','b'],confirm:(n)async {expect(n,4);return true;}))?['items'],isNotEmpty);
+                    ^^^^^^^
+00:00 +0 -1: loading /opt/stylemuse-flutter-play/test/stylemuse_api_test.dart [E]
+  Failed to load "/opt/stylemuse-flutter-play/test/stylemuse_api_test.dart":
+  Compilation failed for testPath=/opt/stylemuse-flutter-play/test/stylemuse_api_test.dart: test/stylemuse_api_test.dart:32:21: Error: The method 'enhance' isn't defined for the type 'TokenWorkflowController'.
+   - 'TokenWorkflowController' is from 'lib/stylemuse_api.dart'.
+  Try correcting the name to the name of an existing method, or defining a method named 'enhance'.
+      expect((await c.enhance('j',['a','b'],confirm:(n)async {expect(n,4);return true;}))?['items'],isNotEmpty);
+                      ^^^^^^^
+  .
+00:00 +0 -1: Some tests failed.
+
+Failing tests:
+  /opt/stylemuse-flutter-play/test/stylemuse_api_test.dart: loading /opt/stylemuse-flutter-play/test/stylemuse_api_test.dart

@@ -1,0 +1,90 @@
+   Woah! You appear to be trying to run flutter as root.
+   We strongly recommend running the flutter tool without superuser privileges.
+  /
+📎
+00:00 +0: loading /opt/stylemuse-flutter-play/test/stylemuse_api_test.dart
+test/stylemuse_api_test.dart:4:8: Error: Error when reading 'lib/stylemuse_api.dart': No such file or directory
+import '../lib/stylemuse_api.dart';
+       ^
+test/stylemuse_api_test.dart:6:36: Error: Type 'SecureStore' not found.
+class MemorySecureStore implements SecureStore {
+                                   ^^^^^^^^^^^
+test/stylemuse_api_test.dart:12:32: Error: Type 'ApiTransport' not found.
+class FakeTransport implements ApiTransport {
+                               ^^^^^^^^^^^^
+test/stylemuse_api_test.dart:16:10: Error: Type 'ApiResponse' not found.
+  Future<ApiResponse> Function(String,Map<String,dynamic>)? handler;
+         ^^^^^^^^^^^
+test/stylemuse_api_test.dart:17:20: Error: Type 'ApiResponse' not found.
+  @override Future<ApiResponse> post(Uri url, Map<String,String> h, Map<String,dynamic> body) async {
+                   ^^^^^^^^^^^
+test/stylemuse_api_test.dart:16:10: Error: 'ApiResponse' isn't a type.
+  Future<ApiResponse> Function(String,Map<String,dynamic>)? handler;
+         ^^^^^^^^^^^
+test/stylemuse_api_test.dart:19:43: Error: The method 'ApiResponse' isn't defined for the type 'FakeTransport'.
+ - 'FakeTransport' is from 'test/stylemuse_api_test.dart'.
+Try correcting the name to the name of an existing method, or defining a method named 'ApiResponse'.
+    if(url.path == '/api/session') return ApiResponse(200, {'enabled':true}, sessionCookie:'__Host-stylemuse_session=secret');
+                                          ^^^^^^^^^^^
+test/stylemuse_api_test.dart:26:45: Error: Method not found: 'ApiResponse'.
+    transport.handler=(path, body) async => ApiResponse(200, {'user':{'id':'u'},'balance':8});
+                                            ^^^^^^^^^^^
+test/stylemuse_api_test.dart:27:15: Error: Method not found: 'StyleMuseApi'.
+    final api=StyleMuseApi(storage:store,transport:transport);
+              ^^^^^^^^^^^^
+test/stylemuse_api_test.dart:35:20: Error: Method not found: 'StyleMuseApi'.
+    final restored=StyleMuseApi(storage:store,transport:transport);
+                   ^^^^^^^^^^^^
+00:00 +0 -1: loading /opt/stylemuse-flutter-play/test/stylemuse_api_test.dart [E]
+  Failed to load "/opt/stylemuse-flutter-play/test/stylemuse_api_test.dart":
+  Compilation failed for testPath=/opt/stylemuse-flutter-play/test/stylemuse_api_test.dart: test/stylemuse_api_test.dart:4:8: Error: Error when reading 'lib/stylemuse_api.dart': No such file or directory
+  import '../lib/stylemuse_api.dart';
+         ^
+  test/stylemuse_api_test.dart:6:36: Error: Type 'SecureStore' not found.
+  class MemorySecureStore implements SecureStore {
+                                     ^^^^^^^^^^^
+  test/stylemuse_api_test.dart:12:32: Error: Type 'ApiTransport' not found.
+  class FakeTransport implements ApiTransport {
+                                 ^^^^^^^^^^^^
+  test/stylemuse_api_test.dart:16:10: Error: Type 'ApiResponse' not found.
+    Future<ApiResponse> Function(String,Map<String,dynamic>)? handler;
+           ^^^^^^^^^^^
+  test/stylemuse_api_test.dart:17:20: Error: Type 'ApiResponse' not found.
+    @override Future<ApiResponse> post(Uri url, Map<String,String> h, Map<String,dynamic> body) async {
+                     ^^^^^^^^^^^
+  test/stylemuse_api_test.dart:16:10: Error: 'ApiResponse' isn't a type.
+    Future<ApiResponse> Function(String,Map<String,dynamic>)? handler;
+           ^^^^^^^^^^^
+  test/stylemuse_api_test.dart:19:43: Error: The method 'ApiResponse' isn't defined for the type 'FakeTransport'.
+   - 'FakeTransport' is from 'test/stylemuse_api_test.dart'.
+  Try correcting the name to the name of an existing method, or defining a method named 'ApiResponse'.
+      if(url.path == '/api/session') return ApiResponse(200, {'enabled':true}, sessionCookie:'__Host-stylemuse_session=secret');
+                                            ^^^^^^^^^^^
+  test/stylemuse_api_test.dart:26:45: Error: Method not found: 'ApiResponse'.
+      transport.handler=(path, body) async => ApiResponse(200, {'user':{'id':'u'},'balance':8});
+                                              ^^^^^^^^^^^
+  test/stylemuse_api_test.dart:27:15: Error: Method not found: 'StyleMuseApi'.
+      final api=StyleMuseApi(storage:store,transport:transport);
+                ^^^^^^^^^^^^
+  test/stylemuse_api_test.dart:35:20: Error: Method not found: 'StyleMuseApi'.
+      final restored=StyleMuseApi(storage:store,transport:transport);
+                     ^^^^^^^^^^^^
+  .
+00:00 +0 -1: Some tests failed.
+
+Failing tests:
+  /opt/stylemuse-flutter-play/test/stylemuse_api_test.dart: loading /opt/stylemuse-flutter-play/test/stylemuse_api_test.dart
+The Flutter CLI developer tool uses Google Analytics to report usage and diagnostic
+data along with package dependencies, and crash reporting to send basic crash
+reports. This data is used to help improve the Dart platform, Flutter framework,
+and related tools.
+
+Telemetry is not sent on the very first run. To disable reporting of telemetry,
+run this terminal command:
+
+    flutter --disable-analytics
+
+If you opt out of telemetry, an opt-out event will be sent, and then no further
+information will be sent. This data is collected in accordance with the Google
+Privacy Policy (https://policies.google.com/privacy).
+
