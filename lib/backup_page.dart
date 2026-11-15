@@ -43,6 +43,8 @@ class _BackupPageState extends State<BackupPage> {
     });
     try {
       await action();
+    } on FormatException {
+      if (mounted) setState(() => status = 'Geçerli bir StyleMuse yedek dosyası seç.');
     } catch (_) {
       if (mounted)
         setState(() => status =
