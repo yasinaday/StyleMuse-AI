@@ -89,6 +89,15 @@ class StyleMuseApp extends StatelessWidget {
       );
 }
 
+bool googleAvatarUrl(String source) {
+  final uri = Uri.tryParse(source);
+  return uri != null && uri.scheme == 'https' && uri.userInfo.isEmpty &&
+      uri.port == 443 && const {
+        'lh3.googleusercontent.com', 'lh4.googleusercontent.com',
+        'lh5.googleusercontent.com', 'lh6.googleusercontent.com',
+      }.contains(uri.host);
+}
+
 Widget photo(String source,
     {BoxFit fit = BoxFit.cover, double? width, double? height}) {
   if (source.startsWith('data:')) {
@@ -101,7 +110,7 @@ Widget photo(String source,
               const Center(child: Icon(Icons.broken_image_outlined)));
     } catch (_) {/* Invalid imported image */}
   }
-  if (source.startsWith('https:') && safeOutfitPhoto(source)) {
+  if (source.startsWith('https:') && (safeOutfitPhoto(source) || googleAvatarUrl(source))) {
     return Image.network(source, fit: fit, width: width, height: height,
         errorBuilder: (_, error, stack) =>
             const Center(child: Icon(Icons.broken_image_outlined)));
@@ -131,6 +140,33 @@ class _StyleMuseShellState extends State<StyleMuseShell> {
       TokenWorkflowController(api: api, storage: api.storage);
   Map<String, dynamic>? account;
   bool accountBusy = false;
+  Map? get signedInUser {
+    final user = account?['user'];
+    return user is Map && user['id'] is String ? user : null;
+  }
+
+  String? get accountProfilePrefix {
+    final id = signedInUser?['id'];
+    return id is String ? 'google:$id:' : null;
+  }
+
+  String? get accountDisplayName {
+    final prefix = accountProfilePrefix;
+    if (prefix == null) return null;
+    for (final value in [store.profile['${prefix}name'], signedInUser?['name'], signedInUser?['email']]) {
+      if (value is String && value.trim().isNotEmpty) return value.trim();
+    }
+    return null;
+  }
+
+  String? get accountDisplayPhoto {
+    final prefix = accountProfilePrefix;
+    if (prefix == null) return null;
+    final candidate = store.profile['${prefix}photo'];
+    if (candidate != null && safeImage(candidate)) return candidate;
+    final url = signedInUser?['picture'];
+    return url is String && googleAvatarUrl(url) ? url : null;
+  }
   bool hasPending = false;
   Future<void> refreshPending() async {
     try {
@@ -1035,8 +1071,7 @@ class _StyleMuseShellState extends State<StyleMuseShell> {
                           ClipRRect(
                               borderRadius: BorderRadius.circular(12),
                               child: photo(
-                                  store.profile['photo'] ??
-                                      'assets/profile-avatar.webp',
+                                  accountDisplayPhoto ?? 'assets/profile-avatar.webp',
                                   width: 66,
                                   height: 66)),
                           const SizedBox(width: 10),
@@ -1045,9 +1080,7 @@ class _StyleMuseShellState extends State<StyleMuseShell> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                 SmText(
-                                    store.profile['name']?.isNotEmpty == true
-                                        ? store.profile['name']!
-                                        : 'Profil',
+                                    accountDisplayName ?? 'Profil',
                                     style: const TextStyle(
                                         color: Colors.white,
                                         fontFamily: 'serif',
@@ -1137,11 +1170,14 @@ class _StyleMuseShellState extends State<StyleMuseShell> {
                         leading: const Icon(Icons.person_outline, size: 21),
                         title: const SmText('Bilgilerim'),
                         trailing: const Icon(Icons.chevron_right, size: 20),
-                        onTap: () => Navigator.push(
+                        onTap: accountBusy || signedInUser == null ? null : () => Navigator.push(
                             context,
                             MaterialPageRoute<void>(
                                 builder: (_) => ProfileEditor(
                                   store: store, personal: true,
+                                  profilePrefix: accountProfilePrefix ?? '',
+                                  initialName: accountDisplayName,
+                                  initialPhoto: accountDisplayPhoto,
                                   pickPhoto: () async {
                                     final bytes = await selectPhoto();
                                     return bytes == null ? null

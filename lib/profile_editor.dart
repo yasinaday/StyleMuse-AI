@@ -4,7 +4,9 @@ import 'localization.dart';
 import 'main.dart' show SmText, LocalStrings, photo;
 
 class ProfileEditor extends StatefulWidget {
-  const ProfileEditor({super.key, required this.store, this.personal = false, this.pickPhoto});
+  const ProfileEditor({super.key, required this.store, this.personal = false, this.pickPhoto, this.profilePrefix = '', this.initialName, this.initialPhoto});
+  final String profilePrefix;
+  final String? initialName, initialPhoto;
   final bool personal;
   final Future<String?> Function()? pickPhoto;
   final ClosetStore store;
@@ -16,13 +18,13 @@ class _ProfileEditorState extends State<ProfileEditor> {
   final form = GlobalKey<FormState>();
   late final fields = {
     for (final key in (widget.personal ? ['name'] : ['height', 'weight']))
-      key: TextEditingController(text: widget.store.profile[key] ?? '')
+      key: TextEditingController(text: (widget.personal ? widget.initialName : widget.store.profile[key]) ?? '')
   };
   late String tone = widget.store.profile['tone'] ?? 'medium';
   late String shape = widget.store.profile['shape'] ?? 'straight';
   late String size = widget.store.profile['size'] ?? 'M';
   bool saving = false;
-  late String? avatar = widget.store.profile['photo'];
+  late String? avatar = widget.initialPhoto;
   String tr(String s) => translate(s, widget.store.language);
   @override
   void dispose() {
@@ -153,8 +155,8 @@ class _ProfileEditorState extends State<ProfileEditor> {
                               try {
                                 await widget.store.updateProfile({
                                   for (final x in fields.entries)
-                                    x.key: x.value.text.trim(),
-                                  if (widget.personal && avatar != null) 'photo': avatar!,
+                                    (widget.personal ? '${widget.profilePrefix}${x.key}' : x.key): x.value.text.trim(),
+                                  if (widget.personal && safeImage(avatar)) '${widget.profilePrefix}photo': avatar!,
                                   if (!widget.personal) ...{'tone': tone, 'shape': shape, 'size': size}
                                 });
                                 if (context.mounted) Navigator.pop(context);

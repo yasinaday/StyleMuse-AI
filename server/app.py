@@ -611,6 +611,16 @@ def create_app(settings=None, provider=None):
         admin = email.casefold() == 'adysoft2000@gmail.com'
         user = {'provider': 'google', 'id': sub, 'name': str(claims.get('name') or '')[:100],
                 'email': email, 'admin': admin}
+        picture = claims.get('picture')
+        if isinstance(picture, str) and len(picture) <= 2048:
+            try:
+                url = urlsplit(picture)
+                if (url.scheme == 'https' and url.netloc == url.hostname
+                        and url.hostname in ('lh3.googleusercontent.com', 'lh4.googleusercontent.com',
+                                             'lh5.googleusercontent.com', 'lh6.googleusercontent.com')):
+                    user['picture'] = picture
+            except ValueError:
+                pass
         with session_lock:
             if sessions.get(token) != entry or entry[1] <= time.monotonic() or token in authorized:
                 raise HTTPException(401, 'unauthorized')
