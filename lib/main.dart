@@ -101,6 +101,11 @@ Widget photo(String source,
               const Center(child: Icon(Icons.broken_image_outlined)));
     } catch (_) {/* Invalid imported image */}
   }
+  if (source.startsWith('https:') && safeOutfitPhoto(source)) {
+    return Image.network(source, fit: fit, width: width, height: height,
+        errorBuilder: (_, error, stack) =>
+            const Center(child: Icon(Icons.broken_image_outlined)));
+  }
   return Image.asset(source,
       fit: fit,
       width: width,
@@ -155,6 +160,7 @@ class _StyleMuseShellState extends State<StyleMuseShell> {
   void initState() {
     super.initState();
     refreshPending();
+    accountAction(silent: true);
     store.addListener(refresh);
     store.load().catchError((Object e) {
       if (mounted) setState(() => error = 'Dolap açılamadı.');
@@ -317,7 +323,7 @@ class _StyleMuseShellState extends State<StyleMuseShell> {
                                 'Kıyafetleri Ayır',
                                 'Tek fotoğraftan\nbirden fazla ürün çıkar',
                                 'separate',
-                                () => go(1))),
+                                () { go(1); extractPhoto(); })),
                         const SizedBox(width: 8),
                         Expanded(
                             child: feature(
@@ -815,45 +821,115 @@ class _StyleMuseShellState extends State<StyleMuseShell> {
         ]));
   }
 
-  Future<void> tokenPacks() => showDialog<void>(
+  Future<void> tokenPacks() {
+    var selected = 10;
+    const packs = [(200, 2000), (10, 300), (25, 625), (50, 1000), (100, 1500)];
+    String price(double amount) {
+      final value = amount.toStringAsFixed(2);
+      return 'USD ${store.language == 'tr' ? value.replaceAll('.', ',') : value}';
+    }
+    return showDialog<void>(
       context: context,
-      builder: (_) => LocalStrings(
-          language: store.language,
-          child: AlertDialog(
-              title: const SmText('Stil Jetonu Al'),
-              content: SizedBox(
-                  width: 360,
-                  child: SingleChildScrollView(
-                      child: Column(mainAxisSize: MainAxisSize.min, children: [
-                    const SmText(
-                        'Uygulama ücretsiz. Yapay zekâ işlemleri jetonla kullanılır.'),
-                    const SizedBox(height: 12),
-                    const SmText('1 jeton = 1 yapay zekâ işlemi'),
-                    const SizedBox(height: 12),
-                    for (final pack in const [
-                      (200, '20.00'),
-                      (10, '3.00'),
-                      (25, '6.25'),
-                      (50, '10.00'),
-                      (100, '15.00')
-                    ])
-                      ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          title: SmText('${pack.$1} jeton'),
-                          trailing: Text('USD ${pack.$2}')),
-                    const FilledButton(
-                        key: Key('purchase-disabled'),
-                        onPressed: null,
-                        child: SmText('Satın al')),
-                    const SizedBox(height: 10),
-                    const SmText('Satın alma henüz kullanıma açık değil.'),
-                  ]))),
-              actions: [
-                TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const SmText('Kapat'))
-              ])));
-  Future<void> accountAction({bool signIn = false, bool logout = false}) async {
+      builder: (dialog) => LocalStrings(
+        language: store.language,
+        child: StatefulBuilder(builder: (context, update) => Dialog(
+          insetPadding: const EdgeInsets.all(18),
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(colors: [Color(0xFF492158), Color(0xFFA369A0)]),
+              borderRadius: BorderRadius.circular(24),
+            ),
+            padding: const EdgeInsets.all(18),
+            child: DefaultTextStyle.merge(
+              style: const TextStyle(color: Colors.white),
+              child: SingleChildScrollView(child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(children: [
+                    const Expanded(child: SmText('Stil Jetonu Al',
+                      style: TextStyle(fontSize: 23, fontWeight: FontWeight.bold))),
+                    IconButton(
+                      tooltip: tr('Kapat'),
+                      color: Colors.white,
+                      onPressed: () => Navigator.pop(dialog),
+                      icon: const Icon(Icons.close),
+                    ),
+                  ]),
+                  const SmText('Uygulama ücretsiz. Yapay zekâ işlemleri jetonla kullanılır.'),
+                  const SizedBox(height: 8),
+                  const SmText('Ayırma · Fotoğraf başına 1 jeton'),
+                  const SmText('Giydirme · Parça başına 1 jeton'),
+                  const SmText('İyileştirme · Parça başına 2 jeton'),
+                  const SizedBox(height: 12),
+                  for (final pack in packs)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 6),
+                      child: Material(
+                        color: selected == pack.$1 ? const Color(0x45FFFFFF) : const Color(0x20FFFFFF),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          side: BorderSide(color: pack.$1 == 200
+                            ? const Color(0xFFF5D68E) : Colors.transparent),
+                        ),
+                        child: ListTile(
+                          selected: selected == pack.$1,
+                          onTap: () => update(() => selected = pack.$1),
+                          leading: Icon(selected == pack.$1
+                            ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+                            color: Colors.white),
+                          title: SmText('${pack.$1} jeton', style: const TextStyle(
+                            color: Colors.white, fontWeight: FontWeight.bold)),
+                          subtitle: Text('${price(pack.$2 / pack.$1 / 100)} ${tr('/ jeton')}'
+                            '${pack.$1 == 200 ? ' · ${tr('En iyi teklif')}' : ''}',
+                            style: const TextStyle(color: Colors.white)),
+                          trailing: Text(price(pack.$2 / 100), style: const TextStyle(color: Colors.white)),
+                        ),
+                      ),
+                    ),
+                  const FilledButton(key: Key('purchase-disabled'), onPressed: null,
+                    child: SmText('Satın al')),
+                  const SmText('Satın alma henüz kullanıma açık değil.', textAlign: TextAlign.center),
+                ],
+              )),
+            ),
+          ),
+        )),
+      ),
+    );
+  }
+
+  Future<void> openAdminSettings() async {
+    await showDialog<void>(
+      context: context,
+      builder: (dialog) => LocalStrings(
+        language: store.language,
+        child: AlertDialog(
+          title: const SmText('Yönetici ayarları ve bildirimler'),
+          content: FutureBuilder<Map<String, dynamic>>(
+            future: api.post('/api/admin/fal-credit/status', {}),
+            builder: (context, snapshot) {
+              final balance = snapshot.data?['available_usd'];
+              return Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SmText('Sağlayıcı bakiye takibi'),
+                  if (snapshot.connectionState == ConnectionState.waiting)
+                    const SmText('Bakiye kontrol ediliyor…')
+                  else if (balance is num)
+                    Text('fal.ai · USD ${balance.toStringAsFixed(2)}')
+                  else
+                    const SmText('Bakiye okunamadı. Billing sayfasından kontrol et.'),
+                ],
+              );
+            },
+          ),
+          actions: [TextButton(onPressed: () => Navigator.pop(dialog), child: const SmText('Kapat'))],
+        ),
+      ),
+    );
+  }
+
+  Future<void> accountAction({bool signIn = false, bool logout = false, bool silent = false}) async {
     if (accountBusy) return;
     setState(() => accountBusy = true);
     try {
@@ -866,12 +942,12 @@ class _StyleMuseShellState extends State<StyleMuseShell> {
         if (mounted && next != null) setState(() => account = next);
       }
     } catch (e) {
-      if (mounted)
+      if (mounted && !silent)
         notify(tr(e is StyleMuseApiException
             ? switch (e.code) {
                 'google_oauth_configuration_error' =>
                   'Google Android giriş yapılandırması hatalı. Uygulama imzası ve OAuth istemcisi kontrol edilmeli.',
-                'google_sign_in_not_configured' =>
+                'google_android_not_configured' || 'google_sign_in_not_configured' =>
                   'Google girişi henüz yapılandırılmadı.',
                 'google_network_error' ||
                 'api_network_error' ||
@@ -1001,6 +1077,15 @@ class _StyleMuseShellState extends State<StyleMuseShell> {
                               (account!['user'] as Map)['email'] as String? ??
                                   ''))
                   ]),
+                  if (account?['user'] is Map && (account!['user'] as Map)['admin'] == true)
+                    settingsCard([
+                      ListTile(
+                        leading: const Icon(Icons.admin_panel_settings_outlined),
+                        title: const SmText('Yönetici ayarları ve bildirimler'),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: openAdminSettings,
+                      ),
+                    ]),
                   sectionLabel('KİŞİSEL'),
                   settingsCard([
                     ListTile(
@@ -1020,25 +1105,32 @@ class _StyleMuseShellState extends State<StyleMuseShell> {
                         onTap: () => Navigator.push(
                             context,
                             MaterialPageRoute<void>(
-                                builder: (_) => ProfileEditor(store: store)))),
+                                builder: (_) => ProfileEditor(
+                                  store: store, personal: true,
+                                  pickPhoto: () async {
+                                    final bytes = await selectPhoto();
+                                    return bytes == null ? null
+                                      : 'data:image/jpeg;base64,${base64Encode(bytes)}';
+                                  },
+                                )))),
                   ]),
                   sectionLabel('GÖRÜNÜM'),
-                  DropdownButtonFormField<String>(
+                  settingsCard([
+                    ListTile(title: const SmText('Uygulama dili'), trailing: DropdownButton<String>(
                       key: const Key('app-language'),
-                      initialValue: store.language,
-                      decoration:
-                          InputDecoration(labelText: tr('Uygulama dili')),
+                      value: store.language,
+                      underline: const SizedBox.shrink(),
                       items: [
                         for (final pair in const {
-                          'tr': 'Türkçe',
-                          'en': 'English',
-                          'de': 'Deutsch',
-                          'ru': 'Русский',
-                          'ar': 'العربية',
-                          'fr': 'Français',
-                          'hi': 'हिन्दी',
-                          'zh': '中文',
-                          'ja': '日本語'
+                          'tr': '🇹🇷 Türkçe',
+                          'en': '🇬🇧 English',
+                          'de': '🇩🇪 Deutsch',
+                          'ru': '🇷🇺 Русский',
+                          'ar': '🇸🇦 العربية',
+                          'fr': '🇫🇷 Français',
+                          'hi': '🇮🇳 हिन्दी',
+                          'zh': '🇨🇳 简体中文',
+                          'ja': '🇯🇵 日本語'
                         }.entries)
                           DropdownMenuItem(
                               value: pair.key, child: Text(pair.value))
@@ -1051,7 +1143,8 @@ class _StyleMuseShellState extends State<StyleMuseShell> {
                               } catch (_) {
                                 if (mounted) notify(tr('Kaydedilemedi.'));
                               }
-                            }),
+                            })),
+                  ]),
                   sectionLabel('VERİLER'),
                   settingsCard([
                     ListTile(
