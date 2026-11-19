@@ -287,25 +287,40 @@ class _StyleMuseShellState extends State<StyleMuseShell>
   List<String>? plannedItems;
   bool showIdeas = false;
   int ideaOffset = 0;
-  List<List<ClosetItem>> get outfitIdeas {
+
+  List<ClosetItem> get outfitIdea {
     List<ClosetItem> category(String c) =>
         store.items.where((i) => i.category == c).toList();
-    final tops = category('Üst giyim'),
-        bottoms = category('Alt giyim'),
-        dresses = category('Elbise');
-    final bases = <List<ClosetItem>>[
-      for (final dress in dresses) [dress],
-      for (final top in tops)
-        for (final bottom in bottoms) [top, bottom],
+    final tops = category('Üst giyim');
+    final bottoms = category('Alt giyim');
+    final dresses = category('Elbise');
+    final pairs = tops.length * bottoms.length;
+    final count = pairs + dresses.length;
+    if (count == 0) return [];
+
+    // Category is the only style metadata in the wardrobe. Prefer dresses
+    // for evening/formal/romantic looks, and separates for everyday/office.
+    final dressFirst = outfitPlan == 'Akşam yemeği' ||
+        outfitPlan == 'Özel davet' ||
+        outfitStyle == 'Romantik';
+    final index = ideaOffset % count;
+    final dressIndex = dressFirst ? index : index - pairs;
+    final pairIndex = dressFirst ? index - dresses.length : index;
+    final base = dressIndex >= 0 && dressIndex < dresses.length
+        ? [dresses[dressIndex]]
+        : [tops[pairIndex % tops.length], bottoms[pairIndex ~/ tops.length]];
+
+    final extras = [
+      if (outfitPlan == 'İş / Ofis' || outfitStyle == 'Modern klasik')
+        category('Dış giyim'),
+      if (outfitStyle != 'Minimal' && outfitPlan != 'Günlük') category('Çanta'),
+      if (outfitStyle == 'Romantik' && outfitPlan != 'Günlük')
+        category('Aksesuar'),
     ];
     return [
-      for (var n = 0; n < bases.length && n < 6; n++)
-        [
-          ...bases[(n + ideaOffset) % bases.length],
-          for (final c in ['Dış giyim', 'Çanta'])
-            if (category(c).isNotEmpty && n.isOdd)
-              category(c)[n % category(c).length],
-        ]
+      ...base,
+      for (final group in extras)
+        if (group.isNotEmpty) group[index % group.length]
     ];
   }
 
@@ -347,7 +362,11 @@ class _StyleMuseShellState extends State<StyleMuseShell>
     super.dispose();
   }
 
-  void go(int i) => setState(() => tab = i);
+  void go(int i) {
+    setState(() => tab = i);
+    if (i == 4) unawaited(accountAction(silent: true));
+  }
+
   void notify(String text) => ScaffoldMessenger.of(context)
       .showSnackBar(SnackBar(content: SmText(text)));
   Widget heading(String title, String subtitle) => Padding(
@@ -787,6 +806,8 @@ class _StyleMuseShellState extends State<StyleMuseShell>
       }
       final bytes = croppedAnalysisPhoto;
       if (bytes == null) return;
+      await accountAction();
+      if (!mounted) return;
       final result = await workflow.extract(
           'data:image/jpeg;base64,${base64Encode(bytes)}',
           confirm: confirmTokens);
@@ -818,8 +839,18 @@ class _StyleMuseShellState extends State<StyleMuseShell>
     if (e is StyleMuseApiException) {
       if (e.code == 'sign_in_required')
         return tr('AI analizi için Google hesabınla giriş yap.');
-      if (e.status == 402 || e.code.contains('insufficient'))
+      // Provider funding and account tokens are separate ledgers. Older
+      // servers returned 402 for both, so inspect the reason before status.
+      if (e.code == 'provider_credit_unavailable')
+        return tr('Analiz için sağlayıcı kredisi doğrulanamadı.');
+      if (e.code == 'provider_credit_insufficient')
+        return tr('Sağlayıcı kredisi yetersiz. Hesap jetonların korunuyor.');
+      if (e.code == 'style_tokens_empty' || e.code == 'insufficient_tokens')
         return tr('Bu işlem için yeterli Stil Jetonu yok.');
+      if (e.status == 403)
+        return tr('Bu işlem için hesap yetkisi doğrulanamadı.');
+      if (e.status == 502 || e.status == 503)
+        return tr('AI sağlayıcısına şu anda ulaşılamıyor.');
       if (e.code.contains('pending') || e.code.contains('ambiguous'))
         return tr('İşlemi kurtar. Yeniden gönderme yapılmadı.');
       if (e.status == 401) return tr('Lütfen yeniden giriş yap.');
@@ -1043,6 +1074,11 @@ class _StyleMuseShellState extends State<StyleMuseShell>
   Future<void> tokenPacks() async {
     if (signedInUser != null && billing == null) await prepareBilling();
     if (!mounted) return;
+    final fallbackPacks = billing == null
+        ? PlayBillingController(
+            verify: (product, token) async =>
+                const PlayVerification(credited: false, consumed: false))
+        : null;
     await showDialog<void>(
         context: context,
         builder: (dialog) => LocalStrings(
@@ -1054,27 +1090,24 @@ class _StyleMuseShellState extends State<StyleMuseShell>
                   const SmText('Ayırma · Fotoğraf başına 1 jeton'),
                   const SmText('Giydirme · Parça başına 1 jeton'),
                   const SmText('İyileştirme · Parça başına 2 jeton'),
-                  if (billing != null)
-                    PlayBillingPacks(
-                        controller: billing!,
-                        buyLabel: tr('Satın al'),
-                        unavailableLabel:
-                            tr('Satın alma henüz kullanıma açık değil.'),
-                        statusLabel: (state) => tr({
-                              'ready': 'Stil Jetonu Al',
-                              'credited': 'Bakiye güncellendi.',
-                              'pending': 'İşlem bekleniyor…',
-                              'cancelled': 'Vazgeç',
-                              'retry_required':
-                                  'İşlem tamamlanamadı. Tekrar kontrol et.',
-                            }[state] ??
-                            'Satın alma henüz kullanıma açık değil.')),
+                  PlayBillingPacks(
+                      controller: billing ?? fallbackPacks!,
+                      buyLabel: tr('Satın al'),
+                      unavailableLabel: tr('Fiyat alınamadı'),
+                      statusLabel: (state) => tr({
+                            'ready': 'Stil Jetonu Al',
+                            'credited': 'Bakiye güncellendi.',
+                            'pending': 'İşlem bekleniyor…',
+                            'cancelled': 'Vazgeç',
+                            'retry_required':
+                                'İşlem tamamlanamadı. Tekrar kontrol et.',
+                          }[state] ??
+                          'Satın alma henüz kullanıma açık değil.')),
                   if (billing == null || billing!.products.isEmpty) ...[
                     const FilledButton(
                         key: Key('purchase-disabled'),
                         onPressed: null,
                         child: SmText('Satın al')),
-                    const SmText('Satın alma henüz kullanıma açık değil.'),
                   ],
                 ])),
                 actions: [
@@ -1082,6 +1115,7 @@ class _StyleMuseShellState extends State<StyleMuseShell>
                       onPressed: () => Navigator.pop(dialog),
                       child: const SmText('Kapat'))
                 ])));
+    fallbackPacks?.dispose();
   }
 
   Future<void> openAdminSettings() async {
@@ -1277,7 +1311,10 @@ class _StyleMuseShellState extends State<StyleMuseShell>
                                         fontSize: 23,
                                         fontWeight: FontWeight.bold)),
                                 const SizedBox(height: 4),
-                                const SmText('Ücretsiz plan',
+                                SmText(
+                                    account?['plan'] is String
+                                        ? account!['plan'] as String
+                                        : 'Plan bilgisi alınamadı',
                                     style: TextStyle(
                                         color: Colors.white, fontSize: 12)),
                                 const SizedBox(height: 5),
@@ -1445,120 +1482,127 @@ class _StyleMuseShellState extends State<StyleMuseShell>
             : SingleChildScrollView(
                 key: const Key('profile-page'), child: content);
       });
-  Widget outfits() => ListView(
-          key: const Key('outfits-page'),
-          padding: const EdgeInsets.fromLTRB(14, 20, 14, 24),
-          children: [
-            pageHero('Kombinler',
-                'Günün planına ve tarzına göre bir kombin oluştur.', 'outfits',
-                key: const Key('outfits-hero')),
-            Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Expanded(
-                  child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                    const SmText('Bugünkü planın',
-                        style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            color: Color(0xFF70566E))),
-                    const SizedBox(height: 4),
-                    DropdownButtonFormField<String>(
-                        initialValue: outfitPlan,
-                        isExpanded: true,
-                        decoration: const InputDecoration(
-                            contentPadding: EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 10)),
-                        items: [
-                          for (final value in [
-                            'Günlük',
-                            'İş / Ofis',
-                            'Akşam yemeği',
-                            'Özel davet'
-                          ])
-                            DropdownMenuItem(
-                                value: value,
-                                child: SmText(value,
-                                    style: const TextStyle(fontSize: 13)))
-                        ],
-                        onChanged: (v) => setState(() => outfitPlan = v!))
-                  ])),
-              const SizedBox(width: 10),
-              Expanded(
-                  child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                    const SmText('Hangi tarz?',
-                        style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            color: Color(0xFF70566E))),
-                    const SizedBox(height: 4),
-                    DropdownButtonFormField<String>(
-                        initialValue: outfitStyle,
-                        isExpanded: true,
-                        decoration: const InputDecoration(
-                            contentPadding: EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 10)),
-                        items: [
-                          for (final value in [
-                            'Rahat ve şık',
-                            'Minimal',
-                            'Romantik',
-                            'Modern klasik'
-                          ])
-                            DropdownMenuItem(
-                                value: value,
-                                child: SmText(value,
-                                    style: const TextStyle(fontSize: 13)))
-                        ],
-                        onChanged: (v) => setState(() => outfitStyle = v!))
-                  ])),
+  Widget outfits() {
+    final idea = showIdeas ? outfitIdea : const <ClosetItem>[];
+    return ListView(
+        key: const Key('outfits-page'),
+        padding: const EdgeInsets.fromLTRB(14, 20, 14, 24),
+        children: [
+          pageHero('Kombinler',
+              'Günün planına ve tarzına göre bir kombin oluştur.', 'outfits',
+              key: const Key('outfits-hero')),
+          Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Expanded(
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                  const SmText('Bugünkü planın',
+                      style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF70566E))),
+                  const SizedBox(height: 4),
+                  DropdownButtonFormField<String>(
+                      initialValue: outfitPlan,
+                      isExpanded: true,
+                      decoration: const InputDecoration(
+                          contentPadding: EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 10)),
+                      items: [
+                        for (final value in [
+                          'Günlük',
+                          'İş / Ofis',
+                          'Akşam yemeği',
+                          'Özel davet'
+                        ])
+                          DropdownMenuItem(
+                              value: value,
+                              child: SmText(value,
+                                  style: const TextStyle(fontSize: 13)))
+                      ],
+                      onChanged: (v) => setState(() {
+                            outfitPlan = v!;
+                            ideaOffset = 0;
+                          }))
+                ])),
+            const SizedBox(width: 10),
+            Expanded(
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                  const SmText('Hangi tarz?',
+                      style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF70566E))),
+                  const SizedBox(height: 4),
+                  DropdownButtonFormField<String>(
+                      initialValue: outfitStyle,
+                      isExpanded: true,
+                      decoration: const InputDecoration(
+                          contentPadding: EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 10)),
+                      items: [
+                        for (final value in [
+                          'Rahat ve şık',
+                          'Minimal',
+                          'Romantik',
+                          'Modern klasik'
+                        ])
+                          DropdownMenuItem(
+                              value: value,
+                              child: SmText(value,
+                                  style: const TextStyle(fontSize: 13)))
+                      ],
+                      onChanged: (v) => setState(() {
+                            outfitStyle = v!;
+                            ideaOffset = 0;
+                          }))
+                ])),
+          ]),
+          const SizedBox(height: 8),
+          FilledButton.icon(
+              onPressed: () => setState(() {
+                    if (showIdeas) ideaOffset++;
+                    showIdeas = true;
+                  }),
+              icon: const Icon(Icons.auto_awesome, size: 16),
+              iconAlignment: IconAlignment.end,
+              label: const SmText('Bana fikir ver')),
+          if (showIdeas)
+            Column(key: const Key('outfit-recommendations'), children: [
+              if (idea.isEmpty)
+                const SmText(
+                    'Kombin için üst ve alt giyim ya da elbise seçmelisin.'),
+              if (idea.isNotEmpty)
+                Card(
+                    child: Column(children: [
+                  Row(children: [
+                    for (final item in idea)
+                      Expanded(
+                          child: SizedBox(
+                              height: 110,
+                              child: KeyedSubtree(
+                                  key: ValueKey('outfit-idea-${item.id}'),
+                                  child:
+                                      photo(item.image, fit: BoxFit.contain))))
+                  ]),
+                  FilledButton(
+                      onPressed: () => setState(() {
+                            plannedItems = idea.map((i) => i.id).toList();
+                            tab = 3;
+                          }),
+                      child: const SmText('Seç ve giydir')),
+                ])),
             ]),
-            const SizedBox(height: 8),
-            FilledButton.icon(
-                onPressed: () => setState(() {
-                      showIdeas = true;
-                      ideaOffset++;
-                    }),
-                icon: const Icon(Icons.auto_awesome, size: 16),
-                iconAlignment: IconAlignment.end,
-                label: const SmText('Bana fikir ver')),
-            if (showIdeas)
-              Column(key: const Key('outfit-recommendations'), children: [
-                if (outfitIdeas.isEmpty)
-                  const SmText(
-                      'Kombin için üst ve alt giyim ya da elbise seçmelisin.'),
-                for (final idea in outfitIdeas)
-                  Card(
-                      child: Column(children: [
-                    Row(children: [
-                      for (final item in idea)
-                        Expanded(
-                            child: SizedBox(
-                                height: 110,
-                                child: photo(item.image, fit: BoxFit.contain)))
-                    ]),
-                    FilledButton(
-                        onPressed: () => setState(() {
-                              plannedItems = idea.map((i) => i.id).toList();
-                              tab = 3;
-                            }),
-                        child: const SmText('Seç ve giydir')),
-                  ])),
-              ]),
-            const SizedBox(height: 10),
-            const SmText('Kaydettiğim kombinler',
-                style: TextStyle(
-                    fontFamily: 'serif', fontSize: 25, letterSpacing: -1)),
-            if (store.looks.isEmpty)
-              const Padding(
-                  padding: EdgeInsets.only(top: 12),
-                  child: SmText('Henüz kayıtlı kombin yok.',
-                      style:
-                          TextStyle(color: Color(0xFF8A7886), fontSize: 13))),
-            SavedLooksGrid(store: store),
-          ]);
+          const SizedBox(height: 10),
+          const SmText('Kaydettiğim kombinler',
+              style: TextStyle(
+                  fontFamily: 'serif', fontSize: 25, letterSpacing: -1)),
+          SavedLooksGrid(store: store),
+        ]);
+  }
+
   @override
   Widget build(BuildContext context) => LocalStrings(
       language: store.language,

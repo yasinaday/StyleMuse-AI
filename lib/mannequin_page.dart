@@ -38,7 +38,11 @@ class _MannequinPageState extends State<MannequinPage>
   static const runKey = 'stylemuse.tryon.run';
   String? runOwner;
   bool restoring = false;
-  bool automaticRecovery = false;
+  String? sequenceId;
+  String? sequenceState;
+  List<String> sequenceItems = [];
+  bool get hasSequence =>
+      sequenceId != null && !['done', 'failed'].contains(sequenceState);
   Future<void> checkpoint() async {
     if (runOwner == null) return;
     await widget.workflow.storage.write(
@@ -53,6 +57,9 @@ class _MannequinPageState extends State<MannequinPage>
           'runningInput': runningInput,
           'completedInput': completedInput,
           'cancelled': cancelled,
+          'sequenceId': sequenceId,
+          'sequenceState': sequenceState,
+          'sequenceItems': sequenceItems,
         }));
   }
 
@@ -83,8 +90,14 @@ class _MannequinPageState extends State<MannequinPage>
       if (saved == null || !mounted) return;
       final run = Map<String, dynamic>.from(jsonDecode(saved));
       final user = (await widget.workflow.api.account())['user'];
-      if (user is! Map || run['owner'] != 'google:${user['id']}') return;
+      if (!mounted ||
+          user is! Map ||
+          user['provider'] != 'google' ||
+          run['owner'] != 'google:${user['id']}') return;
       runOwner = run['owner'] as String;
+      sequenceId = run['sequenceId'] as String?;
+      sequenceState = run['sequenceState'] as String?;
+      sequenceItems = List<String>.from(run['sequenceItems'] as List? ?? []);
       selected
         ..clear()
         ..addAll(Map<String, String>.from(run['selected'] as Map));
@@ -102,7 +115,8 @@ class _MannequinPageState extends State<MannequinPage>
       runningInput = run['runningInput'] as String?;
       completedInput = run['completedInput'] as String?;
       cancelled = run['cancelled'] == true;
-      if (widget.initialItems != null &&
+      if (!hasSequence &&
+          widget.initialItems != null &&
           widget.initialItems!
               .toSet()
               .difference(selected.values.toSet())
@@ -116,12 +130,15 @@ class _MannequinPageState extends State<MannequinPage>
       }
       final pending = await widget.workflow.storage
           .read(TokenWorkflowController.pendingKey);
-      if (pending != null &&
+      if (hasSequence) {
+        cancelled = false;
+        setBusy(true);
+        await driveSequence(advance: false);
+      } else if (pending != null &&
           (jsonDecode(pending) as Map)['action'] == 'tryon') {
-        automaticRecovery = true;
         setBusy(true);
         await consume(await widget.workflow.recover());
-      } else if (remaining.isNotEmpty) {
+      } else if (sequenceId == null && remaining.isNotEmpty) {
         status = 'Yarım kalan kombin · Seçimleri giydir ile devam et.';
       }
       if (mounted) setState(() {});
@@ -130,7 +147,6 @@ class _MannequinPageState extends State<MannequinPage>
         setState(() =>
             status = 'İşlem tamamlanamadı. Kurtar düğmesiyle kontrol et.');
     } finally {
-      automaticRecovery = false;
       restoring = false;
       if (mounted && timer?.isActive != true) setBusy(false);
     }
@@ -158,11 +174,18 @@ class _MannequinPageState extends State<MannequinPage>
       (selected.containsKey('Üst giyim') && selected.containsKey('Alt giyim'));
   bool get canSave =>
       !busy &&
+      !saving &&
+      !isSaved &&
       !cancelled &&
       completeSelection &&
       completedInput == inputSignature() &&
       attributedImage != null &&
       attributedImage == widget.store.tryonResult;
+
+  bool saving = false;
+  bool get isSaved =>
+      attributedImage != null &&
+      widget.store.looks.any((look) => look['aiImage'] == attributedImage);
 
   List<ClosetItem> get chosenItems {
     const order = [
@@ -228,11 +251,125 @@ class _MannequinPageState extends State<MannequinPage>
     super.dispose();
   }
 
-  String get base =>
-      widget.store.tryonResult ??
+  String get base => widget.store.tryonResult ?? sourceImage;
+  String get sourceImage =>
       (widget.store.profile['modelPhoto']?.isNotEmpty == true
           ? widget.store.profile['modelPhoto']!
-          : mannequinAsset(widget.store.profile));
+          : studioAsset(widget.store.profile['studioMannequin']) ??
+              mannequinAsset(widget.store.profile));
+
+  String? studioAsset(String? id) =>
+      List.generate(10, (i) => '${i + 1}').contains(id)
+          ? 'assets/mannequins/studio-$id.webp'
+          : null;
+
+  Future<void> selectModel() async {
+    final choice = await showModalBottomSheet<String>(
+        context: context,
+        builder: (context) => GridView.count(
+              padding: const EdgeInsets.all(12),
+              crossAxisCount: 3,
+              children: [
+                for (final id in [
+                  'profile',
+                  ...List.generate(10, (i) => '${i + 1}')
+                ])
+                  InkWell(
+                    key: Key('mannequin-model-$id'),
+                    onTap: () => Navigator.pop(context, id),
+                    child: Column(children: [
+                      Expanded(
+                          child: photo(
+                              studioAsset(id) ??
+                                  mannequinAsset(widget.store.profile),
+                              fit: BoxFit.contain)),
+                      SmText(id == 'profile' ? 'Profil mankeni' : 'Manken $id'),
+                    ]),
+                  ),
+              ],
+            ));
+    if (choice == null || !mounted || busy || hasSequence) return;
+    await widget.store
+        .updateProfile({'modelPhoto': '', 'studioMannequin': choice});
+    await widget.store.saveTryOn(null);
+    if (mounted) setState(invalidateResult);
+  }
+
+  Future<void> driveSequence({required bool advance}) async {
+    final key = {'request_id': sequenceId};
+    final api = widget.workflow.api;
+    Map<String, dynamic> result;
+    while (mounted && !cancelled) {
+      try {
+        result = await api.post('/api/tryon/sequence/status', key);
+      } on StyleMuseApiException catch (error) {
+        if (error.code != 'sequence_not_found') rethrow;
+        sequenceState = 'failed';
+        await checkpoint();
+        if (mounted)
+          setState(
+              () => status = 'Giydirme oturumu bulunamadı veya süresi doldu.');
+        return;
+      }
+      if (!mounted || cancelled) return;
+      final state = result['state'] as String;
+      final completed = result['completed'] as int;
+      if (completed < 0 ||
+          completed > sequenceItems.length ||
+          result['total'] != sequenceItems.length ||
+          (state == 'done' && completed != sequenceItems.length)) {
+        throw const StyleMuseApiException('invalid_sequence_status');
+      }
+      if (completed > 0 &&
+          (completed != applied.length || attributedImage == null)) {
+        final image = await loadTryOnImage(result['image']);
+        if (!mounted || cancelled) return;
+        await widget.store.saveTryOn(image);
+        attributedImage = image;
+        final ids = sequenceItems.take(completed).toSet();
+        applied
+          ..clear()
+          ..addEntries(
+              selected.entries.where((entry) => ids.contains(entry.value)));
+      }
+      sequenceState = state;
+      if (state == 'done') completedInput = runningInput;
+      await checkpoint();
+      if (!mounted || cancelled) return;
+      setState(() => status = switch (state) {
+            'done' => 'Kombin hazır.',
+            'ready' =>
+              '$completed/${sequenceItems.length} · Devam etmeye hazır.',
+            'pending' =>
+              '$completed/${sequenceItems.length} · Giydirme devam ediyor…',
+            'unresolved' ||
+            'ambiguous' =>
+              'Gönderim doğrulanamadı. Adım yeniden gönderilmez.',
+            _ => 'Giydirme tamamlanamadı.',
+          });
+      if (state == 'ready' && advance) {
+        await api
+            .post('/api/tryon/sequence/advance', {...key, 'step': completed});
+        continue;
+      }
+      if (state == 'pending') {
+        timer = Timer(const Duration(seconds: 3), () => runSequence(advance));
+      }
+      return;
+    }
+  }
+
+  Future<void> runSequence(bool advance) async {
+    try {
+      await driveSequence(advance: advance);
+    } catch (_) {
+      if (mounted)
+        setState(() => status = 'İşlem kesildi. Kurtar ile durumu kontrol et.');
+    } finally {
+      if (mounted && timer?.isActive != true) setBusy(false);
+    }
+  }
+
   Future<void> consume(Map<String, dynamic>? result) async {
     if (result == null) {
       if (activeGarment != null) remaining.insert(0, activeGarment!);
@@ -289,10 +426,7 @@ class _MannequinPageState extends State<MannequinPage>
     }
     await checkpoint();
     await widget.workflow.acknowledge();
-    if (mounted && !cancelled && !automaticRecovery && remaining.isNotEmpty) {
-      await nextGarment();
-      return;
-    }
+
     if (item != null &&
         remaining.isEmpty &&
         selected.length == applied.length &&
@@ -305,7 +439,6 @@ class _MannequinPageState extends State<MannequinPage>
   }
 
   Future<void> poll() async {
-    automaticRecovery = true;
     try {
       await consume(await widget.workflow.recover());
     } catch (_) {
@@ -314,64 +447,83 @@ class _MannequinPageState extends State<MannequinPage>
             ? 'İşlem tamamlanamadı. Google girişini ve bağlantını kontrol et.'
             : 'İşlem tamamlanamadı. Kurtar düğmesiyle kontrol et.');
     } finally {
-      automaticRecovery = false;
       if (mounted && timer?.isActive != true) setBusy(false);
     }
   }
 
   Future<void> start() async {
-    if (selected.isEmpty || busy) return;
+    if (busy || restoring || (selected.isEmpty && !hasSequence)) return;
     setBusy(true);
     try {
       final user = (await widget.workflow.api.account())['user'];
       if (user is! Map || user['provider'] != 'google' || user['id'] is! String)
         throw const StyleMuseApiException('sign_in_required');
-      runOwner = 'google:${user['id']}';
+      final owner = 'google:${user['id']}';
+      if (hasSequence) {
+        if (runOwner != owner)
+          throw const StyleMuseApiException('pending_account_mismatch');
+        cancelled = false;
+        await runSequence(true);
+        return;
+      }
       final pending = await widget.workflow.storage
           .read(TokenWorkflowController.pendingKey);
       if (pending != null) {
-        automaticRecovery = true;
         await consume(await widget.workflow.recover());
         return;
       }
-      final continuing = !cancelled &&
-          runningInput == inputSignature() &&
-          remaining.isNotEmpty &&
-          activeGarment == null;
       cancelled = false;
-      if (!continuing) {
-        completedInput = null;
-        runningInput = inputSignature();
-        applied.clear();
-        attributedImage = null;
-        await widget.store.saveTryOn(null);
-        remaining
-          ..clear()
-          ..addAll(chosenItems);
+      final items = chosenItems;
+      if (items.isEmpty) return;
+      final signature = inputSignature();
+      final id = widget.workflow.requestId();
+      final inputs = {
+        'request_id': id,
+        'person_image': await jpegData(sourceImage),
+        'garments': [for (final item in items) await jpegData(item.image)],
+        'garment_ids': [for (final item in items) item.id],
+      };
+      final api = widget.workflow.api;
+      final quote = await api
+          .post('/api/quote', {'action': 'tryon_sequence', 'inputs': inputs});
+      if (quote['style_tokens'] != items.length ||
+          quote['quote_id'] is! String ||
+          quote['estimated_cost_usd'] is! num) {
+        throw const StyleMuseApiException('token_quote_mismatch');
       }
+      if (!mounted ||
+          cancelled ||
+          !await widget.confirmTokens(items.length) ||
+          !mounted ||
+          cancelled) return;
+      runOwner = owner;
+      sequenceId = id;
+      sequenceState = 'starting';
+      sequenceItems = items.map((item) => item.id).toList();
+      completedInput = null;
+      runningInput = signature;
+      applied.clear();
+      remaining.clear();
+      activeGarment = null;
+      attributedImage = null;
       await checkpoint();
-      await nextGarment();
+      if (!mounted || cancelled) return;
+      await widget.store.saveTryOn(null);
+      await api.post('/api/tryon/sequence', {
+        ...inputs,
+        'quote_id': quote['quote_id'],
+        'confirmed': true,
+        'max_total_usd': quote['estimated_cost_usd'],
+      });
+      await runSequence(true);
     } catch (_) {
       if (mounted)
         setState(() => status = widget.workflow.pending == null
             ? 'İşlem tamamlanamadı. Google girişini ve bağlantını kontrol et.'
             : 'İşlem tamamlanamadı. Kurtar düğmesiyle kontrol et.');
     } finally {
-      automaticRecovery = false;
       if (mounted && timer?.isActive != true) setBusy(false);
     }
-  }
-
-  Future<void> nextGarment() async {
-    if (cancelled || !mounted || remaining.isEmpty) return;
-    final item = remaining.removeAt(0);
-    final person = await jpegData(base);
-    final garment = await jpegData(item.image);
-    if (cancelled || !mounted) return;
-    activeGarment = item;
-    await checkpoint();
-    await consume(await widget.workflow
-        .tryOn(person, garment, confirm: widget.confirmTokens));
   }
 
   Future<void> ownPhoto() async {
@@ -383,9 +535,7 @@ class _MannequinPageState extends State<MannequinPage>
           await jpegData('data:image/jpeg;base64,${base64Encode(bytes)}');
       await widget.store.updateProfile({'modelPhoto': image});
       await widget.store.saveTryOn(null);
-      if (mounted)
-        setState(() => status =
-            'Fotoğraf hazır. Her giydirme adımı için 1 Stil Jetonu kullanılır.');
+      if (mounted) setState(() => status = 'Fotoğraf hazır.');
     } catch (_) {
       if (mounted) setState(() => status = 'Fotoğraf açılamadı.');
     }
@@ -394,6 +544,7 @@ class _MannequinPageState extends State<MannequinPage>
   @override
   Widget build(BuildContext context) {
     final chosen = chosenItems;
+    final locked = busy || restoring || hasSequence;
     return LocalStrings(
         language: widget.store.language,
         child: ListView(
@@ -461,7 +612,12 @@ class _MannequinPageState extends State<MannequinPage>
                                         crossAxisAlignment:
                                             CrossAxisAlignment.stretch,
                                         children: [
-                                          for (var i = 0; i < 4; i++) ...[
+                                          for (var i = 0;
+                                              i <
+                                                  (chosen.length > 4
+                                                      ? chosen.length
+                                                      : 4);
+                                              i++) ...[
                                             if (i > 0)
                                               const SizedBox(height: 5),
                                             Expanded(
@@ -480,8 +636,34 @@ class _MannequinPageState extends State<MannequinPage>
                                                             BorderRadius
                                                                 .circular(10)),
                                                     child: i < chosen.length
-                                                        ? photo(chosen[i].image,
-                                                            fit: BoxFit.contain)
+                                                        ? Stack(
+                                                            fit:
+                                                                StackFit.expand,
+                                                            children: [
+                                                                photo(
+                                                                    chosen[i]
+                                                                        .image,
+                                                                    fit: BoxFit
+                                                                        .contain),
+                                                                Positioned(
+                                                                    top: 0,
+                                                                    right: 0,
+                                                                    child: SizedBox(
+                                                                        width: 32,
+                                                                        height: 32,
+                                                                        child: IconButton(
+                                                                            key: ValueKey('remove-selected-${chosen[i].id}'),
+                                                                            tooltip: tr('Seçimden çıkar'),
+                                                                            padding: EdgeInsets.zero,
+                                                                            style: IconButton.styleFrom(backgroundColor: const Color(0xFFFFF9FD)),
+                                                                            onPressed: locked
+                                                                                ? null
+                                                                                : () => setState(() {
+                                                                                      invalidateResult();
+                                                                                      selected.remove(chosen[i].category);
+                                                                                    }),
+                                                                            icon: const Icon(Icons.close, size: 18))))
+                                                              ])
                                                         : const SizedBox
                                                             .expand())),
                                           ],
@@ -497,18 +679,18 @@ class _MannequinPageState extends State<MannequinPage>
                                                           borderRadius:
                                                               BorderRadius.circular(
                                                                   11))),
-                                                  onPressed: busy ||
+                                                  onPressed: locked ||
                                                           widget.store.items
                                                               .isEmpty
                                                       ? null
                                                       : () => setState(suggest),
-                                                  child: const SmText('KOMBİN\nÖNER',
+                                                  child: const SmText(
+                                                      'KOMBİN\nÖNER',
                                                       textAlign:
                                                           TextAlign.center,
                                                       style: TextStyle(
                                                           fontSize: 12,
-                                                          fontWeight:
-                                                              FontWeight.w800)))),
+                                                          fontWeight: FontWeight.w800)))),
                                           const SizedBox(height: 2),
                                           SizedBox(
                                               height: 30,
@@ -526,7 +708,7 @@ class _MannequinPageState extends State<MannequinPage>
                                                                   BorderRadius
                                                                       .circular(
                                                                           10))),
-                                                  onPressed: busy
+                                                  onPressed: locked
                                                       ? null
                                                       : () => setState(() {
                                                             invalidateResult();
@@ -552,64 +734,28 @@ class _MannequinPageState extends State<MannequinPage>
                                                       'Giydirme devam ediyor…'),
                                                   child: photo(base,
                                                       fit: BoxFit.contain)))),
-                                      Container(
-                                          height: 30,
-                                          margin: const EdgeInsets.fromLTRB(
-                                              3, 0, 3, 6),
-                                          alignment: Alignment.center,
-                                          decoration: BoxDecoration(
-                                              color: const Color(0xFFFFF9FD),
-                                              borderRadius:
-                                                  BorderRadius.circular(12)),
-                                          child: SmText(
-                                              busy
-                                                  ? 'Giydirme devam ediyor…'
-                                                  : chosen.isEmpty
-                                                      ? 'Kombinin için kıyafet seç.'
-                                                      : chosen
-                                                          .map((item) =>
-                                                              item.category)
-                                                          .join(' · '),
-                                              textAlign: TextAlign.center,
-                                              style: const TextStyle(
-                                                  fontSize: 11,
-                                                  fontWeight:
-                                                      FontWeight.w700))),
                                     ])),
                           ]))),
               const SizedBox(height: 6),
-              if (suggestion > 0)
-                Wrap(
-                  key: const Key('outfit-recommendations'),
-                  spacing: 6,
-                  children: [
-                    for (var i = 0; i < widget.store.items.length; i++)
-                      FilterChip(
-                        key: Key('recommendation-$i'),
-                        label: SmText(widget.store.items[i].category),
-                        selected: selected[widget.store.items[i].category] ==
-                            widget.store.items[i].id,
-                        onSelected: busy
-                            ? null
-                            : (_) => setState(() {
-                                  invalidateResult();
-                                  final item = widget.store.items[i];
-                                  if (selected[item.category] == item.id) {
-                                    selected.remove(item.category);
-                                  } else {
-                                    if (item.category == 'Elbise') {
-                                      selected.remove('Üst giyim');
-                                      selected.remove('Alt giyim');
-                                    } else if (item.category == 'Üst giyim' ||
-                                        item.category == 'Alt giyim') {
-                                      selected.remove('Elbise');
-                                    }
-                                    selected[item.category] = item.id;
-                                  }
-                                }),
-                      ),
-                  ],
-                ),
+              if (sequenceId != null)
+                Column(key: const Key('tryon-step-progress'), children: [
+                  for (var i = 0; i < chosen.length; i++)
+                    ListTile(
+                        dense: true,
+                        leading: Icon(
+                            applied.containsValue(chosen[i].id)
+                                ? Icons.check_circle
+                                : i == applied.length
+                                    ? Icons.hourglass_top
+                                    : Icons.schedule,
+                            color: const Color(0xFF904588)),
+                        title: SmText(chosen[i].category),
+                        subtitle: SmText(applied.containsValue(chosen[i].id)
+                            ? 'Tamamlandı'
+                            : i == applied.length
+                                ? 'Şimdiki adım'
+                                : 'Sıradaki adım')),
+                ]),
               OutlinedButton.icon(
                   key: const Key('save-tryon'),
                   onPressed: !canSave
@@ -617,6 +763,7 @@ class _MannequinPageState extends State<MannequinPage>
                       : () async {
                           try {
                             if (!canSave) return;
+                            setState(() => saving = true);
                             await widget.store.saveLook(applied.values.toList(),
                                 occasion: widget.occasion,
                                 style: widget.style,
@@ -626,40 +773,40 @@ class _MannequinPageState extends State<MannequinPage>
                           } catch (_) {
                             if (mounted)
                               setState(() => status = 'Kaydedilemedi.');
+                          } finally {
+                            if (mounted) setState(() => saving = false);
                           }
                         },
                   icon: const Icon(Icons.favorite_border, size: 18),
-                  label: const SmText('Kombinimi kaydet')),
+                  label: SmText(isSaved
+                      ? 'Kaydedildi'
+                      : saving
+                          ? 'Kaydediliyor…'
+                          : 'Kombinimi kaydet')),
               const SizedBox(height: 6),
               OutlinedButton.icon(
-                  onPressed: busy ? null : ownPhoto,
+                  key: const Key('select-mannequin'),
+                  onPressed: locked ? null : selectModel,
+                  icon: const Icon(Icons.person_outline),
+                  label: const SmText('Manken seç')),
+              OutlinedButton.icon(
+                  onPressed: locked ? null : ownPhoto,
                   icon: const Icon(Icons.add, size: 18),
                   label: const SmText('Kendi fotoğrafımı yükle')),
               const SizedBox(height: 6),
               FilledButton.icon(
                   key: const Key('tryon-start'),
-                  onPressed: busy || selected.isEmpty ? null : start,
+                  onPressed:
+                      busy || restoring || (selected.isEmpty && !hasSequence)
+                          ? null
+                          : start,
                   icon: const Icon(Icons.auto_awesome, size: 18),
-                  label: const SmText('Yapay zekâ ile gerçekçi giydir')),
+                  label: SmText(hasSequence
+                      ? 'Giydirmeye devam et'
+                      : 'Yapay zekâ ile gerçekçi giydir')),
               const SizedBox(height: 14),
-              Row(children: [
-                const Expanded(
-                    child: SmText('Dolabımdan seç',
-                        style: TextStyle(
-                            fontSize: 18, fontWeight: FontWeight.bold))),
-                IconButton(
-                    tooltip: tr('Sıfırla'),
-                    onPressed: busy
-                        ? null
-                        : () async {
-                            invalidateResult();
-                            await widget.store
-                                .updateProfile({'modelPhoto': ''});
-                            await widget.store.saveTryOn(null);
-                            if (mounted) setState(() {});
-                          },
-                    icon: const Icon(Icons.refresh))
-              ]),
+              const SmText('Dolabımdan seç',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
               if (widget.store.items.isEmpty) ...[
                 const SmText(
                     'Dolabın henüz boş. İlk kıyafetini ekleyerek başla.'),
@@ -681,7 +828,7 @@ class _MannequinPageState extends State<MannequinPage>
                             width: 88,
                             child: InkWell(
                                 key: Key('try-garment-$i'),
-                                onTap: busy
+                                onTap: locked
                                     ? null
                                     : () => setState(() {
                                           invalidateResult();
@@ -722,9 +869,9 @@ class _MannequinPageState extends State<MannequinPage>
                                     ]))));
                       })),
               const SizedBox(height: 12),
-              const SmText(
-                  'Fotoğraf hazır. Her giydirme adımı için 1 Stil Jetonu kullanılır.'),
-              if (status.isNotEmpty || widget.workflow.pending != null)
+              if (status.isNotEmpty ||
+                  hasSequence ||
+                  widget.workflow.pending != null)
                 Card(
                     color: const Color(0xFFF3DDF0),
                     child: Padding(
@@ -734,7 +881,7 @@ class _MannequinPageState extends State<MannequinPage>
                               child: SmText(status.isEmpty
                                   ? 'Yarım kalan işlem'
                                   : status)),
-                          if (widget.workflow.pending != null)
+                          if (hasSequence || widget.workflow.pending != null)
                             TextButton(
                                 key: const Key('recover-tryon'),
                                 onPressed: busy ? null : restoreRun,
@@ -743,15 +890,16 @@ class _MannequinPageState extends State<MannequinPage>
               if (busy)
                 TextButton(
                     onPressed: () {
+                      final waiting = timer?.isActive == true;
                       timer?.cancel();
                       cancelled = true;
                       widget.workflow.cancel();
                       checkpoint();
-                      setBusy(false);
+                      if (waiting) setBusy(false);
                       setState(() => status =
                           'İşlem cihazda durduruldu. Kullanılan jetonlar geri yüklenmez; sonucu Kurtar ile kontrol et.');
                     },
-                    child: const SmText('İptal et')),
+                    child: const SmText('Duraklat')),
             ]));
   }
 }

@@ -7,6 +7,29 @@ import 'package:stylemuse_ai/closet.dart';
 import 'package:stylemuse_ai/saved_looks_grid.dart';
 
 void main() {
+  testWidgets('legacy collages are preserved but excluded from photo grid',
+      (tester) async {
+    final store = ClosetStore(memory: true);
+    const photo = 'https://fal.media/files/result.jpg';
+    await store.restore(jsonEncode({
+      ...store.snapshot(),
+      'looks': [
+        {'images': [], 'occasion': 'Legacy collage'},
+        {'images': [], 'aiImage': photo, 'occasion': 'Completed photo'},
+      ],
+    }));
+    await tester.pumpWidget(
+        MaterialApp(home: Scaffold(body: SavedLooksGrid(store: store))));
+    await tester.pumpAndSettle();
+    expect(find.text('Legacy collage'), findsNothing);
+    expect(find.text('Completed photo'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('delete-look-0')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('confirm-delete-look')));
+    await tester.pumpAndSettle();
+    expect(store.looks.single['occasion'], 'Legacy collage');
+    expect(find.text('Henüz kayıtlı kombin yok.'), findsOneWidget);
+  });
   testWidgets(
       'restored trusted remote outfit shares its image URL without downloading',
       (tester) async {
@@ -45,7 +68,9 @@ void main() {
     await store
         .saveLook([store.items.single.id], occasion: 'Günlük', aiImage: image);
     await store.saveLook([store.items.single.id],
-        occasion: 'Özel davet', aiImage: image);
+        occasion: 'Özel davet',
+        aiImage:
+            'data:image/png;base64,${base64Encode(img.encodePng(img.Image(width: 21, height: 31)))}');
     final shared = <Map<String, dynamic>>[];
     await tester.pumpWidget(MaterialApp(
         home: Scaffold(

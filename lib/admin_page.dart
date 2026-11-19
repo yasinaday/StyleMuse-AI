@@ -128,18 +128,26 @@ class _AdminPageState extends State<AdminPage> {
   }
 
   Widget _section(String title, List<Widget> children) => Card(
-      child: Padding(
-          padding: const EdgeInsets.all(16),
-          child:
-              Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            Text(title, style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 12),
-            ...children
-          ])));
-  Widget _rows(String title, String key) {
-    final rows = _data?[key];
+      child: ExpansionTile(
+          initiallyExpanded: title == 'Başarısız ve yarım kalan işler' ||
+              title == 'Analiz geçmişi ve iş ayrıntıları',
+          title: Text(title, style: Theme.of(context).textTheme.titleMedium),
+          childrenPadding: const EdgeInsets.all(16),
+          children: children));
+  Widget _rows(String title, String key, {bool? incomplete}) {
+    final raw = _data?[key];
+    final rows = raw is List
+        ? raw
+            .where((row) =>
+                incomplete == null ||
+                (row is Map &&
+                        !['done', 'complete', 'completed', 'succeeded']
+                            .contains(row['state'])) ==
+                    incomplete)
+            .toList()
+        : [];
     return _section(title, [
-      if (rows is! List || rows.isEmpty)
+      if (rows.isEmpty)
         const Text('Henüz kayıt yok.')
       else
         ...rows.map<Widget>((row) => ExpansionTile(
@@ -175,7 +183,10 @@ class _AdminPageState extends State<AdminPage> {
           if (!_denied && _data != null) ...[
             const Text(
                 'Son 50 iş ve sınırlı işlem geçmişi. Maskeler ve kategoriler anlamsal olarak doğrulanmış değildir. Yenileme ücretli çıkarım başlatmaz.'),
-            _rows('Analiz geçmişi ve iş ayrıntıları', 'jobs'),
+            _rows('Başarısız ve yarım kalan işler', 'jobs', incomplete: true),
+            _rows('Hatalar ve bildirimler', 'errors'),
+            _rows('Analiz geçmişi ve iş ayrıntıları', 'jobs',
+                incomplete: false),
             OutlinedButton.icon(
                 onPressed: _busy
                     ? null
@@ -191,7 +202,6 @@ class _AdminPageState extends State<AdminPage> {
                 label: const Text('Raporu kopyala')),
             _rows('Parça kimliği, maske ve sağlayıcı eşleşmesi',
                 'enhancement_audit'),
-            _rows('Hatalar ve bildirimler', 'errors'),
             _rows('İşlem maliyet defteri', 'operations'),
             _rows('Jeton bakiyeleri', 'token_balances'),
             _rows('Jeton yükleme geçmişi', 'token_load_history'),

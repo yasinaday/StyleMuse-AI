@@ -51,7 +51,7 @@ void main() {
         'style_tokens': 1,
         'estimated_cost_usd': 0.01
       },
-      '/api/tryon': {'state': 'done', 'job_id': 'job', 'image': image}
+      '/api/tryon/sequence': {'total': 1, 'image': image}
     });
     final workflow = TokenWorkflowController(
         api: StyleMuseApi(storage: secure, transport: transport),
@@ -76,7 +76,9 @@ void main() {
     await tester.tap(find.byKey(const Key('tryon-start')));
     await tester.pumpAndSettle();
     expect(confirmations, [1]);
-    expect(transport.paths.where((path) => path == '/api/tryon'), hasLength(1));
+    expect(
+        transport.paths.where((path) => path == '/api/tryon/sequence/advance'),
+        hasLength(1));
     expect(store.tryonResult, isNotNull);
     expect(
         secure.values.containsKey(TokenWorkflowController.pendingKey), isFalse);
@@ -182,6 +184,13 @@ void main() {
             .widget<FilledButton>(find.byKey(const Key('tryon-start')))
             .onPressed,
         isNotNull);
+    await tester.ensureVisible(slot);
+    await tester
+        .tap(find.byKey(ValueKey('remove-selected-${store.items.single.id}')));
+    await tester.pumpAndSettle();
+    expect(store.items, hasLength(1));
+    expect(
+        find.descendant(of: slot, matching: find.byType(Image)), findsNothing);
     expect(tester.takeException(), isNull);
   });
 }

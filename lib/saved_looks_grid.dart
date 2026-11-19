@@ -19,25 +19,19 @@ class _SavedLooksGridState extends State<SavedLooksGrid> {
   String tr(String value) => translate(value, widget.store.language);
 
   Future<void> share(Map<String, dynamic> look) async {
-    final aiImage = look['aiImage'];
-    final images = aiImage is String
-        ? [aiImage]
-        : List<String>.from(look['images'] as List? ?? []);
-    final files = <XFile>[];
-    for (final image in images) {
-      if (!safeImage(image)) continue;
-      final mime = image.substring(5, image.indexOf(';'));
-      final extension = mime.split('/').last;
-      files.add(XFile.fromData(base64Decode(image.split(',').last),
-          mimeType: mime, name: 'stylemuse-${files.length + 1}.$extension'));
-    }
+    final image = look['aiImage'];
+    if (!safeOutfitPhoto(image)) return;
+    final source = image as String;
     final text = 'StyleMuse · ${look['occasion'] ?? tr('Günlük')}';
-    if (files.isNotEmpty) {
-      await Share.shareXFiles(files, text: text);
+    if (safeImage(source)) {
+      final mime = source.substring(5, source.indexOf(';'));
+      final extension = mime.split('/').last;
+      await Share.shareXFiles([
+        XFile.fromData(base64Decode(source.split(',').last),
+            mimeType: mime, name: 'stylemuse.$extension'),
+      ], text: text);
     } else {
-      final links =
-          images.where((image) => !safeImage(image) && safeOutfitPhoto(image));
-      await Share.share([text, ...links].join('\n'));
+      await Share.share('$text\n$source');
     }
   }
 
@@ -72,11 +66,7 @@ class _SavedLooksGridState extends State<SavedLooksGrid> {
                   child: Text(tr('Sil'))),
             ]));
     if (confirmed != true || !mounted) return;
-    // Locate the original object again after the confirmation; an import may
-    // have replaced the list while the dialog was open.
-    final index =
-        widget.store.looks.indexWhere((entry) => identical(entry, look));
-    if (index >= 0) await widget.store.deleteLook(index);
+    await widget.store.deleteLookEntry(look);
   }
 
   @override
@@ -84,8 +74,19 @@ class _SavedLooksGridState extends State<SavedLooksGrid> {
       language: widget.store.language,
       child: ListenableBuilder(
           listenable: widget.store,
-          builder: (context, _) => Column(children: [
-                if (error != null) SmText(error!),
+          builder: (context, _) {
+            final completed = widget.store.looks
+                .where((look) => safeOutfitPhoto(look['aiImage']))
+                .toList();
+            return Column(children: [
+              if (error != null) SmText(error!),
+              if (completed.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.only(top: 12),
+                  child: SmText('Henüz kayıtlı kombin yok.',
+                      style: TextStyle(color: Color(0xFF8A7886), fontSize: 13)),
+                )
+              else
                 GridView.builder(
                     key: const Key('saved-looks-grid'),
                     shrinkWrap: true,
@@ -96,12 +97,9 @@ class _SavedLooksGridState extends State<SavedLooksGrid> {
                             crossAxisSpacing: 10,
                             mainAxisSpacing: 10,
                             mainAxisExtent: 280),
-                    itemCount: widget.store.looks.length,
+                    itemCount: completed.length,
                     itemBuilder: (context, index) {
-                      final look = widget.store.looks[index];
-                      final images =
-                          List<String>.from(look['images'] as List? ?? []);
-                      final aiImage = look['aiImage'];
+                      final look = completed[index];
                       return Card(
                           key: Key('saved-look-$index'),
                           child: Padding(
@@ -111,19 +109,8 @@ class _SavedLooksGridState extends State<SavedLooksGrid> {
                                       CrossAxisAlignment.stretch,
                                   children: [
                                     Expanded(
-                                        child: aiImage is String
-                                            ? photo(aiImage,
-                                                fit: BoxFit.contain)
-                                            : GridView.count(
-                                                crossAxisCount: 2,
-                                                physics:
-                                                    const NeverScrollableScrollPhysics(),
-                                                children: [
-                                                    for (final image
-                                                        in images.take(4))
-                                                      photo(image,
-                                                          fit: BoxFit.contain)
-                                                  ])),
+                                        child: photo(look['aiImage'] as String,
+                                            fit: BoxFit.contain)),
                                     Text(
                                         tr(look['occasion'] as String? ??
                                             'Günlük'),
@@ -162,5 +149,6 @@ class _SavedLooksGridState extends State<SavedLooksGrid> {
                                         ]),
                                   ])));
                     }),
-              ])));
+            ]);
+          }));
 }

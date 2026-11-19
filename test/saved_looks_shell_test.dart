@@ -18,7 +18,9 @@ void main() {
     await store
         .saveLook([store.items.single.id], occasion: 'Günlük', aiImage: image);
     await store.saveLook([store.items.single.id],
-        occasion: 'Özel davet', aiImage: image);
+        occasion: 'Özel davet',
+        aiImage:
+            'data:image/png;base64,${base64Encode(img.encodePng(img.Image(width: 21, height: 31)))}');
     await tester.pumpWidget(StyleMuseApp(store: store));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Kombinler').last);

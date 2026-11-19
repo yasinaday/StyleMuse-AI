@@ -8,6 +8,40 @@ import 'package:stylemuse_ai/stylemuse_api.dart';
 import 'ui_api_test.dart' show MemorySecure, FixtureTransport;
 
 void main() {
+  testWidgets('one ranked idea rotates across tops and resets for evening',
+      (tester) async {
+    final store = ClosetStore(memory: true);
+    final image =
+        'data:image/png;base64,${base64Encode(img.encodePng(img.Image(width: 2, height: 2)))}';
+    store.items = [
+      ClosetItem('top1', image, 'Üst giyim'),
+      ClosetItem('top2', image, 'Üst giyim'),
+      ClosetItem('bottom1', image, 'Alt giyim'),
+      ClosetItem('bottom2', image, 'Alt giyim'),
+      ClosetItem('dress', image, 'Elbise'),
+    ];
+    await tester.pumpWidget(StyleMuseApp(
+        store: store,
+        api: StyleMuseApi(
+            storage: MemorySecure(), transport: FixtureTransport({}))));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Kombinler').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Bana fikir ver'));
+    await tester.pumpAndSettle();
+    expect(find.text('Seç ve giydir'), findsOneWidget);
+    expect(find.byKey(const ValueKey('outfit-idea-top1')), findsOneWidget);
+    await tester.tap(find.text('Bana fikir ver'));
+    await tester.pumpAndSettle();
+    expect(find.text('Seç ve giydir'), findsOneWidget);
+    expect(find.byKey(const ValueKey('outfit-idea-top2')), findsOneWidget);
+    await tester.tap(find.byType(DropdownButtonFormField<String>).first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Akşam yemeği').last);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('outfit-idea-dress')), findsOneWidget);
+    expect(store.looks, isEmpty);
+  });
   testWidgets(
       'inline plan selections reach consented tryon and rendered saved outfit',
       (tester) async {
@@ -27,7 +61,7 @@ void main() {
         'style_tokens': 1,
         'estimated_cost_usd': 0.01
       },
-      '/api/tryon': {'state': 'done', 'job_id': 'job', 'image': image},
+      '/api/tryon/sequence': {'total': 1, 'image': image},
     });
     await tester.pumpWidget(StyleMuseApp(
         store: store,
@@ -67,7 +101,8 @@ void main() {
     expect(store.looks.single['occasion'], 'Akşam yemeği');
     expect(store.looks.single['style'], 'Romantik');
     expect(store.looks.single['aiImage'], startsWith('data:image/'));
-    expect(transport.paths.where((p) => p == '/api/tryon'), hasLength(1));
+    expect(transport.paths.where((p) => p == '/api/tryon/sequence/advance'),
+        hasLength(1));
     expect(tester.takeException(), isNull);
   });
 }

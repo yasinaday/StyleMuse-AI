@@ -90,7 +90,7 @@ void main() {
         transport.bodies['/api/account/avatar']!.single['image'] as String;
     expect(img.decodeJpg(base64Decode(submitted.split(',').last))!.width, 80);
     expect(saved, normalized);
-    expect(transport.paths, ['/api/account/avatar']);
+    expect(transport.paths, ['/api/account', '/api/account/avatar']);
     expect(shell.account['user']['avatar'], normalized);
     expect(store.profile['google:bob:photo'], 'data:image/png;base64,Yg==');
     expect(store.profile['photo'], isNull);

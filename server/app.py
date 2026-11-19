@@ -73,6 +73,21 @@ class TryOnStatus(BaseModel):
     model_config = ConfigDict(extra='forbid')
     job_id: str = Field(min_length=1, max_length=128)
 
+class TryOnSequenceKey(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    request_id: str = Field(min_length=1, max_length=100, pattern=r'^[a-zA-Z0-9_-]+$')
+
+class TryOnSequence(TryOnSequenceKey):
+    person_image: str
+    garments: list[str] = Field(min_length=1, max_length=7)
+    garment_ids: list[str] = Field(min_length=1, max_length=7)
+    quote_id: str = Field(default='', max_length=128)
+    confirmed: bool = Field(default=False, strict=True)
+    max_total_usd: float = Field(default=0, ge=0, allow_inf_nan=False)
+
+class TryOnSequenceStep(TryOnSequenceKey):
+    step: int = Field(ge=0, le=6, strict=True)
+
 def normalize(uri, s, *, preserve_alpha=False, upload=False):
     try:
         if not isinstance(uri, str) or not uri.startswith(('data:image/png;base64,', 'data:image/jpeg;base64,')):
@@ -786,7 +801,8 @@ def create_app(settings=None, provider=None):
                 credit = None
             if credit and units(credit['available_usd']) >= cost:
                 return credit
-        raise HTTPException(402, 'provider_credit_unavailable')
+        known = (type(balance) in (int, float) and math.isfinite(balance) and balance >= 0)
+        raise HTTPException(402, 'provider_credit_insufficient' if known or (action == 'detect' and balance is None and credit) else 'provider_credit_unavailable')
 
     def quote_digest(action, inputs, credit=None):
         return hashlib.sha256(json.dumps({'action': action, 'inputs': inputs, 'manual_snapshot': credit['snapshot_id'] if credit else None},
@@ -814,22 +830,30 @@ def create_app(settings=None, provider=None):
             raise HTTPException(503, 'inference_disabled')
         try:
             body = await request.json()
-            if set(body) != {'action', 'inputs'} or body['action'] not in ('detect', 'generate', 'tryon'):
+            if set(body) != {'action', 'inputs'} or body['action'] not in ('detect', 'generate', 'tryon', 'tryon_sequence'):
                 raise ValueError()
             action = body['action']
-            payload = {'detect': DetectRequest, 'generate': GenerateRequest, 'tryon': TryOnRequest}[action].model_validate(body['inputs'])
+            payload = {'detect': DetectRequest, 'generate': GenerateRequest, 'tryon': TryOnRequest,
+                       'tryon_sequence': TryOnSequence}[action].model_validate(body['inputs'])
             if payload.confirmed or payload.quote_id or payload.max_total_usd or getattr(payload, 'approved_style_tokens', 0):
                 raise ValueError()
         except Exception:
             raise HTTPException(422, 'invalid_request') from None
         style_tokens = 1
-        if action == 'tryon':
+        if action == 'tryon_sequence':
+            normalize_sequence(payload)
+            inputs = sequence_inputs(payload)
+            style_tokens = len(payload.garments)
+            cost = 40000 * style_tokens
+        elif action == 'tryon':
             normalize(payload.person_image, s, upload=True)
             normalize(payload.clothing_image, s, preserve_alpha=True, upload=True)
             inputs = tryon_inputs(payload)
             cost = 40000  # fal official price: one output image, $0.04.
         elif action == 'detect':
             normalize(payload.image, s, upload=True)
+            if who.startswith('google:') and store.style_balance(who) < style_tokens:
+                raise HTTPException(402, 'style_tokens_empty')
             inputs = {'image': payload.image, 'request_id': payload.request_id}
             cost = units(s.detect_reservation_usd)
         else:
@@ -850,7 +874,7 @@ def create_app(settings=None, provider=None):
                 style_tokens = ENHANCEMENT_TOKENS_PER_PART * pending_count
                 inputs = generation_quote_inputs(payload, job)
 
-        credit = provider_credit(action, cost)
+        credit = provider_credit('tryon' if action == 'tryon_sequence' else action, cost)
         qid = secrets.token_urlsafe(32)
         with store.tx() as db:
             db.execute('INSERT INTO payment_quotes VALUES(?,?,?,?,?,?,?,0)',
@@ -1103,6 +1127,127 @@ def create_app(settings=None, provider=None):
             }:
                 raise HTTPException(502, str(exc)) from None
             raise HTTPException(502, 'provider_failed_no_retry') from None
+
+    def sequence_inputs(payload):
+        return payload.model_dump(include={'person_image', 'garments', 'garment_ids', 'request_id'})
+
+    def normalize_sequence(payload):
+        if (len(payload.garment_ids) != len(payload.garments)
+                or len(set(payload.garment_ids)) != len(payload.garment_ids)
+                or any(not item or len(item) > 200 for item in payload.garment_ids)):
+            raise HTTPException(422, 'invalid_request')
+        return [normalize(payload.person_image, s, upload=True), *[
+            normalize(g, s, preserve_alpha=True, upload=True) for g in payload.garments]]
+
+    def sequence_row(db, who, key):
+        row = db.execute('SELECT * FROM jobs WHERE owner=? AND request_id=?',
+                         (who, 'sequence:' + key)).fetchone()
+        if not row or row['expires'] <= time.time():
+            raise HTTPException(404, 'sequence_not_found')
+        return row
+
+    @app.post('/api/tryon/sequence')
+    def start_sequence(payload: TryOnSequence, request: Request, authorization: str | None = Header(None)):
+        who = owner(authorization, request, paid=True)
+        if not s.enabled or provider is None:
+            raise HTTPException(503, 'inference_disabled')
+        images = json.dumps(normalize_sequence(payload))
+        count = len(payload.garments)
+        cost = count * 40000
+        provider_credit('tryon', cost)
+        progress = {'state': 'ready', 'completed': 0, 'total': count}
+        with store.tx() as db:
+            consume_quote(db, payload, request, who, 'tryon_sequence', sequence_inputs(payload), cost)
+            key = 'sequence:' + payload.request_id
+            if db.execute('SELECT 1 FROM jobs WHERE owner=? AND request_id=?', (who, key)).fetchone():
+                raise HTTPException(409, 'request_already_claimed')
+            if who.startswith('google:'):
+                balance = db.execute('SELECT balance FROM style_tokens WHERE owner=?', (who,)).fetchone()
+                if not balance or balance['balance'] < count:
+                    raise HTTPException(402, 'style_tokens_empty')
+            store.capacity(db, len(images) + 32768)
+            db.execute('INSERT INTO jobs VALUES(?,?,?,?,?,?,?,?)',
+                       (secrets.token_urlsafe(24), who, key, quote_digest('tryon_sequence', sequence_inputs(payload)),
+                        'sequence', images, json.dumps(progress), time.time() + s.session_ttl_seconds))
+        return progress
+
+    def sequence_step_key(row, step):
+        return f"tryon:sequence:{row['id']}:{step}"
+
+    @app.post('/api/tryon/sequence/advance')
+    def advance_sequence(payload: TryOnSequenceStep, request: Request, authorization: str | None = Header(None)):
+        from virtual_tryon import safe_result_url
+        who = owner(authorization, request, paid=True)
+        if not s.enabled or provider is None:
+            raise HTTPException(503, 'inference_disabled')
+        provider_credit('tryon', 40000)
+        jid = 'tryon-' + secrets.token_urlsafe(24)
+        operation = 'tryon:' + jid
+        with store.tx() as db:
+            row = sequence_row(db, who, payload.request_id)
+            progress = json.loads(row['result'])
+            if progress['state'] != 'ready' or progress['completed'] != payload.step:
+                raise HTTPException(409, 'sequence_step_conflict')
+            images = json.loads(row['original'])
+            person = images[0] if payload.step == 0 else progress['image']
+            if payload.step and not safe_result_url(person):
+                raise HTTPException(502, 'invalid_result')
+            store.capacity(db, 8192)
+            store.reserve(db, 40000, owner=who, enforce_budget=False)
+            store.record_operation(db, operation, 40000, who)
+            db.execute('INSERT INTO jobs VALUES(?,?,?,?,?,?,?,?)',
+                       (jid, who, sequence_step_key(row, payload.step), row['hash'],
+                        'claimed', None, None, row['expires']))
+            progress['state'] = 'pending'
+            db.execute('UPDATE jobs SET result=? WHERE id=?', (json.dumps(progress), row['id']))
+        try:
+            rid = provider.tryon_submit(person, images[payload.step + 1],
+                                         before_submit=lambda: store.mark_submitted(operation))
+            with store.tx() as db:
+                db.execute("UPDATE jobs SET state='pending',result=? WHERE id=?",
+                           (json.dumps({'request_id': rid}), jid))
+        except Exception as exc:
+            store.finish_operation(operation, success=False)
+            with store.tx() as db:
+                db.execute('UPDATE guard SET busy=0')
+                progress['state'] = 'ambiguous' if not isinstance(exc, HTTPException) else 'failed'
+                db.execute('UPDATE jobs SET result=?,original=NULL WHERE id=?',
+                           (json.dumps(progress), row['id']))
+            if isinstance(exc, HTTPException):
+                raise
+            raise HTTPException(502, 'provider_failed_no_retry') from None
+        return progress
+
+    @app.post('/api/tryon/sequence/status')
+    def sequence_status(payload: TryOnSequenceKey, request: Request, authorization: str | None = Header(None)):
+        who = owner(authorization, request, paid=True)
+        with store.tx() as db:
+            row = sequence_row(db, who, payload.request_id)
+            progress = json.loads(row['result'])
+            if progress['state'] != 'pending':
+                return progress
+            child = db.execute('SELECT id,state FROM jobs WHERE owner=? AND request_id=?',
+                               (who, sequence_step_key(row, progress['completed']))).fetchone()
+        if child['state'] == 'claimed':
+            # Includes the crash window between provider POST and identity commit.
+            # Never re-submit a claim even if no request ID can be recovered.
+            return dict(progress, state='unresolved')
+        result = tryon_status(TryOnStatus(job_id=child['id']), request, authorization)
+        if result['state'] == 'pending':
+            return progress
+        with store.tx() as db:
+            current = sequence_row(db, who, payload.request_id)
+            if current['result'] != row['result']:
+                return json.loads(current['result'])
+            if result['state'] == 'failed':
+                progress['state'] = 'failed'
+            else:
+                progress['completed'] += 1
+                progress['image'] = result['image']
+                progress['state'] = 'done' if progress['completed'] == progress['total'] else 'ready'
+            db.execute('UPDATE jobs SET result=?,original=CASE WHEN ? THEN original ELSE NULL END WHERE id=?',
+                       (json.dumps(progress), progress['state'] == 'ready', row['id']))
+        return progress
 
     @app.post('/api/tryon/pending')
     def pending_tryon(request: Request, authorization: str | None = Header(None)):

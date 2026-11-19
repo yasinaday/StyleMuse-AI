@@ -8,7 +8,7 @@ import 'package:stylemuse_ai/stylemuse_api.dart';
 import 'ui_api_test.dart' show MemorySecure, FixtureTransport;
 
 Future<(ClosetStore, dynamic)> setup(WidgetTester tester,
-    {bool finish = true}) async {
+    {bool finish = true, int count = 3}) async {
   await tester.binding.setSurfaceSize(const Size(430, 1100));
   addTearDown(() => tester.binding.setSurfaceSize(null));
   final photo =
@@ -25,12 +25,11 @@ Future<(ClosetStore, dynamic)> setup(WidgetTester tester,
     },
     '/api/quote': {
       'quote_id': 'q',
-      'style_tokens': 1,
+      'style_tokens': count,
       'estimated_cost_usd': 0.01
     },
-    '/api/tryon': {'state': 'done', 'job_id': 'job', 'image': photo},
+    '/api/tryon/sequence': {'total': count, 'image': photo},
   });
-  var confirmations = 0;
   await tester.pumpWidget(MaterialApp(
       home: Scaffold(
           body: MannequinPage(
@@ -38,7 +37,7 @@ Future<(ClosetStore, dynamic)> setup(WidgetTester tester,
     workflow: TokenWorkflowController(
         api: StyleMuseApi(storage: secure, transport: transport),
         storage: secure),
-    confirmTokens: (_) async => finish || ++confirmations == 1,
+    confirmTokens: (_) async => finish,
     pickPhoto: () async => null,
     onBusy: (_) {},
   ))));
@@ -53,8 +52,9 @@ bool saveEnabled(WidgetTester tester) =>
     null;
 
 void main() {
-  testWidgets('dress alone completes a saveable on-person outfit', (tester) async {
-    final (store, state) = await setup(tester);
+  testWidgets('dress alone completes a saveable on-person outfit',
+      (tester) async {
+    final (store, state) = await setup(tester, count: 1);
     state.selected['Elbise'] = store.items[2].id;
     await state.start();
     await tester.pumpAndSettle();
@@ -65,7 +65,8 @@ void main() {
     expect(store.looks.single['itemIds'], [store.items[2].id]);
     expect(store.looks.single['aiImage'], store.tryonResult);
   });
-  testWidgets('pre-existing result without completion provenance cannot save', (tester) async {
+  testWidgets('pre-existing result without completion provenance cannot save',
+      (tester) async {
     final (store, state) = await setup(tester);
     await store.saveTryOn(store.items.first.image);
     state.suggest();
@@ -99,10 +100,10 @@ void main() {
     state.suggest();
     state.setState(() {});
     await tester.pumpAndSettle();
-    expect(find.byKey(const Key('outfit-recommendations')), findsOneWidget);
-    expect(find.byType(FilterChip), findsNWidgets(4));
-    await tester.ensureVisible(find.byKey(const Key('recommendation-2')));
-    await tester.tap(find.byKey(const Key('recommendation-2')));
+    expect(find.byType(FilterChip), findsNothing);
+    await tester.scrollUntilVisible(find.byKey(const Key('try-garment-2')), 150,
+        scrollable: find.byType(Scrollable).first);
+    await tester.tap(find.byKey(const Key('try-garment-2')));
     await tester.pumpAndSettle();
     expect(state.selected.containsKey('Elbise'), isTrue);
     expect(state.selected.containsKey('Üst giyim'), isFalse);

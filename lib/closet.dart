@@ -139,8 +139,9 @@ class ClosetStore extends ChangeNotifier {
         }
       };
 
-  Future<void> _change(void Function() mutate) {
+  Future<void> _change(void Function() mutate, {bool Function()? unchanged}) {
     final next = _queue.catchError((Object _) {}).then((_) async {
+      if (unchanged?.call() ?? false) return;
       final oldItems = items;
       final oldLooks = looks;
       final oldReview = review;
@@ -307,31 +308,40 @@ class ClosetStore extends ChangeNotifier {
         items = items.where((x) => x.id != id).toList();
       });
   Future<void> saveLook(List<String> ids,
-          {String occasion = 'Günlük',
-          String style = 'Rahat ve şık',
-          String? aiImage}) =>
-      _change(() {
-        final selected = items.where((x) => ids.contains(x.id)).toList();
-        final categories = selected.map((x) => x.category).toSet();
-        if (!safeImage(aiImage) ||
-            ids.length != selected.length ||
-            !categories.contains('Elbise') &&
-                !(categories.contains('Üst giyim') &&
-                    categories.contains('Alt giyim')))
-          throw const FormatException(
-              'Kombin için üst ve alt giyim ya da elbise seçmelisin.');
-        looks = [
-          ...looks,
-          {
-            'images': selected.map((x) => x.image).toList(),
-            'itemIds': ids,
-            'occasion': occasion,
-            'style': style,
-            'date': DateTime.now().toIso8601String(),
-            'aiImage': aiImage
-          }
-        ];
-      });
+      {String occasion = 'Günlük',
+      String style = 'Rahat ve şık',
+      String? aiImage}) {
+    final itemIds = List<String>.unmodifiable(ids);
+    return _change(() {
+      final selected = items.where((x) => itemIds.contains(x.id)).toList();
+      final categories = selected.map((x) => x.category).toSet();
+      if (!safeImage(aiImage) ||
+          itemIds.length != selected.length ||
+          !categories.contains('Elbise') &&
+              !(categories.contains('Üst giyim') &&
+                  categories.contains('Alt giyim')))
+        throw const FormatException(
+            'Kombin için üst ve alt giyim ya da elbise seçmelisin.');
+      looks = [
+        ...looks,
+        {
+          'images': selected.map((x) => x.image).toList(),
+          'itemIds': itemIds,
+          'occasion': occasion,
+          'style': style,
+          'date': DateTime.now().toIso8601String(),
+          'aiImage': aiImage
+        }
+      ];
+    },
+        unchanged: () =>
+            safeImage(aiImage) &&
+            looks.any((look) => look['aiImage'] == aiImage));
+  }
+
+  Future<void> deleteLookEntry(Map<String, dynamic> look) => _change(() {
+        looks = looks.where((entry) => !identical(entry, look)).toList();
+      }, unchanged: () => !looks.any((entry) => identical(entry, look)));
   Future<void> deleteLook(int index) => _change(() {
         RangeError.checkValidIndex(index, looks);
         looks = [...looks]..removeAt(index);

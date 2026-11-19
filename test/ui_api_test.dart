@@ -33,6 +33,19 @@ class FixtureTransport implements ApiTransport {
       Uri url, Map<String, String> headers, Map<String, dynamic> body) async {
     paths.add(url.path);
     bodies.putIfAbsent(url.path, () => []).add(Map<String, dynamic>.from(body));
+    final sequence = replies['/api/tryon/sequence'];
+    if (sequence != null && url.path == '/api/tryon/sequence/advance') {
+      return ApiResponse(200, {'state': 'pending'});
+    }
+    if (sequence != null && url.path == '/api/tryon/sequence/status' &&
+        !replies.containsKey(url.path)) {
+      final completed = bodies['/api/tryon/sequence/advance']?.length ?? 0;
+      return ApiResponse(200, {
+        'state': completed == sequence['total'] ? 'done' : 'ready',
+        'completed': completed,
+        ...sequence,
+      });
+    }
     if (!replies.containsKey(url.path))
       throw StateError('Unexpected endpoint ${url.path}');
     return ApiResponse(200, replies[url.path]!,
@@ -63,7 +76,7 @@ void main() {
         'style_tokens': 1,
         'estimated_cost_usd': 0.01
       },
-      '/api/tryon': {'state': 'done', 'job_id': 'job', 'image': data}
+      '/api/tryon/sequence': {'total': 1, 'image': data}
     });
     await tester.pumpWidget(StyleMuseApp(
         store: store,
@@ -84,10 +97,10 @@ void main() {
     await tester.ensureVisible(find.byKey(const Key('tryon-start')));
     await tester.tap(find.byKey(const Key('tryon-start')));
     await tester.pump(const Duration(milliseconds: 500));
-    expect(transport.paths, isNot(contains('/api/tryon')));
+    expect(transport.paths, isNot(contains('/api/tryon/sequence/advance')));
     await tester.tap(find.byKey(const Key('confirm-tokens')));
     await tester.pumpAndSettle();
-    expect(transport.paths, contains('/api/tryon'));
+    expect(transport.paths, contains('/api/tryon/sequence/advance'));
     expect(find.byKey(const Key('save-tryon')), findsOneWidget);
     await tester.tap(find.byKey(const Key('save-tryon')));
     await tester.pumpAndSettle();

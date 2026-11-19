@@ -14,6 +14,7 @@ class FakeAdmin implements AdminApi {
     reads++;
     return {
       'jobs': [
+        {'id': 'failed-job', 'state': 'failed'},
         {
           'id': 'job-1',
           'state': 'done',
@@ -50,6 +51,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(api.reads, 1);
     expect(find.text('Yönetici ayarları ve bildirimler'), findsOneWidget);
+    expect(find.text('Başarısız ve yarım kalan işler'), findsOneWidget);
     expect(find.textContaining('job-1'), findsOneWidget);
     await tester.tap(find.textContaining('job-1'));
     await tester.pumpAndSettle();

@@ -215,7 +215,7 @@ void main() {
 
   for (final finish in [true, false])
     testWidgets(
-        'sequential category tryon respects separate consent (finish: $finish)',
+        'sequential category tryon respects single total consent (finish: $finish)',
         (tester) async {
       await tester.binding.setSurfaceSize(const Size(430, 1100));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -232,10 +232,10 @@ void main() {
         },
         '/api/quote': {
           'quote_id': 'q',
-          'style_tokens': 1,
+          'style_tokens': 2,
           'estimated_cost_usd': 0.01
         },
-        '/api/tryon': {'state': 'done', 'job_id': 'job', 'image': photo},
+        '/api/tryon/sequence': {'total': 2, 'image': photo},
       });
       final confirmations = <int>[];
       await tester.pumpWidget(MaterialApp(
@@ -247,7 +247,7 @@ void main() {
             storage: secure),
         confirmTokens: (tokens) async {
           confirmations.add(tokens);
-          return finish || confirmations.length == 1;
+          return finish;
         },
         pickPhoto: () async => null,
         onBusy: (_) {},
@@ -258,14 +258,9 @@ void main() {
       await tester.ensureVisible(find.byKey(const Key('tryon-start')));
       await tester.tap(find.byKey(const Key('tryon-start')));
       await tester.pumpAndSettle();
-      expect(confirmations, [1, 1]);
-      expect(transport.paths.where((p) => p == '/api/tryon'),
-          hasLength(finish ? 2 : 1));
-      final calls = transport.bodies['/api/tryon']!;
-      if (finish) {
-        expect(calls[1]['person_image'], store.tryonResult);
-        expect(calls[1]['person_image'], isNot(calls[0]['person_image']));
-      }
+      expect(confirmations, [2]);
+      final calls = transport.bodies['/api/tryon/sequence/advance'] ?? [];
+      expect(calls.map((step) => step['step']), finish ? [0, 1] : []);
       expect(secure.values.containsKey(TokenWorkflowController.pendingKey),
           isFalse);
       await tester.ensureVisible(find.byKey(const Key('save-tryon')));

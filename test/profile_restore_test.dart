@@ -40,7 +40,7 @@ void main() {
         .first);
     expect((image.image as MemoryImage).bytes,
         base64Decode(photo.split(',').last));
-    expect(transport.paths, ['/api/account']);
+    expect(transport.paths, ['/api/account', '/api/account']);
   });
   for (final admin in [false, true]) {
     testWidgets(
@@ -73,7 +73,8 @@ void main() {
         await tester.tap(menu);
         await tester.pumpAndSettle();
         expect(find.byType(AlertDialog), findsNothing);
-        expect(transport.paths, ['/api/account', '/api/admin/overview']);
+        expect(transport.paths,
+            ['/api/account', '/api/account', '/api/admin/overview']);
         await tester.pageBack();
         await tester.pumpAndSettle();
       }
@@ -83,6 +84,7 @@ void main() {
       expect(menu, findsNothing);
       expect(secure.values['stylemuse.session.${api.baseUrl.host}'], isNull);
       expect(transport.paths, [
+        '/api/account',
         '/api/account',
         if (admin) '/api/admin/overview',
         '/api/auth/logout'
