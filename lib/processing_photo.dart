@@ -65,7 +65,7 @@ class _ProcessingPhotoState extends State<ProcessingPhoto>
                                         color: Color(0xFFC747D6), width: 3)),
                               )),
                         ))),
-            Positioned(
+            if (widget.stage.isNotEmpty) Positioned(
                 left: 8,
                 right: 8,
                 bottom: 8,
