@@ -226,6 +226,17 @@ class _MannequinPageState extends State<MannequinPage>
     }
   }
 
+  String? previewSource;
+  Widget? previewPhoto;
+  Widget mannequinPreview() {
+    final source = base;
+    if (source != previewSource || previewPhoto == null) {
+      previewSource = source;
+      previewPhoto = photo(source, fit: BoxFit.cover);
+    }
+    return previewPhoto!;
+  }
+
   int suggestion = 0;
   void suggest() {
     invalidateResult();
@@ -747,10 +758,8 @@ class _MannequinPageState extends State<MannequinPage>
                                                   'mannequin-preview'),
                                               child: ProcessingPhoto(
                                                   active: busy,
-                                                  stage: tr(
-                                                      'Giydirme devam ediyor…'),
-                                                  child: photo(base,
-                                                      fit: BoxFit.cover)))),
+                                                  stage: '',
+                                                  child: mannequinPreview()))),
                                     ])),
                           ]))),
               const SizedBox(height: 6),
