@@ -1272,6 +1272,7 @@ class _StyleMuseShellState extends State<StyleMuseShell>
   }
 
   Widget profilePage() => LayoutBuilder(builder: (context, c) {
+        final balance = int.tryParse('${account?['balance'] ?? 0}') ?? 0;
         final content = Padding(
             padding: const EdgeInsets.fromLTRB(14, 20, 14, 24),
             child: Column(
@@ -1312,14 +1313,12 @@ class _StyleMuseShellState extends State<StyleMuseShell>
                                         fontWeight: FontWeight.bold)),
                                 const SizedBox(height: 4),
                                 SmText(
-                                    account?['plan'] is String
-                                        ? account!['plan'] as String
-                                        : 'Plan bilgisi alınamadı',
+                                    balance >= 1 ? 'Premium plan' : 'Ücretsiz plan',
                                     style: TextStyle(
                                         color: Colors.white, fontSize: 12)),
                                 const SizedBox(height: 5),
                                 SmText(
-                                    '${account?['balance'] ?? 0} Stil Jetonu ›',
+                                    '$balance Stil Jetonu ›',
                                     style: const TextStyle(
                                         color: Colors.white,
                                         fontSize: 12,
