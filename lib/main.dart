@@ -789,6 +789,7 @@ class _StyleMuseShellState extends State<StyleMuseShell>
   }
 
   Uint8List? croppedAnalysisPhoto;
+  bool analyzingPhoto = false;
 
   Future<void> extractPhoto({bool usePreview = false}) async {
     if (busy) return;
@@ -810,7 +811,12 @@ class _StyleMuseShellState extends State<StyleMuseShell>
       if (!mounted) return;
       final result = await workflow.extract(
           'data:image/jpeg;base64,${base64Encode(bytes)}',
-          confirm: confirmTokens);
+          confirm: (quote) async {
+            final approved = await confirmTokens(quote);
+            if (approved && mounted) setState(() => analyzingPhoto = true);
+            return approved;
+          });
+      if (mounted) setState(() => analyzingPhoto = false);
       if (result == null || !mounted) return;
       if (result['items'] is! List)
         throw const FormatException('Invalid analysis');
@@ -822,7 +828,10 @@ class _StyleMuseShellState extends State<StyleMuseShell>
       await workflow.acknowledge();
       if (mounted) await openReview();
     } catch (e) {
-      if (mounted) await notifyOperationError(e);
+      if (mounted) {
+        setState(() => analyzingPhoto = false);
+        await notifyOperationError(e);
+      }
     } finally {
       if (mounted) setState(() => busy = false);
       await refreshPending();
@@ -967,14 +976,14 @@ class _StyleMuseShellState extends State<StyleMuseShell>
                 child: SizedBox(
                     height: 280,
                     child: ProcessingPhoto(
-                        active: busy,
+                        active: analyzingPhoto,
                         stage: tr('Fotoğraf analiz ediliyor…'),
                         child: Image.memory(croppedAnalysisPhoto!,
                             fit: BoxFit.contain)))),
             FilledButton(
                 onPressed: busy ? null : () => extractPhoto(usePreview: true),
                 child: SmText(
-                    busy ? 'Fotoğraf analiz ediliyor…' : 'AI ile analiz et')),
+                    analyzingPhoto ? 'Fotoğraf analiz ediliyor…' : 'AI ile analiz et')),
           ],
           const Divider(height: 12),
           const SmText('Dolaba Kıyafet Ekleme',
