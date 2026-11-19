@@ -9,7 +9,6 @@ import 'photo_crop.dart';
 import 'admin_api.dart';
 import 'admin_page.dart';
 import 'play_billing.dart';
-import 'play_billing_packs.dart';
 import 'profile_editor.dart';
 import 'native_api.dart';
 import 'backup_page.dart';
@@ -1083,48 +1082,97 @@ class _StyleMuseShellState extends State<StyleMuseShell>
   Future<void> tokenPacks() async {
     if (signedInUser != null && billing == null) await prepareBilling();
     if (!mounted) return;
-    final fallbackPacks = billing == null
-        ? PlayBillingController(
-            verify: (product, token) async =>
-                const PlayVerification(credited: false, consumed: false))
-        : null;
+    final controller = billing;
+    final changes = controller ?? const AlwaysStoppedAnimation<double>(0);
+    var selected = 10;
+    const packs = [(200, 2000), (10, 300), (25, 625), (50, 1000), (100, 1500)];
+    String price(double amount) {
+      final value = amount.toStringAsFixed(2);
+      return 'USD ${store.language == 'tr' ? value.replaceAll('.', ',') : value}';
+    }
+    String unitPrice(int count, int cents) {
+      if (controller != null) {
+        for (final p in controller.products) {
+          if (p.id == 'style_tokens_$count' || p.id == 'tokens_$count') {
+            return '${p.currencyCode} ${(p.rawPrice / count).toStringAsFixed(2)}';
+          }
+        }
+      }
+      return price(cents / count / 100);
+    }
     await showDialog<void>(
-        context: context,
-        builder: (dialog) => LocalStrings(
-            language: store.language,
-            child: AlertDialog(
-                title: const SmText('Stil Jetonu Al'),
-                content: SingleChildScrollView(
-                    child: Column(mainAxisSize: MainAxisSize.min, children: [
+      context: context,
+      builder: (dialog) => LocalStrings(
+        language: store.language,
+        child: StatefulBuilder(builder: (context, update) => ListenableBuilder(listenable: changes, builder: (context, _) {
+          final available = {for (final p in controller?.products ?? []) p.id: p};
+          final product = available['style_tokens_$selected'] ?? available['tokens_$selected'];
+          final enabled = product != null && product.price.toString().trim().isNotEmpty && ['ready','credited','cancelled'].contains(controller?.state);
+          return Dialog(
+          insetPadding: const EdgeInsets.all(18),
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(colors: [Color(0xFF492158), Color(0xFFA369A0)]),
+              borderRadius: BorderRadius.circular(24),
+            ),
+            padding: const EdgeInsets.all(18),
+            child: DefaultTextStyle.merge(
+              style: const TextStyle(color: Colors.white),
+              child: SingleChildScrollView(child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(children: [
+                    const Expanded(child: SmText('Stil Jetonu Al',
+                      style: TextStyle(fontSize: 23, fontWeight: FontWeight.bold))),
+                    IconButton(
+                      tooltip: tr('Kapat'),
+                      color: Colors.white,
+                      onPressed: () => Navigator.pop(dialog),
+                      icon: const Icon(Icons.close),
+                    ),
+                  ]),
+                  const SmText('Uygulama ücretsiz. Yapay zekâ işlemleri jetonla kullanılır.'),
+                  const SizedBox(height: 8),
                   const SmText('Ayırma · Fotoğraf başına 1 jeton'),
                   const SmText('Giydirme · Parça başına 1 jeton'),
                   const SmText('İyileştirme · Parça başına 2 jeton'),
-                  PlayBillingPacks(
-                      controller: billing ?? fallbackPacks!,
-                      buyLabel: tr('Satın al'),
-                      unavailableLabel: tr('Fiyat alınamadı'),
-                      statusLabel: (state) => tr({
-                            'ready': 'Stil Jetonu Al',
-                            'credited': 'Bakiye güncellendi.',
-                            'pending': 'İşlem bekleniyor…',
-                            'cancelled': 'Vazgeç',
-                            'retry_required':
-                                'İşlem tamamlanamadı. Tekrar kontrol et.',
-                          }[state] ??
-                          'Satın alma henüz kullanıma açık değil.')),
-                  if (billing == null || billing!.products.isEmpty) ...[
-                    const FilledButton(
-                        key: Key('purchase-disabled'),
-                        onPressed: null,
-                        child: SmText('Satın al')),
-                  ],
-                ])),
-                actions: [
-                  TextButton(
-                      onPressed: () => Navigator.pop(dialog),
-                      child: const SmText('Kapat'))
-                ])));
-    fallbackPacks?.dispose();
+                  const SizedBox(height: 12),
+                  for (final pack in packs)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 6),
+                      child: Material(
+                        color: selected == pack.$1 ? const Color(0x45FFFFFF) : const Color(0x20FFFFFF),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          side: BorderSide(color: pack.$1 == 200
+                            ? const Color(0xFFF5D68E) : Colors.transparent),
+                        ),
+                        child: ListTile(
+                          selected: selected == pack.$1,
+                          onTap: () => update(() => selected = pack.$1),
+                          leading: Icon(selected == pack.$1
+                            ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+                            color: Colors.white),
+                          title: SmText('${pack.$1} jeton', style: const TextStyle(
+                            color: Colors.white, fontWeight: FontWeight.bold)),
+                          subtitle: Text('${unitPrice(pack.$1, pack.$2)} ${tr('/ jeton')}'
+                            '${pack.$1 == 200 ? ' · ${tr('En iyi teklif')}' : ''}',
+                            style: const TextStyle(color: Colors.white)),
+                          trailing: Text((available['style_tokens_${pack.$1}'] ?? available['tokens_${pack.$1}'])?.price ?? price(pack.$2 / 100), style: const TextStyle(color: Colors.white)),
+                        ),
+                      ),
+                    ),
+                  FilledButton(key: Key(enabled ? 'purchase-enabled' : 'purchase-disabled'), onPressed: enabled ? () => controller!.buy(product) : null,
+                    child: SmText('Satın al')),
+                  if (!enabled) const SmText('Satın alma henüz kullanıma açık değil.', textAlign: TextAlign.center),
+                ],
+              )),
+            ),
+          ),
+        ); })),
+      ),
+    );
   }
 
   Future<void> openAdminSettings() async {
