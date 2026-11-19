@@ -14,6 +14,7 @@ import 'analysis_review.dart';
 import 'mannequin_page.dart';
 import 'model_images.dart';
 import 'web_nav_icon.dart';
+import 'saved_looks_grid.dart';
 
 class LocalStrings extends InheritedWidget {
   const LocalStrings({super.key, required this.language, required super.child});
@@ -91,10 +92,15 @@ class StyleMuseApp extends StatelessWidget {
 
 bool googleAvatarUrl(String source) {
   final uri = Uri.tryParse(source);
-  return uri != null && uri.scheme == 'https' && uri.userInfo.isEmpty &&
-      uri.port == 443 && const {
-        'lh3.googleusercontent.com', 'lh4.googleusercontent.com',
-        'lh5.googleusercontent.com', 'lh6.googleusercontent.com',
+  return uri != null &&
+      uri.scheme == 'https' &&
+      uri.userInfo.isEmpty &&
+      uri.port == 443 &&
+      const {
+        'lh3.googleusercontent.com',
+        'lh4.googleusercontent.com',
+        'lh5.googleusercontent.com',
+        'lh6.googleusercontent.com',
       }.contains(uri.host);
 }
 
@@ -110,8 +116,12 @@ Widget photo(String source,
               const Center(child: Icon(Icons.broken_image_outlined)));
     } catch (_) {/* Invalid imported image */}
   }
-  if (source.startsWith('https:') && (safeOutfitPhoto(source) || googleAvatarUrl(source))) {
-    return Image.network(source, fit: fit, width: width, height: height,
+  if (source.startsWith('https:') &&
+      (safeOutfitPhoto(source) || googleAvatarUrl(source))) {
+    return Image.network(source,
+        fit: fit,
+        width: width,
+        height: height,
         errorBuilder: (_, error, stack) =>
             const Center(child: Icon(Icons.broken_image_outlined)));
   }
@@ -153,7 +163,11 @@ class _StyleMuseShellState extends State<StyleMuseShell> {
   String? get accountDisplayName {
     final prefix = accountProfilePrefix;
     if (prefix == null) return null;
-    for (final value in [store.profile['${prefix}name'], signedInUser?['name'], signedInUser?['email']]) {
+    for (final value in [
+      store.profile['${prefix}name'],
+      signedInUser?['name'],
+      signedInUser?['email']
+    ]) {
       if (value is String && value.trim().isNotEmpty) return value.trim();
     }
     return null;
@@ -167,6 +181,7 @@ class _StyleMuseShellState extends State<StyleMuseShell> {
     final url = signedInUser?['picture'];
     return url is String && googleAvatarUrl(url) ? url : null;
   }
+
   bool hasPending = false;
   Future<void> refreshPending() async {
     try {
@@ -358,8 +373,10 @@ class _StyleMuseShellState extends State<StyleMuseShell> {
                             child: feature(
                                 'Kıyafetleri Ayır',
                                 'Tek fotoğraftan\nbirden fazla ürün çıkar',
-                                'separate',
-                                () { go(1); extractPhoto(); })),
+                                'separate', () {
+                          go(1);
+                          extractPhoto();
+                        })),
                         const SizedBox(width: 8),
                         Expanded(
                             child: feature(
@@ -547,14 +564,18 @@ class _StyleMuseShellState extends State<StyleMuseShell> {
                 manualCrop: () async {
                   final source = store.review?['sourceImage'];
                   if (source is! String || !safeImage(source)) return;
-                  final cropped = await Navigator.push<Uint8List>(context,
-                    MaterialPageRoute(builder: (_) => PhotoCropPage(
-                      bytes: base64Decode(source.split(',').last), tr: tr)));
+                  final cropped = await Navigator.push<Uint8List>(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => PhotoCropPage(
+                              bytes: base64Decode(source.split(',').last),
+                              tr: tr)));
                   if (cropped == null || !mounted) return;
                   final category = await chooseCategory(initial: addCategory);
                   if (category == null) return;
-                  await store.addGarment(image: 'data:image/jpeg;base64,${base64Encode(cropped)}',
-                    category: category);
+                  await store.addGarment(
+                      image: 'data:image/jpeg;base64,${base64Encode(cropped)}',
+                      category: category);
                 })));
   }
 
@@ -647,7 +668,8 @@ class _StyleMuseShellState extends State<StyleMuseShell> {
       if (result['items'] is! List)
         throw const FormatException('Invalid analysis');
       await store.saveReview({
-        ...result, 'sourceImage': 'data:image/jpeg;base64,${base64Encode(bytes)}'
+        ...result,
+        'sourceImage': 'data:image/jpeg;base64,${base64Encode(bytes)}'
       });
       if (mounted) setState(() => croppedAnalysisPhoto = null);
       await workflow.acknowledge();
@@ -787,12 +809,16 @@ class _StyleMuseShellState extends State<StyleMuseShell> {
                   fontSize: 13, color: Color(0xFF70566E), height: 1.45)),
           if (croppedAnalysisPhoto != null) ...[
             const SizedBox(height: 8),
-            ClipRRect(borderRadius: BorderRadius.circular(18),
-              child: SizedBox(height: 280, child: Image.memory(
-                croppedAnalysisPhoto!, fit: BoxFit.contain))),
+            ClipRRect(
+                borderRadius: BorderRadius.circular(18),
+                child: SizedBox(
+                    height: 280,
+                    child: Image.memory(croppedAnalysisPhoto!,
+                        fit: BoxFit.contain))),
             FilledButton(
-              onPressed: busy ? null : () => extractPhoto(usePreview: true),
-              child: SmText(busy ? 'Fotoğraf analiz ediliyor…' : 'AI ile analiz et')),
+                onPressed: busy ? null : () => extractPhoto(usePreview: true),
+                child: SmText(
+                    busy ? 'Fotoğraf analiz ediliyor…' : 'AI ile analiz et')),
           ],
           const Divider(height: 12),
           const SmText('Dolaba Kıyafet Ekleme',
@@ -896,78 +922,105 @@ class _StyleMuseShellState extends State<StyleMuseShell> {
       final value = amount.toStringAsFixed(2);
       return 'USD ${store.language == 'tr' ? value.replaceAll('.', ',') : value}';
     }
+
     return showDialog<void>(
       context: context,
       builder: (dialog) => LocalStrings(
         language: store.language,
-        child: StatefulBuilder(builder: (context, update) => Dialog(
-          insetPadding: const EdgeInsets.all(18),
-          child: Container(
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(colors: [Color(0xFF492158), Color(0xFFA369A0)]),
-              borderRadius: BorderRadius.circular(24),
-            ),
-            padding: const EdgeInsets.all(18),
-            child: DefaultTextStyle.merge(
-              style: const TextStyle(color: Colors.white),
-              child: SingleChildScrollView(child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Row(children: [
-                    const Expanded(child: SmText('Stil Jetonu Al',
-                      style: TextStyle(fontSize: 23, fontWeight: FontWeight.bold))),
-                    IconButton(
-                      tooltip: tr('Kapat'),
-                      color: Colors.white,
-                      onPressed: () => Navigator.pop(dialog),
-                      icon: const Icon(Icons.close),
+        child: StatefulBuilder(
+            builder: (context, update) => Dialog(
+                  insetPadding: const EdgeInsets.all(18),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                          colors: [Color(0xFF492158), Color(0xFFA369A0)]),
+                      borderRadius: BorderRadius.circular(24),
                     ),
-                  ]),
-                  const SmText('Uygulama ücretsiz. Yapay zekâ işlemleri jetonla kullanılır.'),
-                  const SizedBox(height: 8),
-                  const SmText('Ayırma · Fotoğraf başına 1 jeton'),
-                  const SmText('Giydirme · Parça başına 1 jeton'),
-                  const SmText('İyileştirme · Parça başına 2 jeton'),
-                  const SizedBox(height: 12),
-                  for (final pack in packs)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 6),
-                      child: Material(
-                        color: selected == pack.$1 ? const Color(0x45FFFFFF) : const Color(0x20FFFFFF),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          side: BorderSide(color: pack.$1 == 200
-                            ? const Color(0xFFF5D68E) : Colors.transparent),
-                        ),
-                        child: ListTile(
-                          selected: selected == pack.$1,
-                          onTap: () => update(() => selected = pack.$1),
-                          leading: Icon(selected == pack.$1
-                            ? Icons.radio_button_checked : Icons.radio_button_unchecked,
-                            color: Colors.white),
-                          title: SmText('${pack.$1} jeton', style: const TextStyle(
-                            color: Colors.white, fontWeight: FontWeight.bold)),
-                          subtitle: Text('${price(pack.$2 / pack.$1 / 100)} ${tr('/ jeton')}'
-                            '${pack.$1 == 200 ? ' · ${tr('En iyi teklif')}' : ''}',
-                            style: const TextStyle(color: Colors.white)),
-                          trailing: Text(price(pack.$2 / 100), style: const TextStyle(color: Colors.white)),
-                        ),
-                      ),
+                    padding: const EdgeInsets.all(18),
+                    child: DefaultTextStyle.merge(
+                      style: const TextStyle(color: Colors.white),
+                      child: SingleChildScrollView(
+                          child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Row(children: [
+                            const Expanded(
+                                child: SmText('Stil Jetonu Al',
+                                    style: TextStyle(
+                                        fontSize: 23,
+                                        fontWeight: FontWeight.bold))),
+                            IconButton(
+                              tooltip: tr('Kapat'),
+                              color: Colors.white,
+                              onPressed: () => Navigator.pop(dialog),
+                              icon: const Icon(Icons.close),
+                            ),
+                          ]),
+                          const SmText(
+                              'Uygulama ücretsiz. Yapay zekâ işlemleri jetonla kullanılır.'),
+                          const SizedBox(height: 8),
+                          const SmText('Ayırma · Fotoğraf başına 1 jeton'),
+                          const SmText('Giydirme · Parça başına 1 jeton'),
+                          const SmText('İyileştirme · Parça başına 2 jeton'),
+                          const SizedBox(height: 12),
+                          for (final pack in packs)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 6),
+                              child: Material(
+                                color: selected == pack.$1
+                                    ? const Color(0x45FFFFFF)
+                                    : const Color(0x20FFFFFF),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  side: BorderSide(
+                                      color: pack.$1 == 200
+                                          ? const Color(0xFFF5D68E)
+                                          : Colors.transparent),
+                                ),
+                                child: ListTile(
+                                  selected: selected == pack.$1,
+                                  onTap: () => update(() => selected = pack.$1),
+                                  leading: Icon(
+                                      selected == pack.$1
+                                          ? Icons.radio_button_checked
+                                          : Icons.radio_button_unchecked,
+                                      color: Colors.white),
+                                  title: SmText('${pack.$1} jeton',
+                                      style: const TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold)),
+                                  subtitle: Text(
+                                      '${price(pack.$2 / pack.$1 / 100)} ${tr('/ jeton')}'
+                                      '${pack.$1 == 200 ? ' · ${tr('En iyi teklif')}' : ''}',
+                                      style:
+                                          const TextStyle(color: Colors.white)),
+                                  trailing: Text(price(pack.$2 / 100),
+                                      style:
+                                          const TextStyle(color: Colors.white)),
+                                ),
+                              ),
+                            ),
+                          const FilledButton(
+                              key: Key('purchase-disabled'),
+                              onPressed: null,
+                              child: SmText('Satın al')),
+                          const SmText('Satın alma henüz kullanıma açık değil.',
+                              textAlign: TextAlign.center),
+                        ],
+                      )),
                     ),
-                  const FilledButton(key: Key('purchase-disabled'), onPressed: null,
-                    child: SmText('Satın al')),
-                  const SmText('Satın alma henüz kullanıma açık değil.', textAlign: TextAlign.center),
-                ],
-              )),
-            ),
-          ),
-        )),
+                  ),
+                )),
       ),
     );
   }
 
   Future<void> openAdminSettings() async {
+    // Visibility is not authorization: also reject direct/stale callbacks.
+    if (accountBusy ||
+        account?['user'] is! Map ||
+        (account!['user'] as Map)['admin'] != true) return;
     await showDialog<void>(
       context: context,
       builder: (dialog) => LocalStrings(
@@ -978,7 +1031,9 @@ class _StyleMuseShellState extends State<StyleMuseShell> {
             future: api.post('/api/admin/fal-credit/status', {}),
             builder: (context, snapshot) {
               final balance = snapshot.data?['available_usd'];
-              return Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start,
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const SmText('Sağlayıcı bakiye takibi'),
                   if (snapshot.connectionState == ConnectionState.waiting)
@@ -986,24 +1041,38 @@ class _StyleMuseShellState extends State<StyleMuseShell> {
                   else if (balance is num)
                     Text('fal.ai · USD ${balance.toStringAsFixed(2)}')
                   else
-                    const SmText('Bakiye okunamadı. Billing sayfasından kontrol et.'),
+                    const SmText(
+                        'Bakiye okunamadı. Billing sayfasından kontrol et.'),
                 ],
               );
             },
           ),
-          actions: [TextButton(onPressed: () => Navigator.pop(dialog), child: const SmText('Kapat'))],
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(dialog),
+                child: const SmText('Kapat'))
+          ],
         ),
       ),
     );
   }
 
-  Future<void> accountAction({bool signIn = false, bool logout = false, bool silent = false}) async {
+  Future<void> accountAction(
+      {bool signIn = false, bool logout = false, bool silent = false}) async {
     if (accountBusy) return;
     setState(() => accountBusy = true);
     try {
       if (logout) {
-        await api.logout();
-        if (mounted) setState(() => account = null);
+        // Clear visible identity before any network/plugin work can fail.
+        if (mounted) {
+          setState(() => account = null);
+          Navigator.of(context).popUntil((route) => route.isFirst);
+        }
+        try {
+          await api.logout();
+        } finally {
+          await googleAccountSignOut();
+        }
       } else {
         final next = signIn
             ? await googleAccountSignIn(api)
@@ -1013,12 +1082,18 @@ class _StyleMuseShellState extends State<StyleMuseShell> {
         if (mounted && next != null) setState(() => account = next);
       }
     } catch (e) {
+      if (mounted &&
+          e is StyleMuseApiException &&
+          (e.status == 401 || e.code == 'session_changed')) {
+        setState(() => account = null);
+      }
       if (mounted && !silent)
         notify(tr(e is StyleMuseApiException
             ? switch (e.code) {
                 'google_oauth_configuration_error' =>
                   'Google Android giriş yapılandırması hatalı. Uygulama imzası ve OAuth istemcisi kontrol edilmeli.',
-                'google_android_not_configured' || 'google_sign_in_not_configured' =>
+                'google_android_not_configured' ||
+                'google_sign_in_not_configured' =>
                   'Google girişi henüz yapılandırılmadı.',
                 'google_network_error' ||
                 'api_network_error' ||
@@ -1071,7 +1146,8 @@ class _StyleMuseShellState extends State<StyleMuseShell> {
                           ClipRRect(
                               borderRadius: BorderRadius.circular(12),
                               child: photo(
-                                  accountDisplayPhoto ?? 'assets/profile-avatar.webp',
+                                  accountDisplayPhoto ??
+                                      'assets/profile-avatar.webp',
                                   width: 66,
                                   height: 66)),
                           const SizedBox(width: 10),
@@ -1079,8 +1155,7 @@ class _StyleMuseShellState extends State<StyleMuseShell> {
                               child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                SmText(
-                                    accountDisplayName ?? 'Profil',
+                                SmText(accountDisplayName ?? 'Profil',
                                     style: const TextStyle(
                                         color: Colors.white,
                                         fontFamily: 'serif',
@@ -1145,10 +1220,12 @@ class _StyleMuseShellState extends State<StyleMuseShell> {
                               (account!['user'] as Map)['email'] as String? ??
                                   ''))
                   ]),
-                  if (account?['user'] is Map && (account!['user'] as Map)['admin'] == true)
+                  if (account?['user'] is Map &&
+                      (account!['user'] as Map)['admin'] == true)
                     settingsCard([
                       ListTile(
-                        leading: const Icon(Icons.admin_panel_settings_outlined),
+                        leading:
+                            const Icon(Icons.admin_panel_settings_outlined),
                         title: const SmText('Yönetici ayarları ve bildirimler'),
                         trailing: const Icon(Icons.chevron_right),
                         onTap: openAdminSettings,
@@ -1170,51 +1247,59 @@ class _StyleMuseShellState extends State<StyleMuseShell> {
                         leading: const Icon(Icons.person_outline, size: 21),
                         title: const SmText('Bilgilerim'),
                         trailing: const Icon(Icons.chevron_right, size: 20),
-                        onTap: accountBusy || signedInUser == null ? null : () => Navigator.push(
-                            context,
-                            MaterialPageRoute<void>(
-                                builder: (_) => ProfileEditor(
-                                  store: store, personal: true,
-                                  profilePrefix: accountProfilePrefix ?? '',
-                                  initialName: accountDisplayName,
-                                  initialPhoto: accountDisplayPhoto,
-                                  pickPhoto: () async {
-                                    final bytes = await selectPhoto();
-                                    return bytes == null ? null
-                                      : 'data:image/jpeg;base64,${base64Encode(bytes)}';
-                                  },
-                                )))),
+                        onTap: accountBusy || signedInUser == null
+                            ? null
+                            : () => Navigator.push(
+                                context,
+                                MaterialPageRoute<void>(
+                                    builder: (_) => ProfileEditor(
+                                          store: store,
+                                          personal: true,
+                                          profilePrefix:
+                                              accountProfilePrefix ?? '',
+                                          initialName: accountDisplayName,
+                                          initialPhoto: accountDisplayPhoto,
+                                          pickPhoto: () async {
+                                            final bytes = await selectPhoto();
+                                            return bytes == null
+                                                ? null
+                                                : 'data:image/jpeg;base64,${base64Encode(bytes)}';
+                                          },
+                                        )))),
                   ]),
                   sectionLabel('GÖRÜNÜM'),
                   settingsCard([
-                    ListTile(title: const SmText('Uygulama dili'), trailing: DropdownButton<String>(
-                      key: const Key('app-language'),
-                      value: store.language,
-                      underline: const SizedBox.shrink(),
-                      items: [
-                        for (final pair in const {
-                          'tr': '🇹🇷 Türkçe',
-                          'en': '🇬🇧 English',
-                          'de': '🇩🇪 Deutsch',
-                          'ru': '🇷🇺 Русский',
-                          'ar': '🇸🇦 العربية',
-                          'fr': '🇫🇷 Français',
-                          'hi': '🇮🇳 हिन्दी',
-                          'zh': '🇨🇳 简体中文',
-                          'ja': '🇯🇵 日本語'
-                        }.entries)
-                          DropdownMenuItem(
-                              value: pair.key, child: Text(pair.value))
-                      ],
-                      onChanged: busy
-                          ? null
-                          : (value) async {
-                              try {
-                                await store.updateProfile({}, language: value);
-                              } catch (_) {
-                                if (mounted) notify(tr('Kaydedilemedi.'));
-                              }
-                            })),
+                    ListTile(
+                        title: const SmText('Uygulama dili'),
+                        trailing: DropdownButton<String>(
+                            key: const Key('app-language'),
+                            value: store.language,
+                            underline: const SizedBox.shrink(),
+                            items: [
+                              for (final pair in const {
+                                'tr': '🇹🇷 Türkçe',
+                                'en': '🇬🇧 English',
+                                'de': '🇩🇪 Deutsch',
+                                'ru': '🇷🇺 Русский',
+                                'ar': '🇸🇦 العربية',
+                                'fr': '🇫🇷 Français',
+                                'hi': '🇮🇳 हिन्दी',
+                                'zh': '🇨🇳 简体中文',
+                                'ja': '🇯🇵 日本語'
+                              }.entries)
+                                DropdownMenuItem(
+                                    value: pair.key, child: Text(pair.value))
+                            ],
+                            onChanged: busy
+                                ? null
+                                : (value) async {
+                                    try {
+                                      await store
+                                          .updateProfile({}, language: value);
+                                    } catch (_) {
+                                      if (mounted) notify(tr('Kaydedilemedi.'));
+                                    }
+                                  })),
                   ]),
                   sectionLabel('VERİLER'),
                   settingsCard([
@@ -1336,41 +1421,7 @@ class _StyleMuseShellState extends State<StyleMuseShell> {
                   child: SmText('Henüz kayıtlı kombin yok.',
                       style:
                           TextStyle(color: Color(0xFF8A7886), fontSize: 13))),
-            for (var i = 0; i < store.looks.length; i++)
-              Padding(
-                  padding: const EdgeInsets.only(bottom: 16),
-                  child: Card(
-                      key: Key('saved-look-$i'),
-                      child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            if (store.looks[i]['aiImage'] is String)
-                              SizedBox(
-                                  height: 300,
-                                  width: double.infinity,
-                                  child: photo(
-                                      store.looks[i]['aiImage'] as String,
-                                      fit: BoxFit.contain))
-                            else
-                              SizedBox(
-                                  height: 220,
-                                  child: Row(children: [
-                                    for (final image
-                                        in (store.looks[i]['images'] as List)
-                                            .take(4))
-                                      Expanded(
-                                          child: photo(image as String,
-                                              fit: BoxFit.contain))
-                                  ])),
-                            ListTile(
-                                title: SmText(
-                                    store.looks[i]['occasion'] as String? ??
-                                        'Günlük'),
-                                subtitle: Text(
-                                    (store.looks[i]['date'] as String? ?? '')
-                                        .split('T')
-                                        .first)),
-                          ]))),
+            SavedLooksGrid(store: store),
           ]);
   @override
   Widget build(BuildContext context) => LocalStrings(

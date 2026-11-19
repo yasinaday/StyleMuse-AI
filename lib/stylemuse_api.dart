@@ -81,6 +81,7 @@ class StyleMuseApi {
   final Duration timeout;
   String get _cookieKey => 'stylemuse.session.${baseUrl.host}';
   String? _cookie;
+  int _sessionGeneration = 0;
   Future<void>? _initializing;
   Future<void> initialize() =>
       _initializing ??= _initialize().catchError((Object e) {
@@ -94,6 +95,7 @@ class StyleMuseApi {
 
   Future<Map<String, dynamic>> _request(
       String path, Map<String, dynamic> body) async {
+    final generation = _sessionGeneration;
     final ApiResponse response;
     try {
       response = await transport
@@ -116,6 +118,9 @@ class StyleMuseApi {
       throw const StyleMuseApiException('api_timeout');
     } on FormatException {
       throw const StyleMuseApiException('invalid_server_response');
+    }
+    if (generation != _sessionGeneration) {
+      throw const StyleMuseApiException('session_changed');
     }
     if (response.sessionCookie != null) {
       await storage.write(_cookieKey, response.sessionCookie!);
@@ -165,10 +170,17 @@ class StyleMuseApi {
   Future<Map<String, dynamic>> signInGoogle(String idToken) =>
       post('/api/auth/google/android', {'credential': idToken});
   Future<void> logout() async {
-    await post('/api/auth/logout', {});
-    await storage.delete(_cookieKey);
-    _cookie = null;
-    _initializing = null;
+    _sessionGeneration++;
+    try {
+      _cookie ??= await storage.read(_cookieKey);
+      if (_cookie != null && _cookie!.isNotEmpty) {
+        await _request('/api/auth/logout', {});
+      }
+    } finally {
+      _cookie = null;
+      _initializing = null;
+      await storage.delete(_cookieKey);
+    }
   }
 }
 

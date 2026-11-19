@@ -1,10 +1,13 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'crop_test_helpers.dart';
 import 'package:stylemuse_ai/main.dart';
 import 'package:stylemuse_ai/closet.dart';
 import 'package:image/image.dart' as img;
 import 'dart:typed_data';
 import 'dart:convert';
+import 'package:stylemuse_ai/stylemuse_api.dart';
+import 'ui_api_test.dart' show MemorySecure, FixtureTransport;
 
 void main() {
   testWidgets('token prices match source and purchase remains disabled',
@@ -114,7 +117,15 @@ void main() {
   testWidgets('style profile saves personal details and mannequin measurements',
       (tester) async {
     final store = ClosetStore(memory: true);
-    await tester.pumpWidget(StyleMuseApp(store: store));
+    final transport = FixtureTransport({
+      '/api/session': {},
+      '/api/account': {
+        'user': {'provider': 'google', 'id': 'fixture', 'name': 'Original'}
+      }
+    });
+    await tester.pumpWidget(StyleMuseApp(
+        store: store,
+        api: StyleMuseApi(storage: MemorySecure(), transport: transport)));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Profil').last);
     await tester.pumpAndSettle();
@@ -126,13 +137,16 @@ void main() {
     await tester.tap(find.byKey(const Key('save-profile')));
     await tester.pumpAndSettle();
     expect(store.profile['height'], '172');
+    await tester.tap(find.byKey(const Key('account-refresh')));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Bilgilerim'));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('profile-height')), findsNothing);
     await tester.enterText(find.byKey(const Key('profile-name')), 'Ada');
     await tester.tap(find.byKey(const Key('save-profile')));
     await tester.pumpAndSettle();
-    expect(store.profile['name'], 'Ada');
+    expect(store.profile['google:fixture:name'], 'Ada');
+    expect(store.profile['name'], isNull);
     expect(store.profile['height'], '172');
     expect(find.text('Ada'), findsOneWidget);
   });
@@ -175,7 +189,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(InteractiveViewer), findsOneWidget);
     await tester.tap(find.byKey(const Key('crop-confirm')));
-    await tester.pumpAndSettle();
+    await waitForCropReturn(tester, find.byKey(const Key('save-garment')));
     await tester.tap(find.byKey(const Key('save-garment')));
     await tester.pumpAndSettle();
     expect(store.items, hasLength(1));

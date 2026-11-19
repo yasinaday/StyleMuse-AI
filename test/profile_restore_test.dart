@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
+import 'crop_test_helpers.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:image/image.dart' as img;
 import 'package:stylemuse_ai/closet.dart';
@@ -64,13 +65,20 @@ void main() {
         Uint8List.fromList(img.encodePng(img.Image(width: 8, height: 8)));
     final store = ClosetStore(memory: true);
     await store.updateProfile({'name': 'Ada', 'height': '172'});
-    final transport = FixtureTransport({});
+    final transport = FixtureTransport({
+      '/api/session': {},
+      '/api/account': {
+        'user': {'provider': 'google', 'id': 'fixture', 'name': 'Ada'}
+      }
+    });
     await tester.pumpWidget(StyleMuseApp(
         store: store,
         pickPhoto: (_) async => bytes,
         api: StyleMuseApi(storage: MemorySecure(), transport: transport)));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Profil').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('account-refresh')));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Bilgilerim'));
     await tester.pumpAndSettle();
@@ -81,14 +89,15 @@ void main() {
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(find.byKey(const Key('crop-confirm')), 300);
     await tester.tap(find.byKey(const Key('crop-confirm')));
-    await tester.pumpAndSettle();
+    await waitForCropReturn(tester, find.byKey(const Key('save-profile')));
     expect(store.profile['photo'], isNull);
     final preview =
         tester.widget<Image>(find.byType(Image).first).image as MemoryImage;
     final avatar = 'data:image/jpeg;base64,${base64Encode(preview.bytes)}';
     await tester.tap(find.byKey(const Key('save-profile')));
     await tester.pumpAndSettle();
-    expect(store.profile['photo'], avatar);
+    expect(store.profile['google:fixture:photo'], avatar);
+    expect(store.profile['photo'], isNull);
     expect(store.profile['height'], '172');
     final restored = ClosetStore(memory: true);
     await restored.restore(jsonEncode(store.snapshot()));
@@ -99,7 +108,7 @@ void main() {
             matching: find.byType(Image))
         .first);
     expect(identityImage.image, isA<MemoryImage>());
-    expect(transport.paths, isEmpty);
+    expect(transport.paths, ['/api/session', '/api/account']);
   });
 
   testWidgets('token selection cannot enable purchase or submit any API call',

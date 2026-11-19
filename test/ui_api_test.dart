@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:image/image.dart' as img;
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'crop_test_helpers.dart';
 import 'package:stylemuse_ai/main.dart';
 import 'package:stylemuse_ai/closet.dart';
 import 'package:stylemuse_ai/stylemuse_api.dart';
@@ -24,12 +25,14 @@ class MemorySecure implements SecureStore {
 
 class FixtureTransport implements ApiTransport {
   final paths = <String>[];
+  final bodies = <String, List<Map<String, dynamic>>>{};
   final Map<String, Map<String, dynamic>> replies;
   FixtureTransport(this.replies);
   @override
   Future<ApiResponse> post(
       Uri url, Map<String, String> headers, Map<String, dynamic> body) async {
     paths.add(url.path);
+    bodies.putIfAbsent(url.path, () => []).add(Map<String, dynamic>.from(body));
     if (!replies.containsKey(url.path))
       throw StateError('Unexpected endpoint ${url.path}');
     return ApiResponse(200, replies[url.path]!,
@@ -133,6 +136,10 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('extract-photo')));
     await tester.pumpAndSettle();
+    await tester.tap(find.byType(Checkbox).first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Seçilen parçaları incele'));
+    await tester.pumpAndSettle();
     expect(find.byKey(const Key('enhance-analysis')), findsOneWidget);
     await tester.tap(find.byKey(const Key('enhance-analysis')));
     await tester.pump(const Duration(milliseconds: 400));
@@ -188,6 +195,9 @@ void main() {
     await tester.tap(find.byIcon(Icons.photo_library_outlined));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('crop-confirm')));
+    await waitForCropReturn(tester, find.text('AI ile analiz et'));
+    expect(transport.paths, isEmpty);
+    await tester.tap(find.text('AI ile analiz et'));
     await tester.pump(const Duration(milliseconds: 400));
     expect(transport.paths, contains('/api/quote'));
     expect(transport.paths, isNot(contains('/api/detect')));
@@ -195,6 +205,10 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('analysis-review')), findsOneWidget);
     expect(store.items, isEmpty);
+    await tester.tap(find.byType(Checkbox).first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Seçilen parçaları incele'));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('accept-analysis')));
     await tester.pumpAndSettle();
     expect(store.items.single.category, 'Elbise');

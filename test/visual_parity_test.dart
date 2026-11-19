@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 import 'package:image/image.dart' as img;
 import 'package:flutter_test/flutter_test.dart';
+import 'crop_test_helpers.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:stylemuse_ai/main.dart';
 import 'package:stylemuse_ai/closet.dart';
@@ -29,7 +30,7 @@ void main() {
     await tester.tap(find.byIcon(Icons.photo_library_outlined));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('crop-confirm')));
-    await tester.pumpAndSettle();
+    await waitForCropReturn(tester, find.byKey(const Key('save-garment')));
     await tester.tap(find.byKey(const Key('save-garment')));
     await tester.pumpAndSettle();
     expect(store.items.single.category, 'Çanta');

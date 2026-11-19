@@ -28,7 +28,54 @@ class MannequinPage extends StatefulWidget {
 }
 
 class _MannequinPageState extends State<MannequinPage> {
-  String? selected;
+  final selected = <String, String>{};
+  final remaining = <ClosetItem>[];
+  // Provenance belongs to the rendered image, not the current selection.
+  final applied = <String, String>{};
+  String? attributedImage;
+  ClosetItem? activeGarment;
+  bool cancelled = false;
+  List<ClosetItem> get chosenItems {
+    const order = [
+      'Üst giyim',
+      'Elbise',
+      'Alt giyim',
+      'Dış giyim',
+      'Çanta',
+      'Aksesuar',
+      'Diğer'
+    ];
+    final items = [
+      for (final id in selected.values)
+        ...widget.store.items.where((item) => item.id == id)
+    ];
+    items.sort((a, b) =>
+        order.indexOf(a.category).compareTo(order.indexOf(b.category)));
+    return items;
+  }
+
+  int suggestion = 0;
+  void suggest() {
+    selected.clear();
+    final hasPair =
+        widget.store.items.any((item) => item.category == 'Üst giyim') &&
+            widget.store.items.any((item) => item.category == 'Alt giyim');
+    final hasDress =
+        widget.store.items.any((item) => item.category == 'Elbise');
+    for (final category in wardrobeCategories) {
+      final candidates = widget.store.items
+          .where((item) => item.category == category)
+          .toList();
+      if (candidates.isEmpty) continue;
+      if (category == 'Elbise' && hasPair) continue;
+      if ((category == 'Üst giyim' || category == 'Alt giyim') &&
+          !hasPair &&
+          hasDress) continue;
+      selected[category] = candidates[suggestion % candidates.length].id;
+    }
+    suggestion++;
+  }
+
   bool busy = false;
   String status = '';
   Timer? timer;
@@ -52,7 +99,11 @@ class _MannequinPageState extends State<MannequinPage> {
           ? widget.store.profile['modelPhoto']!
           : mannequinAsset(widget.store.profile));
   Future<void> consume(Map<String, dynamic>? result) async {
-    if (result == null) return;
+    if (result == null) {
+      activeGarment = null;
+      remaining.clear();
+      return;
+    }
     if (result['state'] == 'pending' ||
         result['state'] == 'running' ||
         result['state'] == 'processing') {
@@ -63,12 +114,31 @@ class _MannequinPageState extends State<MannequinPage> {
       return;
     }
     if (result['state'] == 'failed') {
+      remaining.clear();
       await widget.workflow.acknowledge();
       throw const StyleMuseApiException('tryon_failed');
     }
     final image = await loadTryOnImage(result['image']);
+    final previousImage = widget.store.tryonResult;
     await widget.store.saveTryOn(image);
+    if (attributedImage != previousImage) applied.clear();
+    final item = activeGarment;
+    if (item != null) {
+      if (item.category == 'Elbise') {
+        applied.remove('Üst giyim');
+        applied.remove('Alt giyim');
+      } else if (item.category == 'Üst giyim' || item.category == 'Alt giyim') {
+        applied.remove('Elbise');
+      }
+      applied[item.category] = item.id;
+    }
+    attributedImage = image;
+    activeGarment = null;
     await widget.workflow.acknowledge();
+    if (mounted && !cancelled && remaining.isNotEmpty) {
+      await nextGarment();
+      return;
+    }
     if (mounted)
       setState(() =>
           status = 'Kurtarılan görseli Kombinler bölümüne kaydedebilirsin.');
@@ -88,15 +158,14 @@ class _MannequinPageState extends State<MannequinPage> {
   }
 
   Future<void> start() async {
-    if (selected == null || busy) return;
-    final item = widget.store.items.where((x) => x.id == selected).firstOrNull;
-    if (item == null) return;
+    if (selected.isEmpty || busy) return;
+    cancelled = false;
+    remaining
+      ..clear()
+      ..addAll(chosenItems);
     setBusy(true);
     try {
-      final person = await jpegData(base);
-      final garment = await jpegData(item.image);
-      await consume(await widget.workflow
-          .tryOn(person, garment, confirm: widget.confirmTokens));
+      await nextGarment();
     } catch (_) {
       if (mounted)
         setState(() => status = widget.workflow.pending == null
@@ -105,6 +174,17 @@ class _MannequinPageState extends State<MannequinPage> {
     } finally {
       if (mounted && timer?.isActive != true) setBusy(false);
     }
+  }
+
+  Future<void> nextGarment() async {
+    if (cancelled || !mounted || remaining.isEmpty) return;
+    final item = remaining.removeAt(0);
+    final person = await jpegData(base);
+    final garment = await jpegData(item.image);
+    if (cancelled || !mounted) return;
+    activeGarment = item;
+    await consume(await widget.workflow
+        .tryOn(person, garment, confirm: widget.confirmTokens));
   }
 
   Future<void> ownPhoto() async {
@@ -125,8 +205,7 @@ class _MannequinPageState extends State<MannequinPage> {
 
   @override
   Widget build(BuildContext context) {
-    final chosen =
-        widget.store.items.where((item) => item.id == selected).firstOrNull;
+    final chosen = chosenItems;
     return LocalStrings(
         language: widget.store.language,
         child: ListView(
@@ -210,11 +289,10 @@ class _MannequinPageState extends State<MannequinPage> {
                                                             color: const Color(
                                                                 0xFFE9DCE6)),
                                                         borderRadius:
-                                                            BorderRadius.circular(
-                                                                10)),
-                                                    child: i == 0 &&
-                                                            chosen != null
-                                                        ? photo(chosen.image,
+                                                            BorderRadius
+                                                                .circular(10)),
+                                                    child: i < chosen.length
+                                                        ? photo(chosen[i].image,
                                                             fit: BoxFit.contain)
                                                         : const SizedBox
                                                             .expand())),
@@ -231,18 +309,18 @@ class _MannequinPageState extends State<MannequinPage> {
                                                           borderRadius:
                                                               BorderRadius.circular(
                                                                   11))),
-                                                  onPressed:
-                                                      busy || widget.store.items.isEmpty
-                                                          ? null
-                                                          : () => setState(() =>
-                                                              selected = widget
-                                                                  .store
-                                                                  .items
-                                                                  .first
-                                                                  .id),
+                                                  onPressed: busy ||
+                                                          widget.store.items
+                                                              .isEmpty
+                                                      ? null
+                                                      : () => setState(suggest),
                                                   child: const SmText('KOMBİN\nÖNER',
-                                                      textAlign: TextAlign.center,
-                                                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800)))),
+                                                      textAlign:
+                                                          TextAlign.center,
+                                                      style: TextStyle(
+                                                          fontSize: 12,
+                                                          fontWeight:
+                                                              FontWeight.w800)))),
                                           const SizedBox(height: 2),
                                           SizedBox(
                                               height: 30,
@@ -261,7 +339,7 @@ class _MannequinPageState extends State<MannequinPage> {
                                                   onPressed: busy
                                                       ? null
                                                       : () => setState(() =>
-                                                          selected = null),
+                                                          selected.clear()),
                                                   child: const SmText('Temizle',
                                                       style: TextStyle(
                                                           fontSize: 12)))),
@@ -290,9 +368,12 @@ class _MannequinPageState extends State<MannequinPage> {
                                           child: SmText(
                                               busy
                                                   ? 'Giydirme devam ediyor…'
-                                                  : chosen == null
+                                                  : chosen.isEmpty
                                                       ? 'Kombinin için kıyafet seç.'
-                                                      : chosen.category,
+                                                      : chosen
+                                                          .map((item) =>
+                                                              item.category)
+                                                          .join(' · '),
                                               textAlign: TextAlign.center,
                                               style: const TextStyle(
                                                   fontSize: 11,
@@ -304,12 +385,17 @@ class _MannequinPageState extends State<MannequinPage> {
               OutlinedButton.icon(
                   key: const Key('save-tryon'),
                   onPressed: busy ||
-                          (selected == null && widget.store.tryonResult == null)
+                          (selected.isEmpty && widget.store.tryonResult == null)
                       ? null
                       : () async {
                           try {
                             await widget.store.saveLook(
-                                selected == null ? [] : [selected!],
+                                widget.store.tryonResult == null
+                                    ? chosen.map((item) => item.id).toList()
+                                    : attributedImage ==
+                                            widget.store.tryonResult
+                                        ? applied.values.toList()
+                                        : <String>[],
                                 aiImage: widget.store.tryonResult);
                             if (mounted)
                               setState(() => status = 'Kombin kaydedildi.');
@@ -328,7 +414,7 @@ class _MannequinPageState extends State<MannequinPage> {
               const SizedBox(height: 6),
               FilledButton.icon(
                   key: const Key('tryon-start'),
-                  onPressed: busy || selected == null ? null : start,
+                  onPressed: busy || selected.isEmpty ? null : start,
                   icon: const Icon(Icons.auto_awesome, size: 18),
                   label: const SmText('Yapay zekâ ile gerçekçi giydir')),
               const SizedBox(height: 14),
@@ -372,13 +458,28 @@ class _MannequinPageState extends State<MannequinPage> {
                                 key: Key('try-garment-$i'),
                                 onTap: busy
                                     ? null
-                                    : () => setState(() => selected =
-                                        selected == item.id ? null : item.id),
+                                    : () => setState(() {
+                                          if (selected[item.category] ==
+                                              item.id) {
+                                            selected.remove(item.category);
+                                          } else {
+                                            if (item.category == 'Elbise') {
+                                              selected.remove('Üst giyim');
+                                              selected.remove('Alt giyim');
+                                            } else if (item.category ==
+                                                    'Üst giyim' ||
+                                                item.category == 'Alt giyim') {
+                                              selected.remove('Elbise');
+                                            }
+                                            selected[item.category] = item.id;
+                                          }
+                                        }),
                                 child: Container(
                                     padding: const EdgeInsets.all(6),
                                     decoration: BoxDecoration(
                                         border: Border.all(
-                                            color: selected == item.id
+                                            color: selected[item.category] ==
+                                                    item.id
                                                 ? Theme.of(context)
                                                     .colorScheme
                                                     .primary
@@ -405,6 +506,8 @@ class _MannequinPageState extends State<MannequinPage> {
                 TextButton(
                     onPressed: () {
                       timer?.cancel();
+                      cancelled = true;
+                      remaining.clear();
                       widget.workflow.cancel();
                       setBusy(false);
                       setState(() => status =

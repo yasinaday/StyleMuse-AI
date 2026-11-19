@@ -55,10 +55,16 @@ class ClosetStore extends ChangeNotifier {
       if (outfits != null) looks = outfits;
       profile = {
         ...style,
+        if (preferences['sm-style'] is String)
+          'style': preferences['sm-style'] as String,
         if (name is String) 'name': name,
         if (avatar is String) 'photo': avatar
       };
       language = preferences['sm-language'] as String? ?? 'tr';
+      review = data['review'] == null
+          ? null
+          : Map<String, dynamic>.from(data['review'] as Map);
+      tryonResult = data['tryonResult'] as String?;
     });
   }
 
@@ -114,6 +120,7 @@ class ClosetStore extends ChangeNotifier {
         'preferences': {
           'sm-language': language,
           'sm-name': profile['name'],
+          'sm-style': profile['style'],
           'sm-style-profile': jsonEncode(profile),
           'sm-profile-photo': profile['photo']
         }
@@ -225,6 +232,11 @@ class ClosetStore extends ChangeNotifier {
           }
         ];
       });
+  Future<void> deleteLook(int index) => _change(() {
+        RangeError.checkValidIndex(index, looks);
+        looks = [...looks]..removeAt(index);
+      });
+
   Future<void> updateProfile(Map<String, String> values, {String? language}) =>
       _change(() {
         profile = {...profile, ...values};
@@ -263,7 +275,8 @@ Map<String, dynamic> normalizeBackup(Object? raw) {
         for (var i = 0; i < items.length; i++)
           if (items[i] is String)
             {'id': i, 'image': items[i], 'category': 'Diğer'}
-          else items[i],
+          else
+            items[i],
       ],
       'looks': looks ?? [],
       'preferences': raw,
@@ -278,6 +291,23 @@ Map<String, dynamic> normalizeBackup(Object? raw) {
       raw['items'] is! List ||
       raw['looks'] is! List ||
       raw['preferences'] is! Map) invalid();
+  if (raw['tryonResult'] != null && !safeImage(raw['tryonResult'])) invalid();
+  final draft = raw['review'];
+  if (draft != null) {
+    if (draft is! Map ||
+        draft['items'] is! List ||
+        (draft['job_id'] != null && draft['job_id'] is! String) ||
+        (draft['sourceImage'] != null && !safeImage(draft['sourceImage'])))
+      invalid();
+    for (final part in draft['items'] as List) {
+      if (part is! Map ||
+          part['id'] == null ||
+          !safeImage(part['image'] ?? part['preview']) ||
+          (part['image'] != null && !safeImage(part['image'])) ||
+          (part['preview'] != null && !safeImage(part['preview'])) ||
+          (part['category'] != null && part['category'] is! String)) invalid();
+    }
+  }
   final ids = <String>{};
   for (final x in raw['items'] as List) {
     if (x is! Map ||
@@ -303,6 +333,7 @@ Map<String, dynamic> normalizeBackup(Object? raw) {
   for (final key in [
     'sm-language',
     'sm-name',
+    'sm-style',
     'sm-profile-photo',
     'sm-style-profile'
   ]) {

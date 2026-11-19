@@ -16,6 +16,9 @@ class NativeSecureStore implements SecureStore {
   Future<void> delete(String key) => storage.delete(key: key);
 }
 
+Future<void> googleAccountSignOut() =>
+    GoogleSignIn(scopes: ['email']).signOut();
+
 Future<Map<String, dynamic>?> googleAccountSignIn(StyleMuseApi api) async {
   final account = await api.account();
   final clientId = account['google_client_id'];

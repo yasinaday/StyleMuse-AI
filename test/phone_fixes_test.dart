@@ -2,6 +2,7 @@ import 'dart:typed_data';
 import 'package:image/image.dart' as img;
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'crop_test_helpers.dart';
 import 'package:stylemuse_ai/main.dart';
 import 'package:stylemuse_ai/closet.dart';
 import 'package:stylemuse_ai/stylemuse_api.dart';
@@ -61,6 +62,9 @@ void main() {
     await tester.tap(find.byIcon(Icons.photo_library_outlined));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('crop-confirm')));
+    await waitForCropReturn(tester, find.text('AI ile analiz et'));
+    expect(transport.paths, isEmpty);
+    await tester.tap(find.text('AI ile analiz et'));
     await tester.pumpAndSettle();
     expect(find.text('AI analizi için Google hesabınla giriş yap.'),
         findsOneWidget);
