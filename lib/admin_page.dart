@@ -20,6 +20,9 @@ class _AdminPageState extends State<AdminPage> {
   bool _denied = false;
   String _status = '';
   String? _tokenRequest;
+  String? _falBalance, _replicateBalance;
+  String balanceLine(String label, Object? amount) =>
+      '$label · ${amount ?? 'Bilinmiyor'}${amount == null ? '' : ' USD'}';
   final _amount = TextEditingController();
   final _code = TextEditingController();
   final _credit = TextEditingController();
@@ -231,6 +234,8 @@ class _AdminPageState extends State<AdminPage> {
                   'Satın alma değildir. Yalnızca mevcut e-posta onaylı yönetici yükleme akışı.'),
             ]),
             _section('Sağlayıcı bakiye takibi', [
+              Text(_falBalance ?? 'fal.ai · Henüz sorgulanmadı'),
+              Text(_replicateBalance ?? 'Replicate · Son manuel kayıt sorgulanmadı'),
               const Text(
                   'Replicate kaydı 24 saatlik yönetici notudur; çıkarım izni veya gerçek ödeme değildir.'),
               TextField(
@@ -258,8 +263,7 @@ class _AdminPageState extends State<AdminPage> {
                                 .recordReplicateCredit(text, _uuid());
                             if (mounted)
                               setState(() {
-                                _status =
-                                    'Replicate: ${_encoder.convert(result)}';
+                                _replicateBalance = balanceLine('Replicate (son manuel kayıt)', result['available_usd']);
                               });
                           }),
                   child: const Text('Replicate notunu kaydet')),
@@ -270,8 +274,7 @@ class _AdminPageState extends State<AdminPage> {
                             final result = await widget.api.replicateCredit();
                             if (mounted)
                               setState(() {
-                                _status =
-                                    'Replicate: ${_encoder.convert(result)}';
+                                _replicateBalance = balanceLine('Replicate (son manuel kayıt)', result['available_usd']);
                               });
                           }),
                   child: const Text('Son Replicate kaydını getir')),
@@ -282,8 +285,9 @@ class _AdminPageState extends State<AdminPage> {
                             final result = await widget.api.falCredit();
                             if (mounted)
                               setState(() {
-                                _status =
-                                    'fal.ai: ${result['available_usd'] ?? 'Kullanılamıyor'} USD';
+                                if (result['available_usd'] != null || _falBalance == null) {
+                                  _falBalance = balanceLine('fal.ai', result['available_usd']);
+                                }
                               });
                           }),
                   child: const Text('fal.ai bakiyesini sorgula')),
