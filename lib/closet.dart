@@ -15,12 +15,25 @@ const wardrobeCategories = [
 const appLanguages = ['tr', 'en', 'de', 'ru', 'ar', 'fr', 'hi', 'zh', 'ja'];
 
 class ClosetItem {
-  const ClosetItem(this.id, this.image, this.category);
+  const ClosetItem(this.id, this.image, this.category,
+      {this.sourceItemId, this.sourceJobId, this.originalImage, this.mask});
   final String id, image, category;
-  Map<String, dynamic> toJson() =>
-      {'id': id, 'image': image, 'category': category};
+  final String? sourceItemId, sourceJobId, originalImage, mask;
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'image': image,
+        'category': category,
+        if (sourceItemId != null) 'sourceItemId': sourceItemId,
+        if (sourceJobId != null) 'sourceJobId': sourceJobId,
+        if (originalImage != null) 'originalImage': originalImage,
+        if (mask != null) 'mask': mask,
+      };
   factory ClosetItem.fromJson(Map<String, dynamic> x) => ClosetItem(
-      x['id'].toString(), x['image'] as String, x['category'] as String);
+      x['id'].toString(), x['image'] as String, x['category'] as String,
+      sourceItemId: x['sourceItemId'] as String?,
+      sourceJobId: x['sourceJobId'] as String?,
+      originalImage: x['originalImage'] as String?,
+      mask: x['mask'] as String?);
 }
 
 class ClosetStore extends ChangeNotifier {
@@ -174,16 +187,98 @@ class ClosetStore extends ChangeNotifier {
             ? null
             : jsonDecode(jsonEncode(data)) as Map<String, dynamic>;
       });
+
+  /// Merge only the exact approved item set. Persist before acknowledging workflow.
+  /// Provider metadata never overrides the user's category or extraction mask.
+  Future<void> applyReviewEnhancement(Map<String, dynamic> result,
+          {required List<String> itemIds}) =>
+      _change(() {
+        final draft = review;
+        if (draft == null ||
+            draft['items'] is! List ||
+            result['items'] is! List) {
+          throw const FormatException('Missing enhancement review');
+        }
+        final approved = itemIds.toSet();
+        if (approved.isEmpty || approved.length != itemIds.length) {
+          throw const FormatException('Invalid enhancement selection');
+        }
+        final parts = (draft['items'] as List)
+            .map((x) => Map<String, dynamic>.from(x as Map))
+            .toList();
+        final originals = <String, Map<String, dynamic>>{};
+        for (final part in parts) {
+          final id = part['id']?.toString();
+          if (id == null || id.isEmpty || originals.containsKey(id)) {
+            throw const FormatException('Invalid extraction identity');
+          }
+          originals[id] = part;
+        }
+        final updates = <String, String>{};
+        for (final raw in result['items'] as List) {
+          if (raw is! Map) throw const FormatException('Invalid enhancement');
+          final id = raw['id']?.toString();
+          if (id == null ||
+              !approved.contains(id) ||
+              !originals.containsKey(id) ||
+              updates.containsKey(id) ||
+              !safeImage(raw['image'])) {
+            throw const FormatException('Invalid enhancement');
+          }
+          updates[id] = raw['image'] as String;
+        }
+        if (updates.length != approved.length) {
+          throw const FormatException('Incomplete enhancement');
+        }
+        for (final id in approved) {
+          final part = originals[id]!;
+          final original =
+              part['originalImage'] ?? part['image'] ?? part['preview'];
+          if (!safeImage(original))
+            throw const FormatException('Invalid original');
+          part['originalImage'] = original;
+          part['image'] = updates[id];
+          part['enhanced'] = true;
+        }
+        review = {...draft, 'items': parts};
+      });
+
+  /// Rejecting an enhancement never resubmits inference or restores spent tokens.
+  Future<void> revertReviewEnhancement(String itemId) => _change(() {
+        if (review == null) throw const FormatException('Missing review');
+        var found = false;
+        final parts = (review!['items'] as List).map((raw) {
+          final part = Map<String, dynamic>.from(raw as Map);
+          if (part['id'].toString() == itemId) {
+            found = true;
+            if (!safeImage(part['originalImage'])) {
+              throw const FormatException('Missing original');
+            }
+            part['image'] = part['originalImage'];
+            part['enhanced'] = false;
+          }
+          return part;
+        }).toList();
+        if (!found) throw const FormatException('Unknown item');
+        review = {...review!, 'items': parts};
+      });
+
   Future<void> acceptReview(List<Map<String, dynamic>> selected) => _change(() {
         final stamp = DateTime.now().microsecondsSinceEpoch;
         final additions = <ClosetItem>[];
         for (var i = 0; i < selected.length; i++) {
           final x = selected[i];
           final image = x['image'] ?? x['preview'];
-          if (!safeImage(image) || !wardrobeCategories.contains(x['category']))
+          if (!safeImage(image) ||
+              !validGarmentProvenance(x) ||
+              !wardrobeCategories.contains(x['category']))
             throw const FormatException('Invalid result');
           additions.add(ClosetItem(
-              '${stamp}_$i', image as String, x['category'] as String));
+              '${stamp}_$i', image as String, x['category'] as String,
+              sourceItemId: x['id']?.toString(),
+              sourceJobId: review?['job_id'] as String?,
+              originalImage: x['originalImage'] as String? ?? image,
+              mask: x['mask'] as String?));
         }
         items = [...items, ...additions];
         review = null;
@@ -195,7 +290,11 @@ class ClosetStore extends ChangeNotifier {
         items = [
           for (final item in items)
             if (item.id == id)
-              ClosetItem(id, image ?? item.image, category ?? item.category)
+              ClosetItem(id, image ?? item.image, category ?? item.category,
+                  sourceItemId: item.sourceItemId,
+                  sourceJobId: item.sourceJobId,
+                  originalImage: item.originalImage,
+                  mask: item.mask)
             else
               item
         ];
@@ -214,10 +313,11 @@ class ClosetStore extends ChangeNotifier {
       _change(() {
         final selected = items.where((x) => ids.contains(x.id)).toList();
         final categories = selected.map((x) => x.category).toSet();
-        if (aiImage == null &&
+        if (!safeImage(aiImage) ||
+            ids.length != selected.length ||
             !categories.contains('Elbise') &&
-            !(categories.contains('Üst giyim') &&
-                categories.contains('Alt giyim')))
+                !(categories.contains('Üst giyim') &&
+                    categories.contains('Alt giyim')))
           throw const FormatException(
               'Kombin için üst ve alt giyim ya da elbise seçmelisin.');
         looks = [
@@ -242,6 +342,20 @@ class ClosetStore extends ChangeNotifier {
         profile = {...profile, ...values};
         if (language != null) this.language = language;
       });
+}
+
+bool validGarmentProvenance(Map data) {
+  for (final key in ['mask', 'originalImage']) {
+    if (data[key] != null && !safeImage(data[key])) return false;
+  }
+  for (final key in ['sourceItemId', 'sourceJobId']) {
+    final value = data[key];
+    if (value != null &&
+        (value is! String || value.isEmpty || value.length > 200)) {
+      return false;
+    }
+  }
+  return true;
 }
 
 bool safeImage(Object? image) =>
@@ -301,6 +415,7 @@ Map<String, dynamic> normalizeBackup(Object? raw) {
       invalid();
     for (final part in draft['items'] as List) {
       if (part is! Map ||
+          !validGarmentProvenance(part) ||
           part['id'] == null ||
           !safeImage(part['image'] ?? part['preview']) ||
           (part['image'] != null && !safeImage(part['image'])) ||
@@ -312,6 +427,7 @@ Map<String, dynamic> normalizeBackup(Object? raw) {
   for (final x in raw['items'] as List) {
     if (x is! Map ||
         !safeImage(x['image']) ||
+        !validGarmentProvenance(x) ||
         !wardrobeCategories.contains(x['category']) ||
         x['id'] == null ||
         !RegExp(r'^[A-Za-z0-9_-]{1,100}$').hasMatch(x['id'].toString()) ||

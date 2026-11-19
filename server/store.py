@@ -25,6 +25,7 @@ class Store:
             CREATE TABLE IF NOT EXISTS ledger(id INTEGER PRIMARY KEY CHECK(id=1), ceiling INTEGER NOT NULL, reserved INTEGER NOT NULL);
             CREATE TABLE IF NOT EXISTS jobs(id TEXT PRIMARY KEY, owner TEXT NOT NULL, request_id TEXT NOT NULL, hash TEXT NOT NULL, state TEXT NOT NULL, original TEXT, result TEXT, expires REAL NOT NULL, UNIQUE(owner,request_id));
             CREATE TABLE IF NOT EXISTS claims(job TEXT NOT NULL,item TEXT NOT NULL,state TEXT NOT NULL,image TEXT,PRIMARY KEY(job,item));
+            CREATE TABLE IF NOT EXISTS inference_audit(job TEXT NOT NULL,item TEXT NOT NULL,stage TEXT NOT NULL,outcome TEXT NOT NULL,code TEXT NOT NULL,category TEXT NOT NULL,source_hash TEXT NOT NULL,reference_hash TEXT NOT NULL,created REAL NOT NULL);
             CREATE TABLE IF NOT EXISTS owner_ledger(owner TEXT PRIMARY KEY, reserved INTEGER NOT NULL, ceiling INTEGER NOT NULL);
             CREATE TABLE IF NOT EXISTS owner_rate(owner TEXT NOT NULL, admitted REAL NOT NULL);
             CREATE INDEX IF NOT EXISTS owner_rate_lookup ON owner_rate(owner,admitted);
@@ -37,6 +38,7 @@ class Store:
             CREATE TABLE IF NOT EXISTS manual_provider_credit(id TEXT PRIMARY KEY, account TEXT NOT NULL, amount INTEGER NOT NULL CHECK(amount>=0), recorded REAL NOT NULL, expires REAL NOT NULL, evidence TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS manual_provider_debits(operation TEXT PRIMARY KEY, snapshot TEXT NOT NULL REFERENCES manual_provider_credit(id), amount INTEGER NOT NULL CHECK(amount>=0));
             CREATE TABLE IF NOT EXISTS payment_quotes(id TEXT PRIMARY KEY, owner TEXT NOT NULL, session TEXT NOT NULL, digest TEXT NOT NULL, amount INTEGER NOT NULL, expires REAL NOT NULL, action TEXT NOT NULL, used INTEGER NOT NULL CHECK(used IN (0,1)));
+            CREATE TABLE IF NOT EXISTS account_avatars(owner TEXT PRIMARY KEY, image TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS style_tokens(owner TEXT PRIMARY KEY, balance INTEGER NOT NULL CHECK(balance>=0));
             CREATE TABLE IF NOT EXISTS token_load_requests(id TEXT PRIMARY KEY, owner TEXT NOT NULL, amount INTEGER NOT NULL, digest TEXT NOT NULL, created REAL NOT NULL, attempts INTEGER NOT NULL DEFAULT 0, state TEXT NOT NULL);
             CREATE INDEX IF NOT EXISTS token_load_owner_time ON token_load_requests(owner,created);
@@ -114,6 +116,7 @@ class Store:
             db.execute('UPDATE claims SET image=NULL WHERE job=?',(jid,))
         used = db.execute('SELECT COALESCE(sum(COALESCE(length(original),0)+COALESCE(length(result),0)),0) FROM jobs').fetchone()[0]
         used += db.execute('SELECT COALESCE(sum(length(image)),0) FROM claims').fetchone()[0]
+        used += db.execute('SELECT COALESCE(sum(length(image)),0) FROM account_avatars').fetchone()[0]
         if used + extra > self.settings.max_storage_bytes:
             raise HTTPException(507,'storage_limit')
 

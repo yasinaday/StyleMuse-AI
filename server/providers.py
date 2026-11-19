@@ -41,6 +41,41 @@ def png_uri(image):
     return 'data:image/png;base64,' + base64.b64encode(out.getvalue()).decode('ascii')
 
 
+def enhancement_reference(original, item):
+    """Bind a detector cutout to original pixels; send only that item on white."""
+    if item.get('category') not in CATEGORIES:
+        raise ProviderError('Unknown or unsupported garment category')
+    try:
+        photo = original_image(original)
+        quality = item['mask_quality']
+        box = quality['bbox']
+        if quality['source'] != 'detector_mask' or quality['image_size'] != list(photo.size):
+            raise ValueError()
+        if len(box) != 4 or any(type(n) is not int for n in box):
+            raise ValueError()
+        x0, y0, x1, y1 = box
+        if not (0 <= x0 < x1 <= photo.width and 0 <= y0 < y1 <= photo.height):
+            raise ValueError()
+        uri = item['preview']
+        if not uri.startswith('data:image/png;base64,') or len(uri) > 9_000_000:
+            raise ValueError()
+        cut = Image.open(io.BytesIO(base64.b64decode(uri.split(',')[1], validate=True)), formats=('PNG',))
+        if cut.mode != 'RGBA' or cut.size != (x1-x0, y1-y0):
+            raise ValueError()
+        alpha = cut.getchannel('A')
+        if not alpha.getbbox():
+            raise ValueError()
+        source = photo.convert('RGB').crop(tuple(box))
+        difference = ImageChops.difference(source, cut.convert('RGB'))
+        if ImageChops.multiply(difference, Image.merge('RGB', (alpha, alpha, alpha))).getbbox():
+            raise ValueError()
+        white = Image.new('RGB', cut.size, 'white')
+        white.paste(source, mask=alpha)
+        return png_uri(white)
+    except (KeyError, ValueError, TypeError, OSError, IndexError):
+        raise ProviderError('Invalid original-bound item mask') from None
+
+
 def tryoff_prompt(category):
     if category not in CATEGORIES:
         raise ProviderError('Unknown or unsupported garment category')
@@ -97,7 +132,7 @@ def extract_items(photo, results):
             mask = Image.frombytes('L', photo.size, bytes(pixels))
             box = mask.getbbox()
             if box is None:
-                continue
+                raise ProviderError('Empty detector mask')
             area = mask.histogram()[255]
             cut = photo.convert('RGBA')
             cut.putalpha(mask)
@@ -315,7 +350,10 @@ class RealProviders:
         if not isinstance(original, str) or not self.fal_key:
             raise ProviderError('Original data URI and configured fal key required')
         prompt = tryoff_prompt(item.get('category'))
-        body = {'prompt': prompt, 'image_urls': [original], 'loras': [{'path': LORA, 'scale': 1.0}],
+        # Legacy direct-adapter callers lack mask provenance. New detector jobs
+        # always carry it and must use the bound per-item reference.
+        reference = enhancement_reference(original, item) if item.get('mask_quality', {}).get('source') == 'detector_mask' else original
+        body = {'prompt': prompt, 'image_urls': [reference], 'loras': [{'path': LORA, 'scale': 1.0}],
                 'image_size': {'width': 768, 'height': 1024}, 'num_images': 1,
                 'num_inference_steps': 28, 'guidance_scale': 5, 'seed': 42,
                 'acceleration': 'none', 'enable_safety_checker': True, 'output_format': 'png', 'sync_mode': False}

@@ -32,7 +32,7 @@ def test_all_production_image_opens_restrict_plugins():
                 formats = next((k.value for k in node.keywords if k.arg == 'formats'), None)
                 assert formats is not None, f'{name}:{node.lineno} has unrestricted plugin dispatch'
                 assert set(ast.literal_eval(formats)) <= {'PNG', 'JPEG'}
-    assert found == 3
+    assert found == 4  # Includes original-bound enhancement mask decoding.
 
 
 def test_original_encoded_limit_precedes_base64_allocation(monkeypatch):

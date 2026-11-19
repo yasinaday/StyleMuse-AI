@@ -106,20 +106,8 @@ void main() {
           store: store,
           api: StyleMuseApi(storage: secure, transport: transport)));
       await tester.pumpAndSettle();
-      expect(transport.paths, isEmpty);
-      for (final tab in [
-        'Giysiler',
-        'Kombinler',
-        'Mankenim',
-        'Profil',
-        'Keşfet'
-      ]) {
-        await tester.tap(find.text(tab).last);
-        await tester.pumpAndSettle();
-        expect(find.byKey(const Key('recover-operation')), findsOneWidget);
-      }
-      await tester.tap(find.byKey(const Key('recover-operation')));
-      await tester.pumpAndSettle();
+      // Restart now performs read-only recovery automatically on the scoped screen.
+      expect(find.byKey(const Key('recover-operation')), findsNothing);
       expect(secure.values[TokenWorkflowController.pendingKey], isNull);
       expect(transport.paths,
           ['/api/session', '/api/account', '/api/operations/recover']);

@@ -66,16 +66,25 @@ void main() {
       await tester.ensureVisible(find.byKey(const Key('save-tryon')));
       await tester.tap(find.byKey(const Key('save-tryon')));
       await tester.pumpAndSettle();
-      expect(store.looks.single['itemIds'],
-          store.items.take(finish ? 2 : 1).map((x) => x.id).toList());
+      if (finish) {
+        expect(store.looks.single['itemIds'],
+            store.items.map((x) => x.id).toList());
+      } else {
+        expect(store.looks,
+            isEmpty); // Never save an incomplete multi-step render.
+      }
       await tester.ensureVisible(find.byKey(const Key('mannequin-clear')));
       await tester.tap(find.byKey(const Key('mannequin-clear')));
       await tester.pumpAndSettle();
       await tester.ensureVisible(find.byKey(const Key('save-tryon')));
       await tester.tap(find.byKey(const Key('save-tryon')));
       await tester.pumpAndSettle();
-      expect(store.looks.last['itemIds'],
-          store.items.take(finish ? 2 : 1).map((x) => x.id).toList());
+      if (finish) {
+        expect(store.looks.single['itemIds'],
+            store.items.map((x) => x.id).toList());
+      } else {
+        expect(store.looks, isEmpty);
+      }
       expect(tester.takeException(), isNull);
     });
 }

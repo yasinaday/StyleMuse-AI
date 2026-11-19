@@ -1,16 +1,22 @@
 import 'dart:convert';
+import 'dart:async';
 import 'dart:typed_data';
 import 'package:image_picker/image_picker.dart';
 import 'package:material_ui/material_ui.dart';
 import 'closet.dart';
 import 'localization.dart';
 import 'photo_crop.dart';
-import 'outfit_composer.dart';
+import 'admin_api.dart';
+import 'admin_page.dart';
+import 'play_billing.dart';
+import 'play_billing_packs.dart';
 import 'profile_editor.dart';
+import 'native_api.dart';
 import 'backup_page.dart';
 import 'stylemuse_api.dart';
 import 'native_services.dart';
-import 'analysis_review.dart';
+import 'large_analysis_review.dart';
+import 'processing_photo.dart';
 import 'mannequin_page.dart';
 import 'model_images.dart';
 import 'web_nav_icon.dart';
@@ -142,12 +148,74 @@ class StyleMuseShell extends StatefulWidget {
   State<StyleMuseShell> createState() => _StyleMuseShellState();
 }
 
-class _StyleMuseShellState extends State<StyleMuseShell> {
+class _StyleMuseShellState extends State<StyleMuseShell>
+    with WidgetsBindingObserver {
+  Timer? recoveryTimer;
+  late final Future<void> initialLoad;
+  String? pendingAction;
+  String? operationError;
+  bool reviewOpen = false;
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => resumePending());
+      WidgetsBinding.instance.scheduleFrame();
+      billing?.recover();
+    }
+  }
+
+  Future<void> resumePending() async {
+    await initialLoad;
+    if (!mounted) return;
+    await refreshPending();
+    if (mounted && hasPending && !busy && !reviewOpen) {
+      setState(() => tab = pendingAction == 'tryon' ? 3 : 1);
+      if (pendingAction == 'tryon' &&
+          await api.storage.read('stylemuse.tryon.run') != null) return;
+      await recoverOperation();
+    }
+  }
+
   late final ClosetStore store = widget.store ?? ClosetStore();
   late final StyleMuseApi api =
       widget.api ?? StyleMuseApi(storage: const NativeSecureStore());
   late final TokenWorkflowController workflow =
       TokenWorkflowController(api: api, storage: api.storage);
+  PlayBillingController? billing;
+  Future<void> prepareBilling() async {
+    final owner = signedInUser?['id'];
+    if (owner is! String) return;
+    try {
+      final config = await api.post('/api/billing/play/config', {});
+      if (!mounted || signedInUser?['id'] != owner) return;
+      final accountId = config['account_id'];
+      final ids = config['product_ids'];
+      if (accountId is! String ||
+          ids is! List ||
+          ids.any((id) => id is! String)) return;
+      final controller = PlayBillingController(verify: (product, token) async {
+        if (signedInUser?['id'] != owner) throw StateError('account_changed');
+        final result = await api.post('/api/billing/play/verify',
+            {'product_id': product, 'purchase_token': token});
+        if (signedInUser?['id'] != owner) throw StateError('account_changed');
+        if (result['status'] == 'credited') {
+          final updated = await api.account();
+          if (mounted && signedInUser?['id'] == owner)
+            setState(() => account = updated);
+        }
+        return PlayVerification(
+            credited: result['status'] == 'credited',
+            consumed: result['consumed'] == true);
+      });
+      billing?.dispose();
+      billing = controller;
+      await controller.initialize(
+          accountId: accountId, productIds: ids.cast<String>().toSet());
+      if (mounted && identical(billing, controller)) setState(() {});
+    } catch (_) {/* Missing Console/server config keeps checkout disabled. */}
+  }
+
   Map<String, dynamic>? account;
   bool accountBusy = false;
   Map? get signedInUser {
@@ -176,6 +244,9 @@ class _StyleMuseShellState extends State<StyleMuseShell> {
   String? get accountDisplayPhoto {
     final prefix = accountProfilePrefix;
     if (prefix == null) return null;
+    final remote = NativeAvatarApi.restoredPhoto(account!,
+        ownerId: signedInUser!['id'] as String);
+    if (remote != null) return remote;
     final candidate = store.profile['${prefix}photo'];
     if (candidate != null && safeImage(candidate)) return candidate;
     final url = signedInUser?['picture'];
@@ -183,16 +254,59 @@ class _StyleMuseShellState extends State<StyleMuseShell> {
   }
 
   bool hasPending = false;
+  bool hasTryOnRun = false;
   Future<void> refreshPending() async {
     try {
       final saved = await api.storage.read(TokenWorkflowController.pendingKey);
       final value = saved == null ? null : jsonDecode(saved);
+      final run = await api.storage.read('stylemuse.tryon.run');
       if (mounted)
-        setState(() => hasPending = value is Map &&
-            ['detect', 'generate', 'tryon'].contains(value['action']));
+        setState(() {
+          hasTryOnRun = run != null;
+          hasPending = value is Map &&
+              ['detect', 'generate', 'tryon'].contains(value['action']);
+          pendingAction = hasPending ? value['action'] as String : null;
+          if (pendingAction == 'detect' && value['inputs'] is Map) {
+            final source = value['inputs']['image'];
+            if (source is String &&
+                source.startsWith('data:') &&
+                safeImage(source)) {
+              try {
+                croppedAnalysisPhoto = base64Decode(source.split(',').last);
+              } catch (_) {
+                /* Keep the durable recovery available for malformed previews. */
+              }
+            }
+          }
+        });
     } catch (_) {
       if (mounted) setState(() => hasPending = false);
     }
+  }
+
+  List<String>? plannedItems;
+  bool showIdeas = false;
+  int ideaOffset = 0;
+  List<List<ClosetItem>> get outfitIdeas {
+    List<ClosetItem> category(String c) =>
+        store.items.where((i) => i.category == c).toList();
+    final tops = category('Üst giyim'),
+        bottoms = category('Alt giyim'),
+        dresses = category('Elbise');
+    final bases = <List<ClosetItem>>[
+      for (final dress in dresses) [dress],
+      for (final top in tops)
+        for (final bottom in bottoms) [top, bottom],
+    ];
+    return [
+      for (var n = 0; n < bases.length && n < 6; n++)
+        [
+          ...bases[(n + ideaOffset) % bases.length],
+          for (final c in ['Dış giyim', 'Çanta'])
+            if (category(c).isNotEmpty && n.isOdd)
+              category(c)[n % category(c).length],
+        ]
+    ];
   }
 
   int tab = 0;
@@ -210,10 +324,11 @@ class _StyleMuseShellState extends State<StyleMuseShell> {
   @override
   void initState() {
     super.initState();
-    refreshPending();
+    WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addPostFrameCallback((_) => resumePending());
     accountAction(silent: true);
     store.addListener(refresh);
-    store.load().catchError((Object e) {
+    initialLoad = store.load().catchError((Object e) {
       if (mounted) setState(() => error = 'Dolap açılamadı.');
     });
   }
@@ -224,6 +339,9 @@ class _StyleMuseShellState extends State<StyleMuseShell> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    recoveryTimer?.cancel();
+    billing?.dispose();
     store.removeListener(refresh);
     if (widget.store == null) store.dispose();
     super.dispose();
@@ -554,34 +672,46 @@ class _StyleMuseShellState extends State<StyleMuseShell> {
                   ]))) ??
       false;
   Future<void> openReview() async {
-    await Navigator.push(
-        context,
-        MaterialPageRoute<void>(
-            builder: (_) => AnalysisReviewPage(
-                store: store,
-                workflow: workflow,
-                confirmTokens: confirmTokens,
-                manualCrop: () async {
-                  final source = store.review?['sourceImage'];
-                  if (source is! String || !safeImage(source)) return;
-                  final cropped = await Navigator.push<Uint8List>(
-                      context,
-                      MaterialPageRoute(
-                          builder: (_) => PhotoCropPage(
-                              bytes: base64Decode(source.split(',').last),
-                              tr: tr)));
-                  if (cropped == null || !mounted) return;
-                  final category = await chooseCategory(initial: addCategory);
-                  if (category == null) return;
-                  await store.addGarment(
-                      image: 'data:image/jpeg;base64,${base64Encode(cropped)}',
-                      category: category);
-                })));
+    if (reviewOpen) return;
+    reviewOpen = true;
+    try {
+      await Navigator.push(
+          context,
+          MaterialPageRoute<void>(
+              builder: (_) => LargeAnalysisReviewPage(
+                  store: store,
+                  workflow: workflow,
+                  confirmTokens: confirmTokens,
+                  manualCrop: () async {
+                    final source = store.review?['sourceImage'];
+                    if (source is! String || !safeImage(source)) return;
+                    final cropped = await Navigator.push<Uint8List>(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => PhotoCropPage(
+                                bytes: base64Decode(source.split(',').last),
+                                tr: tr)));
+                    if (cropped == null || !mounted) return;
+                    final category = await chooseCategory(initial: addCategory);
+                    if (category == null) return;
+                    await store.addGarment(
+                        image:
+                            'data:image/jpeg;base64,${base64Encode(cropped)}',
+                        category: category);
+                  })));
+    } finally {
+      reviewOpen = false;
+      await refreshPending();
+    }
   }
 
   Future<void> recoverOperation() async {
     if (busy) return;
-    setState(() => busy = true);
+    recoveryTimer?.cancel();
+    setState(() {
+      busy = true;
+      operationError = null;
+    });
     try {
       final result = await workflow.recover();
       if (result == null) {
@@ -590,14 +720,24 @@ class _StyleMuseShellState extends State<StyleMuseShell> {
       }
       final pending = workflow.pending!;
       if (pending['phase'] != 'done') {
-        if (mounted) notify(tr('Giydirme devam ediyor…'));
+        recoveryTimer = Timer(const Duration(seconds: 4), () {
+          if (mounted &&
+              WidgetsBinding.instance.lifecycleState !=
+                  AppLifecycleState.paused) resumePending();
+        });
         return;
       }
       switch (pending['action']) {
         case 'detect':
           if (result['items'] is! List)
             throw const FormatException('Invalid analysis');
-          await store.saveReview(result);
+          final source =
+              pending['inputs'] is Map ? pending['inputs']['image'] : null;
+          await store.saveReview({
+            ...result,
+            if (source is String && safeImage(source)) 'sourceImage': source
+          });
+          if (mounted) setState(() => croppedAnalysisPhoto = null);
           await workflow.acknowledge();
           if (mounted) await openReview();
         case 'generate':
@@ -608,22 +748,8 @@ class _StyleMuseShellState extends State<StyleMuseShell> {
               result['items'] is! List) {
             throw const FormatException('Missing matching review');
           }
-          final parts = (review['items'] as List)
-              .map((x) => Map<String, dynamic>.from(x as Map))
-              .toList();
-          for (final raw in result['items'] as List) {
-            final part = Map<String, dynamic>.from(raw as Map);
-            final index = parts
-                .indexWhere((x) => x['id'].toString() == part['id'].toString());
-            if (index < 0 || !safeImage(part['image']))
-              throw const FormatException('Invalid enhancement');
-            parts[index] = {
-              ...parts[index],
-              'image': part['image'],
-              'enhanced': true
-            };
-          }
-          await store.saveReview({...review, 'items': parts});
+          await store.applyReviewEnhancement(result,
+              itemIds: (inputs['item_ids'] as List).cast<String>());
           await workflow.acknowledge();
           if (mounted) await openReview();
         case 'tryon':
@@ -685,11 +811,7 @@ class _StyleMuseShellState extends State<StyleMuseShell> {
   Future<void> notifyOperationError(Object e) async {
     await refreshPending();
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(apiError(e)),
-        action: hasPending
-            ? SnackBarAction(label: tr('Kurtar'), onPressed: recoverOperation)
-            : null));
+    setState(() => operationError = apiError(e));
   }
 
   String apiError(Object e) {
@@ -813,8 +935,11 @@ class _StyleMuseShellState extends State<StyleMuseShell> {
                 borderRadius: BorderRadius.circular(18),
                 child: SizedBox(
                     height: 280,
-                    child: Image.memory(croppedAnalysisPhoto!,
-                        fit: BoxFit.contain))),
+                    child: ProcessingPhoto(
+                        active: busy,
+                        stage: tr('Fotoğraf analiz ediliyor…'),
+                        child: Image.memory(croppedAnalysisPhoto!,
+                            fit: BoxFit.contain)))),
             FilledButton(
                 onPressed: busy ? null : () => extractPhoto(usePreview: true),
                 child: SmText(
@@ -915,105 +1040,48 @@ class _StyleMuseShellState extends State<StyleMuseShell> {
         ]));
   }
 
-  Future<void> tokenPacks() {
-    var selected = 10;
-    const packs = [(200, 2000), (10, 300), (25, 625), (50, 1000), (100, 1500)];
-    String price(double amount) {
-      final value = amount.toStringAsFixed(2);
-      return 'USD ${store.language == 'tr' ? value.replaceAll('.', ',') : value}';
-    }
-
-    return showDialog<void>(
-      context: context,
-      builder: (dialog) => LocalStrings(
-        language: store.language,
-        child: StatefulBuilder(
-            builder: (context, update) => Dialog(
-                  insetPadding: const EdgeInsets.all(18),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                          colors: [Color(0xFF492158), Color(0xFFA369A0)]),
-                      borderRadius: BorderRadius.circular(24),
-                    ),
-                    padding: const EdgeInsets.all(18),
-                    child: DefaultTextStyle.merge(
-                      style: const TextStyle(color: Colors.white),
-                      child: SingleChildScrollView(
-                          child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Row(children: [
-                            const Expanded(
-                                child: SmText('Stil Jetonu Al',
-                                    style: TextStyle(
-                                        fontSize: 23,
-                                        fontWeight: FontWeight.bold))),
-                            IconButton(
-                              tooltip: tr('Kapat'),
-                              color: Colors.white,
-                              onPressed: () => Navigator.pop(dialog),
-                              icon: const Icon(Icons.close),
-                            ),
-                          ]),
-                          const SmText(
-                              'Uygulama ücretsiz. Yapay zekâ işlemleri jetonla kullanılır.'),
-                          const SizedBox(height: 8),
-                          const SmText('Ayırma · Fotoğraf başına 1 jeton'),
-                          const SmText('Giydirme · Parça başına 1 jeton'),
-                          const SmText('İyileştirme · Parça başına 2 jeton'),
-                          const SizedBox(height: 12),
-                          for (final pack in packs)
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 6),
-                              child: Material(
-                                color: selected == pack.$1
-                                    ? const Color(0x45FFFFFF)
-                                    : const Color(0x20FFFFFF),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  side: BorderSide(
-                                      color: pack.$1 == 200
-                                          ? const Color(0xFFF5D68E)
-                                          : Colors.transparent),
-                                ),
-                                child: ListTile(
-                                  selected: selected == pack.$1,
-                                  onTap: () => update(() => selected = pack.$1),
-                                  leading: Icon(
-                                      selected == pack.$1
-                                          ? Icons.radio_button_checked
-                                          : Icons.radio_button_unchecked,
-                                      color: Colors.white),
-                                  title: SmText('${pack.$1} jeton',
-                                      style: const TextStyle(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.bold)),
-                                  subtitle: Text(
-                                      '${price(pack.$2 / pack.$1 / 100)} ${tr('/ jeton')}'
-                                      '${pack.$1 == 200 ? ' · ${tr('En iyi teklif')}' : ''}',
-                                      style:
-                                          const TextStyle(color: Colors.white)),
-                                  trailing: Text(price(pack.$2 / 100),
-                                      style:
-                                          const TextStyle(color: Colors.white)),
-                                ),
-                              ),
-                            ),
-                          const FilledButton(
-                              key: Key('purchase-disabled'),
-                              onPressed: null,
-                              child: SmText('Satın al')),
-                          const SmText('Satın alma henüz kullanıma açık değil.',
-                              textAlign: TextAlign.center),
-                        ],
-                      )),
-                    ),
-                  ),
-                )),
-      ),
-    );
+  Future<void> tokenPacks() async {
+    if (signedInUser != null && billing == null) await prepareBilling();
+    if (!mounted) return;
+    await showDialog<void>(
+        context: context,
+        builder: (dialog) => LocalStrings(
+            language: store.language,
+            child: AlertDialog(
+                title: const SmText('Stil Jetonu Al'),
+                content: SingleChildScrollView(
+                    child: Column(mainAxisSize: MainAxisSize.min, children: [
+                  const SmText('Ayırma · Fotoğraf başına 1 jeton'),
+                  const SmText('Giydirme · Parça başına 1 jeton'),
+                  const SmText('İyileştirme · Parça başına 2 jeton'),
+                  if (billing != null)
+                    PlayBillingPacks(
+                        controller: billing!,
+                        buyLabel: tr('Satın al'),
+                        unavailableLabel:
+                            tr('Satın alma henüz kullanıma açık değil.'),
+                        statusLabel: (state) => tr({
+                              'ready': 'Stil Jetonu Al',
+                              'credited': 'Bakiye güncellendi.',
+                              'pending': 'İşlem bekleniyor…',
+                              'cancelled': 'Vazgeç',
+                              'retry_required':
+                                  'İşlem tamamlanamadı. Tekrar kontrol et.',
+                            }[state] ??
+                            'Satın alma henüz kullanıma açık değil.')),
+                  if (billing == null || billing!.products.isEmpty) ...[
+                    const FilledButton(
+                        key: Key('purchase-disabled'),
+                        onPressed: null,
+                        child: SmText('Satın al')),
+                    const SmText('Satın alma henüz kullanıma açık değil.'),
+                  ],
+                ])),
+                actions: [
+                  TextButton(
+                      onPressed: () => Navigator.pop(dialog),
+                      child: const SmText('Kapat'))
+                ])));
   }
 
   Future<void> openAdminSettings() async {
@@ -1021,40 +1089,20 @@ class _StyleMuseShellState extends State<StyleMuseShell> {
     if (accountBusy ||
         account?['user'] is! Map ||
         (account!['user'] as Map)['admin'] != true) return;
-    await showDialog<void>(
-      context: context,
-      builder: (dialog) => LocalStrings(
-        language: store.language,
-        child: AlertDialog(
-          title: const SmText('Yönetici ayarları ve bildirimler'),
-          content: FutureBuilder<Map<String, dynamic>>(
-            future: api.post('/api/admin/fal-credit/status', {}),
-            builder: (context, snapshot) {
-              final balance = snapshot.data?['available_usd'];
-              return Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SmText('Sağlayıcı bakiye takibi'),
-                  if (snapshot.connectionState == ConnectionState.waiting)
-                    const SmText('Bakiye kontrol ediliyor…')
-                  else if (balance is num)
-                    Text('fal.ai · USD ${balance.toStringAsFixed(2)}')
-                  else
-                    const SmText(
-                        'Bakiye okunamadı. Billing sayfasından kontrol et.'),
-                ],
-              );
-            },
-          ),
-          actions: [
-            TextButton(
-                onPressed: () => Navigator.pop(dialog),
-                child: const SmText('Kapat'))
-          ],
-        ),
-      ),
-    );
+    await Navigator.push<void>(
+        context,
+        MaterialPageRoute(
+          builder: (_) => LocalStrings(
+              language: store.language,
+              child: AdminPage(
+                  api: StyleMuseAdminApi(api),
+                  importProducts: () async {
+                    await Navigator.push<void>(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => BackupPage(store: store)));
+                  })),
+        ));
   }
 
   Future<void> accountAction(
@@ -1063,6 +1111,8 @@ class _StyleMuseShellState extends State<StyleMuseShell> {
     setState(() => accountBusy = true);
     try {
       if (logout) {
+        billing?.dispose();
+        billing = null;
         // Clear visible identity before any network/plugin work can fail.
         if (mounted) {
           setState(() => account = null);
@@ -1079,12 +1129,24 @@ class _StyleMuseShellState extends State<StyleMuseShell> {
             : silent
                 ? await api.restoreAccount()
                 : await api.account();
-        if (mounted && next != null) setState(() => account = next);
+        if (mounted && next != null) {
+          final nextUser = next['user'];
+          if (nextUser is! Map || nextUser['id'] != signedInUser?['id']) {
+            billing?.dispose();
+            billing = null;
+            plannedItems = null;
+            Navigator.of(context).popUntil((route) => route.isFirst);
+          }
+          setState(() => account = next);
+        }
       }
     } catch (e) {
       if (mounted &&
           e is StyleMuseApiException &&
           (e.status == 401 || e.code == 'session_changed')) {
+        billing?.dispose();
+        billing = null;
+        Navigator.of(context).popUntil((route) => route.isFirst);
         setState(() => account = null);
       }
       if (mounted && !silent)
@@ -1127,6 +1189,54 @@ class _StyleMuseShellState extends State<StyleMuseShell> {
           color: Colors.transparent,
           child:
               ListTileTheme(dense: true, child: Column(children: children))));
+  Future<void> savePersonalProfile(Map<String, String> values) async {
+    final prefix = accountProfilePrefix;
+    final owner = signedInUser?['id'];
+    if (prefix == null ||
+        owner is! String ||
+        values.keys
+            .any((key) => key != '${prefix}name' && key != '${prefix}photo')) {
+      throw const StyleMuseApiException('session_changed');
+    }
+    final next = Map<String, String>.of(values);
+    final image = next['${prefix}photo'];
+    String? uploaded;
+    if (image != null &&
+        image.startsWith('data:') &&
+        !NativeAvatarApi.validPhoto(image)) {
+      throw const StyleMuseApiException('invalid_avatar');
+    }
+    if (image != null &&
+        image != NativeAvatarApi.restoredPhoto(account!, ownerId: owner) &&
+        NativeAvatarApi.validPhoto(image)) {
+      uploaded = await NativeAvatarApi(api).upload(image, ownerId: owner);
+      next['${prefix}photo'] = uploaded;
+    }
+    if (!mounted || accountProfilePrefix != prefix) {
+      throw const StyleMuseApiException('session_changed');
+    }
+    await store.updateProfile(next);
+    if (mounted && accountProfilePrefix == prefix && uploaded != null) {
+      setState(() => account = {
+            ...account!,
+            'user': {...signedInUser!, 'avatar': uploaded},
+          });
+    }
+  }
+
+  Future<void> editCardAvatar() async {
+    final prefix = accountProfilePrefix;
+    if (prefix == null || accountBusy) return;
+    try {
+      final bytes = await selectPhoto();
+      if (bytes == null || !mounted || accountProfilePrefix != prefix) return;
+      await savePersonalProfile(
+          {'${prefix}photo': 'data:image/jpeg;base64,${base64Encode(bytes)}'});
+    } catch (_) {
+      if (mounted) notify(tr('Kaydedilemedi.'));
+    }
+  }
+
   Widget profilePage() => LayoutBuilder(builder: (context, c) {
         final content = Padding(
             padding: const EdgeInsets.fromLTRB(14, 20, 14, 24),
@@ -1143,13 +1253,18 @@ class _StyleMuseShellState extends State<StyleMuseShell> {
                           borderRadius: BorderRadius.circular(20)),
                       child: Column(children: [
                         Row(children: [
-                          ClipRRect(
-                              borderRadius: BorderRadius.circular(12),
-                              child: photo(
-                                  accountDisplayPhoto ??
-                                      'assets/profile-avatar.webp',
-                                  width: 66,
-                                  height: 66)),
+                          InkWell(
+                              key: const Key('edit-profile-avatar'),
+                              onTap: signedInUser == null || accountBusy
+                                  ? null
+                                  : editCardAvatar,
+                              child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: photo(
+                                      accountDisplayPhoto ??
+                                          'assets/profile-avatar.webp',
+                                      width: 66,
+                                      height: 66))),
                           const SizedBox(width: 10),
                           Expanded(
                               child: Column(
@@ -1255,6 +1370,7 @@ class _StyleMuseShellState extends State<StyleMuseShell> {
                                     builder: (_) => ProfileEditor(
                                           store: store,
                                           personal: true,
+                                          savePersonal: savePersonalProfile,
                                           profilePrefix:
                                               accountProfilePrefix ?? '',
                                           initialName: accountDisplayName,
@@ -1401,16 +1517,36 @@ class _StyleMuseShellState extends State<StyleMuseShell> {
             ]),
             const SizedBox(height: 8),
             FilledButton.icon(
-                onPressed: () => Navigator.push(
-                    context,
-                    MaterialPageRoute<void>(
-                        builder: (_) => OutfitComposer(
-                            store: store,
-                            initialOccasion: outfitPlan,
-                            initialStyle: outfitStyle))),
+                onPressed: () => setState(() {
+                      showIdeas = true;
+                      ideaOffset++;
+                    }),
                 icon: const Icon(Icons.auto_awesome, size: 16),
                 iconAlignment: IconAlignment.end,
                 label: const SmText('Bana fikir ver')),
+            if (showIdeas)
+              Column(key: const Key('outfit-recommendations'), children: [
+                if (outfitIdeas.isEmpty)
+                  const SmText(
+                      'Kombin için üst ve alt giyim ya da elbise seçmelisin.'),
+                for (final idea in outfitIdeas)
+                  Card(
+                      child: Column(children: [
+                    Row(children: [
+                      for (final item in idea)
+                        Expanded(
+                            child: SizedBox(
+                                height: 110,
+                                child: photo(item.image, fit: BoxFit.contain)))
+                    ]),
+                    FilledButton(
+                        onPressed: () => setState(() {
+                              plannedItems = idea.map((i) => i.id).toList();
+                              tab = 3;
+                            }),
+                        child: const SmText('Seç ve giydir')),
+                  ])),
+              ]),
             const SizedBox(height: 10),
             const SmText('Kaydettiğim kombinler',
                 style: TextStyle(
@@ -1431,35 +1567,6 @@ class _StyleMuseShellState extends State<StyleMuseShell> {
               store.language == 'ar' ? TextDirection.rtl : TextDirection.ltr,
           child: Scaffold(
             extendBodyBehindAppBar: false,
-            appBar: !hasPending
-                ? null
-                : AppBar(
-                    backgroundColor: tab == 0 ? const Color(0xFF753A77) : null,
-                    foregroundColor: tab == 0 ? Colors.white : null,
-                    toolbarHeight: 48,
-                    title: Row(children: [
-                      ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: Image.asset('assets/stylemuse-icon.png',
-                              width: 32)),
-                      const SizedBox(width: 10),
-                      const Flexible(
-                          child: SmText('StyleMuse AI',
-                              style: TextStyle(
-                                  fontWeight: FontWeight.w700, fontSize: 20)))
-                    ]),
-                    actions: [
-                        if (hasPending)
-                          TextButton(
-                              key: const Key('recover-operation'),
-                              onPressed: busy ? null : recoverOperation,
-                              child: const SmText('Kurtar')),
-                        IconButton(
-                            key: const Key('token-packs'),
-                            tooltip: tr('Stil Jetonu Al'),
-                            onPressed: tokenPacks,
-                            icon: const Icon(Icons.toll_outlined))
-                      ]),
             body: Container(
                 decoration: BoxDecoration(
                     gradient: LinearGradient(
@@ -1478,6 +1585,36 @@ class _StyleMuseShellState extends State<StyleMuseShell> {
                               ])),
                 child: SafeArea(
                     child: Column(children: [
+                  if ((hasPending || operationError != null) &&
+                      !(pendingAction == 'tryon' && hasTryOnRun) &&
+                      tab == (pendingAction == 'tryon' ? 3 : 1))
+                    Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Card(
+                          color: const Color(0xFFF3DDF0),
+                          child: Padding(
+                              padding: const EdgeInsets.all(14),
+                              child: Row(children: [
+                                if (busy ||
+                                    (hasPending && operationError == null))
+                                  const SizedBox(
+                                      width: 22,
+                                      height: 22,
+                                      child: CircularProgressIndicator(
+                                          strokeWidth: 2)),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                    child: SmText(operationError ??
+                                        (busy
+                                            ? 'İşlem kontrol ediliyor…'
+                                            : 'İşlemin güvenle saklandı. Yeniden gönderilmez.'))),
+                                if (hasPending)
+                                  TextButton(
+                                      key: const Key('recover-operation'),
+                                      onPressed: busy ? null : recoverOperation,
+                                      child: const SmText('Kurtar')),
+                              ])),
+                        )),
                   if (error != null)
                     MaterialBanner(content: SmText(error!), actions: [
                       TextButton(
@@ -1490,6 +1627,9 @@ class _StyleMuseShellState extends State<StyleMuseShell> {
                     1 => wardrobe(),
                     2 => outfits(),
                     3 => MannequinPage(
+                        initialItems: plannedItems,
+                        occasion: outfitPlan,
+                        style: outfitStyle,
                         store: store,
                         workflow: workflow,
                         confirmTokens: confirmTokens,

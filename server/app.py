@@ -31,6 +31,11 @@ class TokenLoadConfirmation(BaseModel):
     request_id: str = Field(pattern=r'^[A-Za-z0-9_-]{32}$')
     code: str = Field(pattern=r'^[0-9]{6}$')
 
+class AvatarInput(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    image: str
+
+
 class GoogleLogin(BaseModel):
     model_config = ConfigDict(extra='forbid')
     credential: str = Field(min_length=1, max_length=8192)
@@ -468,6 +473,54 @@ def create_app(settings=None, provider=None):
                 raise HTTPException(403, 'token_load_admin_only')
             return 'google:' + user['id']
 
+    def play_service(request):
+        # Billing requires a verified Google identity, never an anonymous session
+        # or a bearer credential. Preserve exact-origin and session expiry checks.
+        who = owner(None, request, paid=True)
+        if not who.startswith('google:'):
+            raise HTTPException(403, 'authenticated_account_required')
+        from play_billing import PlayBilling, GooglePublisher
+        try:
+            catalog = json.loads(os.environ.get('STYLEMUSE_PLAY_CATALOG', '{}'))
+            package = os.environ.get('STYLEMUSE_PLAY_PACKAGE', '')
+            secret = os.environ.get('STYLEMUSE_PLAY_ACCOUNT_SECRET', '').encode()
+            signing = os.environ.get('STYLEMUSE_PLAY_SIGNING_SHA256', '')
+            # Validate all static configuration before even loading ADC.
+            if not isinstance(catalog, dict):
+                raise ValueError()
+            PlayBilling(store, object(), package=package, catalog=catalog,
+                        account_secret=secret, signing_sha256=signing)
+            service = PlayBilling(store, GooglePublisher(), package=package, catalog=catalog,
+                                  account_secret=secret, signing_sha256=signing)
+        except Exception:
+            raise HTTPException(503, 'play_not_configured') from None
+        return who, service
+
+    @app.post('/api/billing/play/config')
+    def play_config(request: Request):
+        who, service = play_service(request)
+        return service.configuration(who)
+
+    @app.post('/api/billing/play/verify')
+    async def play_verify(request: Request):
+        who, service = play_service(request)
+        try:
+            body = await request.json()
+            if (not isinstance(body, dict) or set(body) != {'product_id', 'purchase_token'}
+                    or not isinstance(body['product_id'], str)):
+                raise ValueError()
+            return service.verify(who, body['product_id'], body['purchase_token'])
+        except ValueError:
+            raise HTTPException(422, 'invalid_play_purchase') from None
+        except Exception:
+            raise HTTPException(503, 'play_verification_unavailable') from None
+
+    @app.post('/api/admin/overview')
+    def admin_overview(request: Request):
+        token_admin(request)
+        from admin_diagnostics import overview
+        return overview(store, s)
+
     @app.post('/api/admin/fal-credit/status')
     def read_fal_credit(request: Request):
         token_admin(request)
@@ -552,6 +605,38 @@ def create_app(settings=None, provider=None):
             raise HTTPException(400, 'token_code_invalid')
         return {'balance': store.style_balance(account_id)}
 
+    def restored_user(user):
+        if not user or user.get('provider') != 'google':
+            return user
+        result = dict(user)
+        with store.tx() as db:
+            row = db.execute('SELECT image FROM account_avatars WHERE owner=?', ('google:' + user['id'],)).fetchone()
+        if row:
+            result['avatar'] = row['image']
+        return result
+
+    @app.post('/api/account/avatar')
+    def upload_avatar(payload: AvatarInput, request: Request):
+        exact_origin(request)
+        who = owner(None, request)
+        token = request.cookies.get(cookie_name, '')
+        with session_lock:
+            user = authorized.get(token)
+            if not user or user.get('provider') != 'google':
+                raise HTTPException(403, 'authenticated_account_required')
+            user = dict(user)
+        image = normalize(payload.image, s, upload=True)
+        with session_lock:
+            entry = sessions.get(token)
+            if (not entry or entry[1] <= time.monotonic()
+                    or authorized.get(token) != user):
+                raise HTTPException(401, 'unauthorized')
+            with store.tx() as db:
+                previous = db.execute('SELECT length(image) FROM account_avatars WHERE owner=?', (who,)).fetchone()
+                store.capacity(db, len(image) - (previous[0] if previous else 0))
+                db.execute('INSERT INTO account_avatars VALUES(?,?) ON CONFLICT(owner) DO UPDATE SET image=excluded.image', (who, image))
+        return {'user': restored_user(user), 'balance': store.style_balance(who)}
+
     @app.post('/api/account')
     def account(request: Request):
         exact_origin(request)
@@ -561,7 +646,7 @@ def create_app(settings=None, provider=None):
             if not entry or entry[1] <= time.monotonic():
                 raise HTTPException(401, 'unauthorized')
             identity = authorized.get(token)
-        user = identity if identity and identity['provider'] == 'google' else None
+        user = restored_user(identity) if identity and identity['provider'] == 'google' else None
         balance = store.style_balance('google:' + user['id']) if user else 0
         return {'user': user, 'balance': balance,
                 'token_load_history': store.token_load_history('google:' + user['id']) if user and user['admin'] else [],
@@ -627,7 +712,7 @@ def create_app(settings=None, provider=None):
             if admin:
                 store.grant_admin_tokens('google:' + sub)
             authorized[token] = user
-        return {'user': user, 'balance': store.style_balance('google:' + sub)}
+        return {'user': restored_user(user), 'balance': store.style_balance('google:' + sub)}
 
     @app.post('/api/session')
     def session(request: Request):
@@ -683,18 +768,42 @@ def create_app(settings=None, provider=None):
         return {'status':'ok', 'enabled':s.enabled, **store.costs(),
                 'app_spending_ceiling_usd': None, 'historical_budget_metadata': True,
                 **(identity_status(request.cookies.get(cookie_name, '')) if s.github_owner_id else {})}
-    def quote_digest(action, inputs):
-        return hashlib.sha256(json.dumps({'action': action, 'inputs': inputs, 'manual_snapshot': None},
+    def provider_credit(action, cost):
+        """Read-only preflight; unknown, malformed or insufficient credit fails closed."""
+        import math
+        try:
+            balance = provider.credit_available_usd(action)
+        except Exception:
+            balance = None
+        if type(balance) in (int, float) and math.isfinite(balance) and balance >= cost / 1000000:
+            return None
+        # Replicate exposes identity, not live balance. Only explicit, fresh,
+        # account-bound operator evidence can authorize its detection spend.
+        if action == 'detect' and balance is None:
+            try:
+                credit = store.manual_credit(provider.replicate_account())
+            except Exception:
+                credit = None
+            if credit and units(credit['available_usd']) >= cost:
+                return credit
+        raise HTTPException(402, 'provider_credit_unavailable')
+
+    def quote_digest(action, inputs, credit=None):
+        return hashlib.sha256(json.dumps({'action': action, 'inputs': inputs, 'manual_snapshot': credit['snapshot_id'] if credit else None},
             sort_keys=True, separators=(',', ':')).encode()).hexdigest()
 
-    def consume_quote(db, payload, request, who, action, inputs, cost):
+    def consume_quote(db, payload, request, who, action, inputs, cost, credit=None):
         from decimal import Decimal
         if not payload.confirmed or Decimal(str(payload.max_total_usd)) * 1000000 != cost:
             raise HTTPException(403, 'cost_confirmation_required')
         row = db.execute('SELECT * FROM payment_quotes WHERE id=?', (payload.quote_id,)).fetchone()
+        if credit:
+            current = store._manual_credit(db, credit['account'])
+            if not current or current['snapshot_id'] != credit['snapshot_id']:
+                raise HTTPException(403, 'quote_invalid_or_expired')
         if (not row or row['used'] or row['expires'] <= time.time()
                 or row['owner'] != who or row['session'] != request.cookies.get(cookie_name, '')
-                or row['digest'] != quote_digest(action, inputs) or row['amount'] != cost):
+                or row['digest'] != quote_digest(action, inputs, credit) or row['amount'] != cost):
             raise HTTPException(403, 'quote_invalid_or_expired')
         db.execute('UPDATE payment_quotes SET used=1 WHERE id=?', (payload.quote_id,))
 
@@ -741,13 +850,14 @@ def create_app(settings=None, provider=None):
                 style_tokens = ENHANCEMENT_TOKENS_PER_PART * pending_count
                 inputs = generation_quote_inputs(payload, job)
 
+        credit = provider_credit(action, cost)
         qid = secrets.token_urlsafe(32)
         with store.tx() as db:
             db.execute('INSERT INTO payment_quotes VALUES(?,?,?,?,?,?,?,0)',
-                (qid, who, request.cookies.get(cookie_name, ''), quote_digest(action, inputs),
+                (qid, who, request.cookies.get(cookie_name, ''), quote_digest(action, inputs, credit),
                  cost, time.time() + 90, action))
         return {'quote_id': qid, 'action': action, 'estimated_cost_usd': cost/1000000,
-                'expires_in_seconds': 90, 'style_tokens': style_tokens, 'provider_credit': None, 'app_spending_ceiling_usd': None}
+                'expires_in_seconds': 90, 'style_tokens': style_tokens, 'provider_credit': credit, 'app_spending_ceiling_usd': None}
 
     def generation_quote_inputs(payload, job):
         return {'job_id': payload.job_id, 'item_ids': payload.item_ids,
@@ -808,12 +918,13 @@ def create_app(settings=None, provider=None):
         if not payload.confirmed or units(payload.max_total_usd) < units(s.detect_reservation_usd):
             raise HTTPException(403, 'cost_confirmation_required')
         original = normalize(payload.image, s, upload=True)
+        credit = provider_credit('detect', units(s.detect_reservation_usd))
 
         digest = hashlib.sha256(original.encode()).hexdigest()
         jid = secrets.token_urlsafe(24)
         with store.tx() as db:
             consume_quote(db, payload, request, who, 'detect',
-                          {'image': payload.image, 'request_id': payload.request_id}, units(s.detect_reservation_usd))
+                          {'image': payload.image, 'request_id': payload.request_id}, units(s.detect_reservation_usd), credit)
             row = db.execute('SELECT * FROM jobs WHERE owner=? AND request_id=?', (who,payload.request_id)).fetchone()
             if row:
                 if row['hash'] != digest or row['state'] != 'done' or row['expires'] < time.time():
@@ -827,10 +938,10 @@ def create_app(settings=None, provider=None):
         try:
             from providers import RealProviders
             if type(provider) is RealProviders:
-                items = provider.detect(original, before_submit=lambda: store.mark_submitted('detect:' + jid))
+                items = provider.detect(original, before_submit=lambda: store.mark_submitted('detect:' + jid, manual_credit_id=credit['snapshot_id'] if credit else None))
             else:
                 # Unknown adapters provide no proof of non-submission.
-                store.mark_submitted('detect:' + jid)
+                store.mark_submitted('detect:' + jid, manual_credit_id=credit['snapshot_id'] if credit else None)
                 items = provider.detect(original)
             if not isinstance(items,list) or not 0 <= len(items) <= 20:
                 raise ValueError()
@@ -848,6 +959,10 @@ def create_app(settings=None, provider=None):
             return public_result(jid,result)
         except BaseException as exc:
             store.finish_operation('detect:' + jid, success=False)
+            with store.tx() as db:
+                db.execute("UPDATE jobs SET state='failed' WHERE id=?", (jid,))
+                db.execute('INSERT INTO inference_audit VALUES(?,?,?,?,?,?,?,?,?)',
+                    (jid, '', 'detect', 'failed', 'provider_failed_no_retry', '', digest, '', time.time()))
             if isinstance(exc, HTTPException) or not isinstance(exc, Exception):
                 raise
             reason = str(exc) if isinstance(exc, ProviderError) else type(exc).__name__
@@ -855,6 +970,21 @@ def create_app(settings=None, provider=None):
             raise HTTPException(502, 'provider_failed_no_retry') from None
         finally:
             store.release()
+    def audit_generation(db, job, item_id, item, outcome):
+        from providers import enhancement_reference
+        reference = item.get('preview', '')
+        if item.get('mask_quality', {}).get('source') == 'detector_mask':
+            try:
+                reference = enhancement_reference(job['original'], item)
+            except ProviderError:
+                # Record invalid provenance without masking the original failure.
+                reference = ''
+        db.execute('INSERT INTO inference_audit VALUES(?,?,?,?,?,?,?,?,?)',
+            (job['id'], item_id, 'generate', outcome,
+             'ok' if outcome == 'done' else 'provider_failed_no_retry', item['category'],
+             hashlib.sha256(job['original'].encode()).hexdigest(),
+             hashlib.sha256(reference.encode()).hexdigest(), time.time()))
+
     @app.post('/api/generate')
     def generate(payload: GenerateRequest, request: Request, authorization: str | None = Header(None)):
         who = owner(authorization, request, paid=True)
@@ -894,7 +1024,15 @@ def create_app(settings=None, provider=None):
             for i in pending:
                 from providers import RealProviders
                 operation = 'generate:' + payload.job_id + ':' + i
+                try:
+                    provider_credit('generate', units(s.generation_reservation_usd))
+                except HTTPException:
+                    raise ProviderError('Provider credit unavailable before submission') from None
                 if type(provider) is RealProviders:
+                    # Legacy detections without mask provenance cannot safely be
+                    # enhanced by the native API; require a fresh extraction.
+                    if available[i].get('mask_quality', {}).get('source') != 'detector_mask':
+                        raise ProviderError('Original-bound mask required')
                     generated = provider.generate(job['original'], available[i], before_submit=lambda: store.mark_submitted(operation, style_tokens=ENHANCEMENT_TOKENS_PER_PART))
                 else:
                     store.mark_submitted(operation, style_tokens=ENHANCEMENT_TOKENS_PER_PART)
@@ -902,11 +1040,17 @@ def create_app(settings=None, provider=None):
                 result = normalize(generated,s)
                 with store.tx() as db:
                     db.execute('UPDATE claims SET state=?,image=? WHERE job=? AND item=?',('done',result,payload.job_id,i))
+                    audit_generation(db, job, i, available[i], 'done')
                 store.finish_operation(operation, success=True)
             with store.tx() as db:
                 results = {r['item']:r['image'] for r in db.execute('SELECT * FROM claims WHERE job=?',(payload.job_id,))}
             return {'items':[{'id':i,'image':results[i]} for i in payload.item_ids]}
         except BaseException as exc:
+            failed_item = i
+            with store.tx() as db:
+                state = db.execute('SELECT state FROM claims WHERE job=? AND item=?', (payload.job_id, failed_item)).fetchone()
+                if state and state['state'] != 'done':
+                    audit_generation(db, job, failed_item, available[failed_item], 'failed')
             for i in pending:
                 store.finish_operation('generate:' + payload.job_id + ':' + i, success=False)
             if isinstance(exc, HTTPException) or not isinstance(exc, Exception):
@@ -925,6 +1069,7 @@ def create_app(settings=None, provider=None):
             raise HTTPException(503, 'inference_disabled')
         person = normalize(payload.person_image, s, upload=True)
         clothing = normalize(payload.clothing_image, s, preserve_alpha=True, upload=True)
+        provider_credit('tryon', 40000)
 
         jid = 'tryon-' + secrets.token_urlsafe(24)
         operation = 'tryon:' + jid

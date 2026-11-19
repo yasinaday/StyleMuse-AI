@@ -4,7 +4,19 @@ import 'localization.dart';
 import 'main.dart' show SmText, LocalStrings, photo;
 
 class ProfileEditor extends StatefulWidget {
-  const ProfileEditor({super.key, required this.store, this.personal = false, this.pickPhoto, this.profilePrefix = '', this.initialName, this.initialPhoto});
+  const ProfileEditor(
+      {super.key,
+      required this.store,
+      this.personal = false,
+      this.pickPhoto,
+      this.profilePrefix = '',
+      this.initialName,
+      this.initialPhoto,
+      this.savePersonal});
+
+  /// When supplied, the shell owns authenticated upload and account guards.
+  /// The callback must persist locally only after the server accepts the photo.
+  final Future<void> Function(Map<String, String> values)? savePersonal;
   final String profilePrefix;
   final String? initialName, initialPhoto;
   final bool personal;
@@ -18,7 +30,11 @@ class _ProfileEditorState extends State<ProfileEditor> {
   final form = GlobalKey<FormState>();
   late final fields = {
     for (final key in (widget.personal ? ['name'] : ['height', 'weight']))
-      key: TextEditingController(text: (widget.personal ? widget.initialName : widget.store.profile[key]) ?? '')
+      key: TextEditingController(
+          text: (widget.personal
+                  ? widget.initialName
+                  : widget.store.profile[key]) ??
+              '')
   };
   late String tone = widget.store.profile['tone'] ?? 'medium';
   late String shape = widget.store.profile['shape'] ?? 'straight';
@@ -68,7 +84,8 @@ class _ProfileEditorState extends State<ProfileEditor> {
   Widget build(BuildContext context) => LocalStrings(
       language: widget.store.language,
       child: Scaffold(
-        appBar: AppBar(title: SmText(widget.personal ? 'Bilgilerim' : 'Stil Profilim')),
+        appBar: AppBar(
+            title: SmText(widget.personal ? 'Bilgilerim' : 'Stil Profilim')),
         body: SafeArea(
             child: Column(children: [
           Expanded(
@@ -78,67 +95,74 @@ class _ProfileEditorState extends State<ProfileEditor> {
                     if (widget.personal) ...[
                       field('name', 'Adın'),
                       if (avatar != null)
-                        photo(avatar!, width: 88, height: 88, fit: BoxFit.contain),
+                        photo(avatar!,
+                            width: 88, height: 88, fit: BoxFit.contain),
                       OutlinedButton(
-                        onPressed: saving ? null : () async {
-                          setState(() => saving = true);
-                          try {
-                            final image = await widget.pickPhoto?.call();
-                            if (mounted && image != null) setState(() => avatar = image);
-                          } catch (_) {
-                            if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text(tr('Fotoğraf açılamadı.'))));
-                          } finally {
-                            if (mounted) setState(() => saving = false);
-                          }
-                        },
+                        onPressed: saving
+                            ? null
+                            : () async {
+                                setState(() => saving = true);
+                                try {
+                                  final image = await widget.pickPhoto?.call();
+                                  if (mounted && image != null)
+                                    setState(() => avatar = image);
+                                } catch (_) {
+                                  if (mounted)
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                            content: Text(
+                                                tr('Fotoğraf açılamadı.'))));
+                                } finally {
+                                  if (mounted) setState(() => saving = false);
+                                }
+                              },
                         child: const SmText('Profil fotoğrafını değiştir'),
                       ),
                     ] else ...[
-                    Row(children: [
-                      Expanded(
-                          child:
-                              field('height', 'Boy (cm)', min: 80, max: 250)),
-                      const SizedBox(width: 12),
-                      Expanded(
-                          child:
-                              field('weight', 'Kilo (kg)', min: 20, max: 350))
-                    ]),
-                    choice(
-                        'Ten rengi',
-                        tone,
-                        {'light': 'Açık', 'medium': 'Orta', 'deep': 'Koyu'},
-                        (x) => tone = x),
-                    choice(
-                        'Vücut tipi',
-                        shape,
-                        {
-                          'straight': 'Dikdörtgen',
-                          'curved': 'Kum saati',
-                          'pear': 'Armut',
-                          'oval': 'Oval',
-                          'triangle': 'Ters üçgen'
-                        },
-                        (x) => shape = x),
-                    choice(
-                        'Beden',
-                        size,
-                        {
-                          for (final x in [
-                            'XS',
-                            'S',
-                            'M',
-                            'L',
-                            'XL',
-                            'XXL',
-                            '3XL',
-                            '4XL'
-                          ])
-                            x: x
-                        },
-                        (x) => size = x),
-                    const SmText(
-                        'Bu profili kaydettiğinde hazır manken görünümün ten rengine, vücut tipine ve ölçülerine göre güncellenir.'),
+                      Row(children: [
+                        Expanded(
+                            child:
+                                field('height', 'Boy (cm)', min: 80, max: 250)),
+                        const SizedBox(width: 12),
+                        Expanded(
+                            child:
+                                field('weight', 'Kilo (kg)', min: 20, max: 350))
+                      ]),
+                      choice(
+                          'Ten rengi',
+                          tone,
+                          {'light': 'Açık', 'medium': 'Orta', 'deep': 'Koyu'},
+                          (x) => tone = x),
+                      choice(
+                          'Vücut tipi',
+                          shape,
+                          {
+                            'straight': 'Dikdörtgen',
+                            'curved': 'Kum saati',
+                            'pear': 'Armut',
+                            'oval': 'Oval',
+                            'triangle': 'Ters üçgen'
+                          },
+                          (x) => shape = x),
+                      choice(
+                          'Beden',
+                          size,
+                          {
+                            for (final x in [
+                              'XS',
+                              'S',
+                              'M',
+                              'L',
+                              'XL',
+                              'XXL',
+                              '3XL',
+                              '4XL'
+                            ])
+                              x: x
+                          },
+                          (x) => size = x),
+                      const SmText(
+                          'Bu profili kaydettiğinde hazır manken görünümün ten rengine, vücut tipine ve ölçülerine göre güncellenir.'),
                     ],
                   ]))),
           Padding(
@@ -153,12 +177,25 @@ class _ProfileEditorState extends State<ProfileEditor> {
                               if (!form.currentState!.validate()) return;
                               setState(() => saving = true);
                               try {
-                                await widget.store.updateProfile({
+                                final values = <String, String>{
                                   for (final x in fields.entries)
-                                    (widget.personal ? '${widget.profilePrefix}${x.key}' : x.key): x.value.text.trim(),
-                                  if (widget.personal && safeImage(avatar)) '${widget.profilePrefix}photo': avatar!,
-                                  if (!widget.personal) ...{'tone': tone, 'shape': shape, 'size': size}
-                                });
+                                    (widget.personal
+                                        ? '${widget.profilePrefix}${x.key}'
+                                        : x.key): x.value.text.trim(),
+                                  if (widget.personal && safeImage(avatar))
+                                    '${widget.profilePrefix}photo': avatar!,
+                                  if (!widget.personal) ...{
+                                    'tone': tone,
+                                    'shape': shape,
+                                    'size': size
+                                  }
+                                };
+                                if (widget.personal &&
+                                    widget.savePersonal != null) {
+                                  await widget.savePersonal!(values);
+                                } else {
+                                  await widget.store.updateProfile(values);
+                                }
                                 if (context.mounted) Navigator.pop(context);
                               } catch (_) {
                                 if (mounted) {

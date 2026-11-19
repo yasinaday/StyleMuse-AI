@@ -21,7 +21,12 @@ void main() {
     addTearDown(() => tester.binding.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, null));
     final store = ClosetStore(memory: true);
-    await store.saveLook([], aiImage: url);
+    await store.restore(jsonEncode({
+      ...store.snapshot(),
+      'looks': [
+        {'aiImage': url, 'images': [], 'itemIds': []}
+      ]
+    }));
     await tester.pumpWidget(
         MaterialApp(home: Scaffold(body: SavedLooksGrid(store: store))));
     await tester.pumpAndSettle();
@@ -37,8 +42,10 @@ void main() {
         'data:image/jpeg;base64,${base64Encode(img.encodeJpg(img.Image(width: 20, height: 30)))}';
     final store = ClosetStore(memory: true);
     await store.addGarment(image: image, category: 'Elbise');
-    await store.saveLook([store.items.single.id], occasion: 'Günlük');
-    await store.saveLook([store.items.single.id], occasion: 'Özel davet');
+    await store
+        .saveLook([store.items.single.id], occasion: 'Günlük', aiImage: image);
+    await store.saveLook([store.items.single.id],
+        occasion: 'Özel davet', aiImage: image);
     final shared = <Map<String, dynamic>>[];
     await tester.pumpWidget(MaterialApp(
         home: Scaffold(

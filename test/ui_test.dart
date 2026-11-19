@@ -17,11 +17,8 @@ void main() {
     expect(find.byKey(const Key('token-packs')), findsOneWidget);
     await tester.tap(find.byKey(const Key('token-packs')));
     await tester.pumpAndSettle();
-    expect(find.text('USD 20,00'), findsOneWidget);
-    expect(find.text('USD 3,00'), findsOneWidget);
-    expect(find.text('USD 6,25'), findsOneWidget);
-    expect(find.text('USD 10,00'), findsOneWidget);
-    expect(find.text('USD 15,00'), findsOneWidget);
+    expect(find.textContaining('USD'), findsNothing);
+    expect(find.text('Satın alma henüz kullanıma açık değil.'), findsOneWidget);
     expect(
         tester
             .widget<FilledButton>(find.byKey(const Key('purchase-disabled')))
@@ -150,7 +147,7 @@ void main() {
     expect(store.profile['height'], '172');
     expect(find.text('Ada'), findsOneWidget);
   });
-  testWidgets('a dress can be composed into a persistent local outfit',
+  testWidgets('a suggested dress needs successful tryon before it can be saved',
       (tester) async {
     final store = ClosetStore(memory: true);
     final bytes = img.encodePng(img.Image(width: 20, height: 20));
@@ -164,12 +161,16 @@ void main() {
     expect(find.text('Bana fikir ver'), findsOneWidget);
     await tester.tap(find.text('Bana fikir ver'));
     await tester.pumpAndSettle();
-    await tester.tap(find.byType(CheckboxListTile).first);
-    await tester.tap(find.byKey(const Key('save-look')));
+    await tester.ensureVisible(find.text('Seç ve giydir').first);
+    await tester.tap(find.text('Seç ve giydir').first);
     await tester.pumpAndSettle();
-    expect(store.looks, hasLength(1));
-    expect(store.looks.single['images'], hasLength(1));
-    expect(find.byKey(const Key('saved-look-0')), findsOneWidget);
+    expect(store.looks, isEmpty);
+    await tester.scrollUntilVisible(find.byKey(const Key('save-tryon')), 200);
+    expect(
+        tester
+            .widget<ButtonStyleButton>(find.byKey(const Key('save-tryon')))
+            .onPressed,
+        isNull);
   });
   testWidgets('gallery photo is cropped categorized and saved locally',
       (tester) async {

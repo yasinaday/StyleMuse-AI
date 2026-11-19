@@ -14,7 +14,7 @@ void main() {
     const photo = 'data:image/png;base64,aGVsbG8=';
     final store = ClosetStore(memory: true);
     await store.addGarment(image: photo, category: 'Elbise');
-    await store.saveLook([store.items.single.id]);
+    await store.saveLook([store.items.single.id], aiImage: photo);
     await store.restore(jsonEncode({
       'version': 1,
       'sm-items': jsonEncode([photo]),
@@ -46,7 +46,7 @@ void main() {
       'height': '172'
     }, language: 'de');
     await source.addGarment(image: photo, category: 'Elbise');
-    await source.saveLook([source.items.single.id]);
+    await source.saveLook([source.items.single.id], aiImage: photo);
     await source.saveReview({
       'items': [
         {'id': 'x', 'preview': photo, 'category': 'dress'}
@@ -77,7 +77,7 @@ void main() {
     const photo = 'data:image/png;base64,aGVsbG8=';
     final store = ClosetStore(memory: true);
     await store.addGarment(image: photo, category: 'Elbise');
-    await store.saveLook([store.items.single.id]);
+    await store.saveLook([store.items.single.id], aiImage: photo);
     await store.deleteLook(0);
     expect(store.looks, isEmpty);
     expect(store.items, hasLength(1));
@@ -169,12 +169,15 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('save-tryon')));
     await tester.pumpAndSettle();
-    expect(store.looks.single['itemIds'], [store.items[1].id]);
+    expect(store.looks, isEmpty);
+    final dynamic mannequin = tester.state(find.byType(MannequinPage));
+    expect(mannequin.selected.values.toList(), [store.items[1].id]);
     await tester.tap(find.byKey(const Key('mannequin-suggest')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('save-tryon')));
     await tester.pumpAndSettle();
-    expect(store.looks.last['itemIds'], [store.items[2].id]);
+    expect(store.looks, isEmpty);
+    expect(mannequin.selected.values.toList(), [store.items[2].id]);
   });
 
   testWidgets('suggested outfit layers outerwear before bags like web tryon',
@@ -204,7 +207,9 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('save-tryon')));
     await tester.pumpAndSettle();
-    expect(store.looks.single['itemIds'],
+    expect(store.looks, isEmpty);
+    final dynamic mannequin = tester.state(find.byType(MannequinPage));
+    expect((mannequin.chosenItems as List).map((item) => item.id).toList(),
         [for (final item in store.items.reversed) item.id]);
   });
 
@@ -266,8 +271,13 @@ void main() {
       await tester.ensureVisible(find.byKey(const Key('save-tryon')));
       await tester.tap(find.byKey(const Key('save-tryon')));
       await tester.pumpAndSettle();
-      expect(store.looks.single['itemIds'],
-          store.items.take(finish ? 2 : 1).map((x) => x.id).toList());
+      if (finish) {
+        expect(store.looks.single['itemIds'],
+            store.items.map((x) => x.id).toList());
+      } else {
+        expect(store.looks,
+            isEmpty); // Never save an incomplete multi-step render.
+      }
       expect(tester.takeException(), isNull);
     });
 }

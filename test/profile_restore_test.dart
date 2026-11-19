@@ -10,6 +10,38 @@ import 'package:stylemuse_ai/stylemuse_api.dart';
 import 'ui_api_test.dart' show MemorySecure, FixtureTransport;
 
 void main() {
+  testWidgets(
+      'stored account restores server avatar ahead of stale local photo',
+      (tester) async {
+    final photo =
+        'data:image/png;base64,${base64Encode(img.encodePng(img.Image(width: 8, height: 8)))}';
+    final secure = MemorySecure();
+    final transport = FixtureTransport({
+      '/api/account': {
+        'user': {'provider': 'google', 'id': 'returning', 'avatar': photo}
+      }
+    });
+    final api = StyleMuseApi(storage: secure, transport: transport);
+    secure.values['stylemuse.session.${api.baseUrl.host}'] =
+        '__Host-stylemuse_session=existing';
+    final store = ClosetStore(memory: true);
+    await store.updateProfile({
+      'google:returning:photo': 'data:image/png;base64,YQ==',
+      'google:other:photo': 'data:image/png;base64,Yg=='
+    });
+    await tester.pumpWidget(StyleMuseApp(store: store, api: api));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Profil').last);
+    await tester.pumpAndSettle();
+    final image = tester.widget<Image>(find
+        .descendant(
+            of: find.byKey(const Key('profile-identity')),
+            matching: find.byType(Image))
+        .first);
+    expect((image.image as MemoryImage).bytes,
+        base64Decode(photo.split(',').last));
+    expect(transport.paths, ['/api/account']);
+  });
   for (final admin in [false, true]) {
     testWidgets(
         'stored account restores ${admin ? 'admin' : 'normal'} menu without paid calls',
@@ -20,7 +52,7 @@ void main() {
           'user': {'email': 'restored@example.test', 'admin': admin},
           'balance': 42
         },
-        '/api/admin/fal-credit/status': {'available_usd': 5.25},
+        '/api/admin/overview': {'jobs': [], 'operations': []},
         '/api/auth/logout': {},
       });
       final api = StyleMuseApi(storage: secure, transport: transport);
@@ -40,10 +72,9 @@ void main() {
       if (admin) {
         await tester.tap(menu);
         await tester.pumpAndSettle();
-        expect(find.text('fal.ai · USD 5.25'), findsOneWidget);
-        expect(
-            transport.paths, ['/api/account', '/api/admin/fal-credit/status']);
-        await tester.tap(find.text('Kapat'));
+        expect(find.byType(AlertDialog), findsNothing);
+        expect(transport.paths, ['/api/account', '/api/admin/overview']);
+        await tester.pageBack();
         await tester.pumpAndSettle();
       }
       await tester.tap(find.text('Çıkış yap'));
@@ -53,7 +84,7 @@ void main() {
       expect(secure.values['stylemuse.session.${api.baseUrl.host}'], isNull);
       expect(transport.paths, [
         '/api/account',
-        if (admin) '/api/admin/fal-credit/status',
+        if (admin) '/api/admin/overview',
         '/api/auth/logout'
       ]);
     });
@@ -69,6 +100,13 @@ void main() {
       '/api/session': {},
       '/api/account': {
         'user': {'provider': 'google', 'id': 'fixture', 'name': 'Ada'}
+      },
+      '/api/account/avatar': {
+        'user': {
+          'provider': 'google',
+          'id': 'fixture',
+          'avatar': 'data:image/png;base64,${base64Encode(bytes)}'
+        }
       }
     });
     await tester.pumpWidget(StyleMuseApp(
@@ -96,7 +134,9 @@ void main() {
     final avatar = 'data:image/jpeg;base64,${base64Encode(preview.bytes)}';
     await tester.tap(find.byKey(const Key('save-profile')));
     await tester.pumpAndSettle();
-    expect(store.profile['google:fixture:photo'], avatar);
+    expect(transport.bodies['/api/account/avatar']!.single['image'], avatar);
+    expect(store.profile['google:fixture:photo'],
+        'data:image/png;base64,${base64Encode(bytes)}');
     expect(store.profile['photo'], isNull);
     expect(store.profile['height'], '172');
     final restored = ClosetStore(memory: true);
@@ -108,7 +148,8 @@ void main() {
             matching: find.byType(Image))
         .first);
     expect(identityImage.image, isA<MemoryImage>());
-    expect(transport.paths, ['/api/session', '/api/account']);
+    expect(transport.paths,
+        ['/api/session', '/api/account', '/api/account/avatar']);
   });
 
   testWidgets('token selection cannot enable purchase or submit any API call',
@@ -120,16 +161,12 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('token-packs')));
     await tester.pumpAndSettle();
-    for (final count in [200, 10, 25, 50, 100]) {
-      await tester.ensureVisible(find.text('$count jeton'));
-      await tester.tap(find.text('$count jeton'));
-      await tester.pumpAndSettle();
-      expect(
-          tester
-              .widget<FilledButton>(find.byKey(const Key('purchase-disabled')))
-              .onPressed,
-          isNull);
-    }
+    expect(find.textContaining('USD'), findsNothing);
+    expect(
+        tester
+            .widget<FilledButton>(find.byKey(const Key('purchase-disabled')))
+            .onPressed,
+        isNull);
     expect(transport.paths, isEmpty);
   });
 }

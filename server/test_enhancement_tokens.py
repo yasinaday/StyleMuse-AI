@@ -43,6 +43,10 @@ if os.environ.get('TOKEN_TEST_CHILD') == '1':
     del test_isolated_enhancement_tokens
 
     class Provider:
+        def credit_available_usd(self, action):
+            # Synthetic funding only; exercise the production credit gate.
+            return 100.0
+
         def __init__(self):
             self.calls = []
             self.check = lambda: None
