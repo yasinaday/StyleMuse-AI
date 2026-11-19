@@ -82,7 +82,7 @@ class _MannequinPageState extends State<MannequinPage>
     }
   }
 
-  Future<void> restoreRun() async {
+  Future<void> restoreRun({bool resumeSteps = false}) async {
     if (restoring || busy || !mounted) return;
     restoring = true;
     try {
@@ -133,7 +133,7 @@ class _MannequinPageState extends State<MannequinPage>
       if (hasSequence) {
         cancelled = false;
         setBusy(true);
-        await driveSequence(advance: false);
+        await driveSequence(advance: resumeSteps);
       } else if (pending != null &&
           (jsonDecode(pending) as Map)['action'] == 'tryon') {
         setBusy(true);
@@ -169,15 +169,12 @@ class _MannequinPageState extends State<MannequinPage>
         widget.store.profile,
         for (final item in chosenItems) [item.id, item.category, item.image],
       ]);
-  bool get completeSelection =>
-      selected.containsKey('Elbise') ||
-      (selected.containsKey('Üst giyim') && selected.containsKey('Alt giyim'));
   bool get canSave =>
       !busy &&
       !saving &&
       !isSaved &&
       !cancelled &&
-      completeSelection &&
+      selected.isNotEmpty &&
       completedInput == inputSignature() &&
       attributedImage != null &&
       attributedImage == widget.store.tryonResult;
@@ -204,6 +201,29 @@ class _MannequinPageState extends State<MannequinPage>
     items.sort((a, b) =>
         order.indexOf(a.category).compareTo(order.indexOf(b.category)));
     return items;
+  }
+
+  Future<void> clearSelection() async {
+    if (busy || restoring || hasSequence) return;
+    setBusy(true);
+    try {
+      await widget.store.saveTryOn(null);
+      selected.clear();
+      applied.clear();
+      remaining.clear();
+      sequenceItems.clear();
+      sequenceId = null;
+      sequenceState = null;
+      runningInput = null;
+      completedInput = null;
+      attributedImage = null;
+      activeGarment = null;
+      cancelled = false;
+      status = '';
+      await checkpoint();
+    } finally {
+      if (mounted) setBusy(false);
+    }
   }
 
   int suggestion = 0;
@@ -710,10 +730,7 @@ class _MannequinPageState extends State<MannequinPage>
                                                                           10))),
                                                   onPressed: locked
                                                       ? null
-                                                      : () => setState(() {
-                                                            invalidateResult();
-                                                            selected.clear();
-                                                          }),
+                                                      : clearSelection,
                                                   child: const SmText('Temizle',
                                                       style: TextStyle(
                                                           fontSize: 12)))),
@@ -733,29 +750,25 @@ class _MannequinPageState extends State<MannequinPage>
                                                   stage: tr(
                                                       'Giydirme devam ediyor…'),
                                                   child: photo(base,
-                                                      fit: BoxFit.contain)))),
+                                                      fit: BoxFit.cover)))),
                                     ])),
                           ]))),
               const SizedBox(height: 6),
-              if (sequenceId != null)
-                Column(key: const Key('tryon-step-progress'), children: [
-                  for (var i = 0; i < chosen.length; i++)
-                    ListTile(
-                        dense: true,
-                        leading: Icon(
-                            applied.containsValue(chosen[i].id)
-                                ? Icons.check_circle
-                                : i == applied.length
-                                    ? Icons.hourglass_top
-                                    : Icons.schedule,
-                            color: const Color(0xFF904588)),
-                        title: SmText(chosen[i].category),
-                        subtitle: SmText(applied.containsValue(chosen[i].id)
-                            ? 'Tamamlandı'
-                            : i == applied.length
-                                ? 'Şimdiki adım'
-                                : 'Sıradaki adım')),
-                ]),
+              Column(key: const Key('tryon-step-progress'), children: [
+                SmText(sequenceState == 'done'
+                    ? 'Giydirme işlemi tamamlandı.'
+                    : busy && chosen.isNotEmpty && applied.length < chosen.length
+                        ? '${applied.length + 1}/${chosen.length} · ${chosen[applied.length].category} işleniyor'
+                        : status.isEmpty ? 'Manken hazır.' : status),
+                if (hasSequence)
+                  LinearProgressIndicator(
+                      value: busy ? null : applied.length / sequenceItems.length),
+                if (!busy && (hasSequence || widget.workflow.pending != null))
+                  TextButton(
+                      key: const Key('recover-tryon'),
+                      onPressed: () => restoreRun(resumeSteps: true),
+                      child: const SmText('Kurtar')),
+              ]),
               OutlinedButton.icon(
                   key: const Key('save-tryon'),
                   onPressed: !canSave
@@ -869,24 +882,6 @@ class _MannequinPageState extends State<MannequinPage>
                                     ]))));
                       })),
               const SizedBox(height: 12),
-              if (status.isNotEmpty ||
-                  hasSequence ||
-                  widget.workflow.pending != null)
-                Card(
-                    color: const Color(0xFFF3DDF0),
-                    child: Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: Row(children: [
-                          Expanded(
-                              child: SmText(status.isEmpty
-                                  ? 'Yarım kalan işlem'
-                                  : status)),
-                          if (hasSequence || widget.workflow.pending != null)
-                            TextButton(
-                                key: const Key('recover-tryon'),
-                                onPressed: busy ? null : restoreRun,
-                                child: const SmText('Kurtar')),
-                        ]))),
               if (busy)
                 TextButton(
                     onPressed: () {
