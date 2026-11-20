@@ -1,4 +1,6 @@
 import 'dart:convert';
+import 'package:crypto/crypto.dart';
+import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/services.dart';
@@ -41,6 +43,40 @@ Future<String> jpegData(String image) async {
 /// No session headers, redirects, arbitrary hosts, or unbounded downloads.
 Future<String> loadTryOnImage(Object? value) async {
   if (value is String && safeImage(value)) return jpegData(value);
+  final bytes = await _remoteBytes(value);
+  return jpegData('data:image/jpeg;base64,${base64Encode(bytes)}');
+}
+
+final _loading = <String, Future<Uint8List>>{};
+
+Future<Uint8List> savedOutfitBytes(String url) =>
+    _loading.putIfAbsent(url, () => _cacheOutfit(url).whenComplete(() {
+      _loading.remove(url);
+    }));
+
+Future<Uint8List> _cacheOutfit(String url) async {
+  File? file;
+  try {
+    final dir = await getTemporaryDirectory();
+    file = File('${dir.path}/outfit-${sha256.convert(utf8.encode(url))}');
+    if (await file.exists()) return await file.readAsBytes();
+  } on FileSystemException {
+    file = null;
+  }
+  final bytes = await _remoteBytes(url);
+  if (file != null) {
+    try {
+      final temp = File('${file.path}.part');
+      await temp.writeAsBytes(bytes, flush: true);
+      await temp.rename(file.path);
+    } on FileSystemException {
+      // The downloaded photo can still be displayed when storage is full.
+    }
+  }
+  return bytes;
+}
+
+Future<Uint8List> _remoteBytes(Object? value) async {
   if (value is! String) throw const FormatException('Missing result image');
   final uri = Uri.tryParse(value);
   if (uri == null ||
@@ -62,8 +98,7 @@ Future<String> loadTryOnImage(Object? value) async {
       if (builder.length > 20 * 1024 * 1024)
         throw const FormatException('Image too large');
     }
-    return await jpegData(
-        'data:image/jpeg;base64,${base64Encode(builder.takeBytes())}');
+    return builder.takeBytes();
   } finally {
     client.close(force: true);
   }

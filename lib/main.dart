@@ -120,12 +120,32 @@ class GalleryPhoto extends StatefulWidget {
 class _GalleryPhotoState extends State<GalleryPhoto> {
   late Widget thumbnail = buildThumbnail();
 
-  Widget buildThumbnail() => photo(widget.source, fit: BoxFit.contain, cacheWidth: 480);
+  Future<Uint8List>? remoteBytes;
+
+  Widget galleryImage({int? cacheWidth}) {
+    final source = widget.source;
+    if (!source.startsWith('https:') || !safeOutfitPhoto(source)) {
+      return photo(source, fit: BoxFit.contain, cacheWidth: cacheWidth);
+    }
+    return FutureBuilder<Uint8List>(
+      future: remoteBytes ??= savedOutfitBytes(source),
+      builder: (context, snapshot) {
+        if (snapshot.hasError) return const Center(child: Icon(Icons.broken_image_outlined));
+        if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+        return Image.memory(snapshot.data!, fit: BoxFit.contain, cacheWidth: cacheWidth);
+      },
+    );
+  }
+
+  Widget buildThumbnail() => galleryImage(cacheWidth: 480);
 
   @override
   void didUpdateWidget(GalleryPhoto oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.source != widget.source) thumbnail = buildThumbnail();
+    if (oldWidget.source != widget.source) {
+      remoteBytes = null;
+      thumbnail = buildThumbnail();
+    }
   }
 
   @override
@@ -139,7 +159,7 @@ class _GalleryPhotoState extends State<GalleryPhoto> {
         onTap: () => Navigator.pop(dialog),
         child: SafeArea(child: InteractiveViewer(
           maxScale: 5,
-          child: Center(child: photo(widget.source, fit: BoxFit.contain)),
+          child: Center(child: galleryImage()),
         )),
       ),
     ),

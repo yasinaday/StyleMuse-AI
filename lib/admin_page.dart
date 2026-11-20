@@ -130,10 +130,36 @@ class _AdminPageState extends State<AdminPage> {
     return '${s.substring(0, 8)}-${s.substring(8, 12)}-${s.substring(12, 16)}-${s.substring(16, 20)}-${s.substring(20)}';
   }
 
+  Future<void> _loadBalance({required bool fal}) async {
+    final label = fal ? 'fal.ai' : 'Replicate (son manuel kayıt)';
+    String line;
+    try {
+      final result = fal ? await widget.api.falCredit() : await widget.api.replicateCredit();
+      line = result['available_usd'] != null
+          ? balanceLine(label, result['available_usd'])
+          : '$label · ${fal ? 'Bakiye alınamadı' : 'Güncel manuel kayıt yok'}';
+    } on StyleMuseApiException catch (e) {
+      if (e.status == 401 || e.status == 403 || e.code == 'session_changed') rethrow;
+      line = '$label · Sorgulama başarısız (${e.code})';
+    } catch (_) {
+      line = '$label · Bağlantı kurulamadı';
+    }
+    if (mounted) setState(() {
+      if (fal) { _falBalance = line; } else { _replicateBalance = line; }
+    });
+  }
+
   Widget _section(String title, List<Widget> children) => Card(
       child: ExpansionTile(
-          initiallyExpanded: title == 'Başarısız ve yarım kalan işler' ||
-              title == 'Analiz geçmişi ve iş ayrıntıları',
+          key: ValueKey(title),
+          initiallyExpanded: false,
+          onExpansionChanged: (open) {
+            if (open && title == 'Sağlayıcı bakiye takibi') {
+              _perform(() async {
+                await Future.wait([_loadBalance(fal: true), _loadBalance(fal: false)]);
+              });
+            }
+          },
           title: Text(title, style: Theme.of(context).textTheme.titleMedium),
           childrenPadding: const EdgeInsets.all(16),
           children: children));
@@ -249,7 +275,7 @@ class _AdminPageState extends State<AdminPage> {
                   onPressed: _busy
                       ? null
                       : () => _perform(() async {
-                            final text = _credit.text.trim();
+                            final text = _credit.text.trim().replaceAll(',', '.');
                             if (!RegExp(r'^(?:[0-9]{1,5}|100000)(?:\.[0-9]{1,2})?$')
                                     .hasMatch(text) ||
                                 (double.tryParse(text) ?? -1) > 100000) {
@@ -270,26 +296,12 @@ class _AdminPageState extends State<AdminPage> {
               OutlinedButton(
                   onPressed: _busy
                       ? null
-                      : () => _perform(() async {
-                            final result = await widget.api.replicateCredit();
-                            if (mounted)
-                              setState(() {
-                                _replicateBalance = balanceLine('Replicate (son manuel kayıt)', result['available_usd']);
-                              });
-                          }),
+                      : () => _perform(() => _loadBalance(fal: false)),
                   child: const Text('Son Replicate kaydını getir')),
               OutlinedButton(
                   onPressed: _busy
                       ? null
-                      : () => _perform(() async {
-                            final result = await widget.api.falCredit();
-                            if (mounted)
-                              setState(() {
-                                if (result['available_usd'] != null || _falBalance == null) {
-                                  _falBalance = balanceLine('fal.ai', result['available_usd']);
-                                }
-                              });
-                          }),
+                      : () => _perform(() => _loadBalance(fal: true)),
                   child: const Text('fal.ai bakiyesini sorgula')),
             ]),
             _section('Toplu ürün aktarımı', [
