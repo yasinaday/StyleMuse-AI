@@ -8,8 +8,8 @@ Status: source/offline accepted only. No production deployment or payment author
 
 ## Required owner settings, individually
 
-1. Confirm Play Console app ownership for `com.stylemuse.ai` (source identity confirmed; Console ownership unverified).
-2. Set `STYLEMUSE_PLAY_PACKAGE=com.stylemuse.ai` in an additive release overlay after Console confirmation.
+1. Confirm Play Console app ownership for `com.adysoft.stylemuseai` (source identity confirmed; Console ownership unverified).
+2. Set `STYLEMUSE_PLAY_PACKAGE=com.adysoft.stylemuseai` in an additive release overlay after Console confirmation.
 3. Approve real one-time product IDs and integer credit amounts; encode the exact mapping as `STYLEMUSE_PLAY_CATALOG`. No production IDs/credits/prices were supplied; test fixtures are not a catalog.
 4. Generate and persist `STYLEMUSE_PLAY_ACCOUNT_SECRET` (32+ bytes) in the approved secret store before activation. Never commit/embed it or rotate it casually; receipt ownership uses its HMAC.
 5. Set `STYLEMUSE_PLAY_SIGNING_SHA256` to the verified intended signing certificate, not an assumed debug/upload certificate. This field is metadata and does not prove device integrity.
