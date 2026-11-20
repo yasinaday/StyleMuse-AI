@@ -3,7 +3,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:share_plus/share_plus.dart';
 import 'closet.dart';
 import 'localization.dart';
-import 'main.dart' show LocalStrings, SmText, photo;
+import 'main.dart' show LocalStrings, SmText, GalleryPhoto;
 
 class SavedLooksGrid extends StatefulWidget {
   const SavedLooksGrid({super.key, required this.store, this.shareLook});
@@ -78,36 +78,45 @@ class _SavedLooksGridState extends State<SavedLooksGrid> {
     await widget.store.deleteLookEntry(look);
   }
 
+  List<Map<String, dynamic>>? previousLooks;
+  List<MapEntry<int, Map<String, dynamic>>> orderedLooks = [];
+
+  List<MapEntry<int, Map<String, dynamic>>> sortedLooks() {
+    final source = widget.store.looks;
+    if (identical(source, previousLooks)) return orderedLooks;
+    previousLooks = source;
+    orderedLooks = source.asMap().entries
+        .where((entry) => safeOutfitPhoto(entry.value['aiImage']))
+        .toList()
+      ..sort((a, b) {
+        final first = savedAt(a.value);
+        final second = savedAt(b.value);
+        if (first == null && second != null) return 1;
+        if (second == null && first != null) return -1;
+        final order = second?.compareTo(first!) ?? 0;
+        return order == 0 ? b.key.compareTo(a.key) : order;
+      });
+    return orderedLooks;
+  }
+
   @override
   Widget build(BuildContext context) => LocalStrings(
       language: widget.store.language,
       child: ListenableBuilder(
           listenable: widget.store,
           builder: (context, _) {
-            final entries = widget.store.looks.asMap().entries
-                .where((entry) => safeOutfitPhoto(entry.value['aiImage']))
-                .toList()
-              ..sort((a, b) {
-                final first = savedAt(a.value);
-                final second = savedAt(b.value);
-                if (first == null && second != null) return 1;
-                if (second == null && first != null) return -1;
-                final order = second?.compareTo(first!) ?? 0;
-                return order == 0 ? b.key.compareTo(a.key) : order;
-              });
-            return Column(children: [
-              if (error != null) SmText(error!),
+            final entries = sortedLooks();
+            return SliverMainAxisGroup(slivers: [
+              if (error != null) SliverToBoxAdapter(child: SmText(error!)),
               if (entries.isEmpty)
-                const Padding(
+                const SliverToBoxAdapter(child: Padding(
                   padding: EdgeInsets.only(top: 12),
                   child: SmText('Henüz kayıtlı kombin yok.',
                       style: TextStyle(color: Color(0xFF8A7886), fontSize: 13)),
-                )
+                ))
               else
-                GridView.builder(
+                SliverGrid.builder(
                     key: const Key('saved-looks-grid'),
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
                     gridDelegate:
                         const SliverGridDelegateWithFixedCrossAxisCount(
                             crossAxisCount: 2,
@@ -126,8 +135,7 @@ class _SavedLooksGridState extends State<SavedLooksGrid> {
                                       CrossAxisAlignment.stretch,
                                   children: [
                                     Expanded(
-                                        child: photo(look['aiImage'] as String,
-                                            fit: BoxFit.contain)),
+                                        child: GalleryPhoto(look['aiImage'] as String)),
                                     Text(
                                         tr(look['occasion'] as String? ??
                                             'Günlük'),

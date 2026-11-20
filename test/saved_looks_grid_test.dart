@@ -19,7 +19,7 @@ void main() {
       ],
     }));
     await tester.pumpWidget(
-        MaterialApp(home: Scaffold(body: SavedLooksGrid(store: store))));
+        MaterialApp(home: Scaffold(body: CustomScrollView(slivers: [SavedLooksGrid(store: store)]))));
     await tester.pumpAndSettle();
     expect(find.text('Legacy collage'), findsNothing);
     expect(find.text('Completed photo'), findsOneWidget);
@@ -51,7 +51,7 @@ void main() {
       ]
     }));
     await tester.pumpWidget(
-        MaterialApp(home: Scaffold(body: SavedLooksGrid(store: store))));
+        MaterialApp(home: Scaffold(body: CustomScrollView(slivers: [SavedLooksGrid(store: store)]))));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('share-look-0')));
     await tester.pumpAndSettle();
@@ -74,13 +74,13 @@ void main() {
     final shared = <Map<String, dynamic>>[];
     await tester.pumpWidget(MaterialApp(
         home: Scaffold(
-            body: SingleChildScrollView(
-                child: SavedLooksGrid(
+            body: CustomScrollView(
+                slivers: [SavedLooksGrid(
       store: store,
       shareLook: (look) async {
         shared.add(look);
       },
-    )))));
+    )]))));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('saved-look-0')), findsOneWidget);
     expect(tester.getTopLeft(find.byKey(const Key('saved-look-0'))).dy,

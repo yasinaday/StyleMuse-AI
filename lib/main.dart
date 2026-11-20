@@ -109,11 +109,50 @@ bool googleAvatarUrl(String source) {
       }.contains(uri.host);
 }
 
+class GalleryPhoto extends StatefulWidget {
+  const GalleryPhoto(this.source, {super.key});
+  final String source;
+
+  @override
+  State<GalleryPhoto> createState() => _GalleryPhotoState();
+}
+
+class _GalleryPhotoState extends State<GalleryPhoto> {
+  late Widget thumbnail = buildThumbnail();
+
+  Widget buildThumbnail() => photo(widget.source, fit: BoxFit.contain, cacheWidth: 480);
+
+  @override
+  void didUpdateWidget(GalleryPhoto oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.source != widget.source) thumbnail = buildThumbnail();
+  }
+
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+    behavior: HitTestBehavior.opaque,
+    onTap: () => showDialog<void>(
+      context: context,
+      barrierColor: Colors.black87,
+      builder: (dialog) => GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => Navigator.pop(dialog),
+        child: SafeArea(child: InteractiveViewer(
+          maxScale: 5,
+          child: Center(child: photo(widget.source, fit: BoxFit.contain)),
+        )),
+      ),
+    ),
+    child: thumbnail,
+  );
+}
+
 Widget photo(String source,
-    {BoxFit fit = BoxFit.cover, double? width, double? height}) {
+    {BoxFit fit = BoxFit.cover, double? width, double? height, int? cacheWidth}) {
   if (source.startsWith('data:')) {
     try {
-      return Image.memory(base64Decode(source.split(',').last),
+      return Image.memory(base64Decode(source.substring(source.indexOf(',') + 1)),
+          cacheWidth: cacheWidth,
           fit: fit,
           width: width,
           height: height,
@@ -124,6 +163,7 @@ Widget photo(String source,
   if (source.startsWith('https:') &&
       (safeOutfitPhoto(source) || googleAvatarUrl(source))) {
     return Image.network(source,
+        cacheWidth: cacheWidth,
         fit: fit,
         width: width,
         height: height,
@@ -1093,8 +1133,7 @@ class _StyleMuseShellState extends State<StyleMuseShell>
                               Expanded(
                                   child: SizedBox(
                                       width: double.infinity,
-                                      child: photo(item.image,
-                                          fit: BoxFit.contain))),
+                                      child: GalleryPhoto(item.image))),
                               ListTile(
                                   dense: true,
                                   title: SmText(item.category),
@@ -1577,10 +1616,10 @@ class _StyleMuseShellState extends State<StyleMuseShell>
       });
   Widget outfits() {
     final idea = showIdeas ? outfitIdea : const <ClosetItem>[];
-    return ListView(
+    return CustomScrollView(
         key: const Key('outfits-page'),
-        padding: const EdgeInsets.fromLTRB(14, 20, 14, 24),
-        children: [
+        slivers: [SliverPadding(padding: const EdgeInsets.fromLTRB(14, 20, 14, 0),
+          sliver: SliverList(delegate: SliverChildListDelegate([
           pageHero('Kombinler',
               'Günün planına ve tarzına göre bir kombin oluştur.', 'outfits',
               key: const Key('outfits-hero')),
@@ -1678,7 +1717,7 @@ class _StyleMuseShellState extends State<StyleMuseShell>
                               child: KeyedSubtree(
                                   key: ValueKey('outfit-idea-${item.id}'),
                                   child:
-                                      photo(item.image, fit: BoxFit.contain))))
+                                      GalleryPhoto(item.image))))
                   ]),
                   FilledButton(
                       onPressed: () => setState(() {
@@ -1692,7 +1731,9 @@ class _StyleMuseShellState extends State<StyleMuseShell>
           const SmText('Kaydettiğim kombinler',
               style: TextStyle(
                   fontFamily: 'serif', fontSize: 25, letterSpacing: -1)),
-          SavedLooksGrid(store: store),
+          ]))),
+          SliverPadding(padding: const EdgeInsets.fromLTRB(14, 0, 14, 24),
+              sliver: SavedLooksGrid(store: store)),
         ]);
   }
 
