@@ -482,17 +482,23 @@ class _MannequinPageState extends State<MannequinPage>
     }
   }
 
+  bool checkingBalance = false;
+
   Future<void> start() async {
     if (busy || restoring || (selected.isEmpty && !hasSequence)) return;
+    checkingBalance = true;
     setBusy(true);
     try {
-      final user = (await widget.workflow.api.account())['user'];
+      final account = await widget.workflow.api.account();
+      if (!mounted) return;
+      final user = account['user'];
       if (user is! Map || user['provider'] != 'google' || user['id'] is! String)
         throw const StyleMuseApiException('sign_in_required');
       final owner = 'google:${user['id']}';
       if (hasSequence) {
         if (runOwner != owner)
           throw const StyleMuseApiException('pending_account_mismatch');
+        setState(() => checkingBalance = false);
         cancelled = false;
         await runSequence(true);
         return;
@@ -500,12 +506,14 @@ class _MannequinPageState extends State<MannequinPage>
       final pending = await widget.workflow.storage
           .read(TokenWorkflowController.pendingKey);
       if (pending != null) {
+        setState(() => checkingBalance = false);
         await consume(await widget.workflow.recover());
         return;
       }
       cancelled = false;
       final items = chosenItems;
       if (items.isEmpty) return;
+      requireStyleTokens(account, items.length);
       final signature = inputSignature();
       final id = widget.workflow.requestId();
       final inputs = {
@@ -527,6 +535,7 @@ class _MannequinPageState extends State<MannequinPage>
           !await widget.confirmTokens(items.length) ||
           !mounted ||
           cancelled) return;
+      setState(() => checkingBalance = false);
       runOwner = owner;
       sequenceId = id;
       sequenceState = 'starting';
@@ -547,12 +556,24 @@ class _MannequinPageState extends State<MannequinPage>
         'max_total_usd': quote['estimated_cost_usd'],
       });
       await runSequence(true);
+    } on StyleMuseApiException catch (e) {
+      if (mounted) {
+        final message = switch (e.code) {
+          'style_tokens_empty' || 'insufficient_tokens' =>
+            'Bu işlem için yeterli Stil Jetonu yok.',
+          'sign_in_required' => 'Lütfen yeniden giriş yap.',
+          _ => 'İşlem tamamlanamadı. Bağlantını kontrol edip tekrar dene.',
+        };
+        setState(() => status = message);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(tr(message))));
+      }
     } catch (_) {
       if (mounted)
         setState(() => status = widget.workflow.pending == null
             ? 'İşlem tamamlanamadı. Google girişini ve bağlantını kontrol et.'
             : 'İşlem tamamlanamadı. Kurtar düğmesiyle kontrol et.');
     } finally {
+      checkingBalance = false;
       if (mounted && timer?.isActive != true) setBusy(false);
     }
   }
@@ -757,14 +778,14 @@ class _MannequinPageState extends State<MannequinPage>
                                               key: const Key(
                                                   'mannequin-preview'),
                                               child: ProcessingPhoto(
-                                                  active: busy,
+                                                  active: busy && !checkingBalance,
                                                   stage: '',
                                                   child: mannequinPreview()))),
                                     ])),
                           ]))),
               const SizedBox(height: 6),
               Column(key: const Key('tryon-step-progress'), children: [
-                SmText(sequenceState == 'done'
+                SmText(checkingBalance ? 'Bakiye kontrol ediliyor…' : sequenceState == 'done'
                     ? 'Giydirme işlemi tamamlandı.'
                     : busy && chosen.isNotEmpty && applied.length < chosen.length
                         ? '${applied.length + 1}/${chosen.length} · ${chosen[applied.length].category} işleniyor'

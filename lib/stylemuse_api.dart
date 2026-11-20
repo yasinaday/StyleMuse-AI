@@ -10,6 +10,14 @@ abstract interface class SecureStore {
   Future<void> delete(String key);
 }
 
+void requireStyleTokens(Map<String, dynamic> account, int requiredTokens) {
+  final balance = int.tryParse('${account['balance']}');
+  if (balance == null) throw const StyleMuseApiException('balance_unavailable');
+  if (balance < requiredTokens) {
+    throw const StyleMuseApiException('style_tokens_empty');
+  }
+}
+
 class ApiResponse {
   const ApiResponse(this.status, this.body, {this.sessionCookie});
   final int status;
@@ -210,7 +218,7 @@ class TokenWorkflowController {
     _cancelled = true;
   }
 
-  Future<String> _owner() async {
+  Future<String> _owner({int? requiredTokens}) async {
     final account = await api.account();
     final user = account['user'];
     if (user is! Map ||
@@ -219,6 +227,7 @@ class TokenWorkflowController {
         (user['id'] as String).isEmpty) {
       throw const StyleMuseApiException('sign_in_required');
     }
+    if (requiredTokens != null) requireStyleTokens(account, requiredTokens);
     return 'google:${user['id']}';
   }
 
@@ -324,7 +333,7 @@ class TokenWorkflowController {
       if (saved != null)
         throw const StyleMuseApiException(
             'pending_operation_requires_recovery');
-      final owner = await _owner();
+      final owner = await _owner(requiredTokens: action == 'detect' ? tokens : null);
       final quote =
           await api.post('/api/quote', {'action': action, 'inputs': inputs});
       if (quote['style_tokens'] != tokens)
