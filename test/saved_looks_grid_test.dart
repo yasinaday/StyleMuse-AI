@@ -87,7 +87,7 @@ void main() {
         tester.getTopLeft(find.byKey(const Key('saved-look-1'))).dy);
     expect(tester.getTopLeft(find.byKey(const Key('saved-look-0'))).dx,
         lessThan(tester.getTopLeft(find.byKey(const Key('saved-look-1'))).dx));
-    await tester.tap(find.byKey(const Key('share-look-1')));
+    await tester.tap(find.byKey(const Key('share-look-0')));
     await tester.pumpAndSettle();
     expect(shared.single['occasion'], 'Özel davet');
     await tester.tap(find.byKey(const Key('delete-look-0')));
@@ -100,7 +100,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('confirm-delete-look')));
     await tester.pumpAndSettle();
-    expect(store.looks.single['occasion'], 'Özel davet');
+    expect(store.looks.single['occasion'], 'Günlük');
     expect(store.items, hasLength(1));
     expect(tester.takeException(), isNull);
   });

@@ -18,6 +18,15 @@ class _SavedLooksGridState extends State<SavedLooksGrid> {
   String? error;
   String tr(String value) => translate(value, widget.store.language);
 
+  DateTime? savedAt(Map<String, dynamic> look) {
+    final value = look['date']?.toString() ?? '';
+    final parts = value.split('.');
+    if (parts.length == 3 && parts.every((part) => int.tryParse(part) != null)) {
+      return DateTime(int.parse(parts[2]), int.parse(parts[1]), int.parse(parts[0]));
+    }
+    return DateTime.tryParse(value);
+  }
+
   Future<void> share(Map<String, dynamic> look) async {
     final image = look['aiImage'];
     if (!safeOutfitPhoto(image)) return;
@@ -75,12 +84,20 @@ class _SavedLooksGridState extends State<SavedLooksGrid> {
       child: ListenableBuilder(
           listenable: widget.store,
           builder: (context, _) {
-            final completed = widget.store.looks
-                .where((look) => safeOutfitPhoto(look['aiImage']))
-                .toList();
+            final entries = widget.store.looks.asMap().entries
+                .where((entry) => safeOutfitPhoto(entry.value['aiImage']))
+                .toList()
+              ..sort((a, b) {
+                final first = savedAt(a.value);
+                final second = savedAt(b.value);
+                if (first == null && second != null) return 1;
+                if (second == null && first != null) return -1;
+                final order = second?.compareTo(first!) ?? 0;
+                return order == 0 ? b.key.compareTo(a.key) : order;
+              });
             return Column(children: [
               if (error != null) SmText(error!),
-              if (completed.isEmpty)
+              if (entries.isEmpty)
                 const Padding(
                   padding: EdgeInsets.only(top: 12),
                   child: SmText('Henüz kayıtlı kombin yok.',
@@ -97,9 +114,9 @@ class _SavedLooksGridState extends State<SavedLooksGrid> {
                             crossAxisSpacing: 10,
                             mainAxisSpacing: 10,
                             mainAxisExtent: 280),
-                    itemCount: completed.length,
+                    itemCount: entries.length,
                     itemBuilder: (context, index) {
-                      final look = completed[index];
+                      final look = entries[index].value;
                       return Card(
                           key: Key('saved-look-$index'),
                           child: Padding(
@@ -121,13 +138,13 @@ class _SavedLooksGridState extends State<SavedLooksGrid> {
                                             .split('T')
                                             .first,
                                         style: const TextStyle(fontSize: 11)),
-                                    Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.spaceEvenly,
+                                    Wrap(
+                                        alignment: WrapAlignment.spaceEvenly,
                                         children: [
-                                          IconButton(
+                                          TextButton.icon(
                                               key: Key('share-look-$index'),
-                                              tooltip: tr('Paylaş'),
+                                              label: Text(tr('Paylaş'), style: const TextStyle(fontSize: 12)),
+                                              style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 5), foregroundColor: const Color(0xFF695A68)),
                                               onPressed: busy
                                                   ? null
                                                   : () => run(() =>
@@ -135,17 +152,18 @@ class _SavedLooksGridState extends State<SavedLooksGrid> {
                                                           ?.call(look) ??
                                                       share(look)),
                                               icon: const Icon(Icons.ios_share,
-                                                  size: 20)),
-                                          IconButton(
+                                                  size: 16)),
+                                          TextButton.icon(
                                               key: Key('delete-look-$index'),
-                                              tooltip: tr('Sil'),
+                                              label: Text(tr('Sil'), style: const TextStyle(fontSize: 12)),
+                                              style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 5), foregroundColor: const Color(0xFF695A68)),
                                               onPressed: busy
                                                   ? null
                                                   : () =>
                                                       run(() => delete(look)),
                                               icon: const Icon(
                                                   Icons.delete_outline,
-                                                  size: 20)),
+                                                  size: 16)),
                                         ]),
                                   ])));
                     }),
