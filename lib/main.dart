@@ -248,6 +248,8 @@ class _StyleMuseShellState extends State<StyleMuseShell>
             credited: result['status'] == 'credited',
             consumed: result['consumed'] == true);
       });
+      final amounts = config['tokens_by_product'];
+      if (amounts is Map) controller.tokensByProduct = Map<String, int>.from(amounts);
       billing?.dispose();
       billing = controller;
       await controller.initialize(
@@ -1156,7 +1158,7 @@ class _StyleMuseShellState extends State<StyleMuseShell>
   }
 
   Future<void> tokenPacks() async {
-    if (signedInUser != null && billing == null) await prepareBilling();
+    if (signedInUser != null && (billing == null || billing!.products.isEmpty)) await prepareBilling();
     if (!mounted) return;
     final controller = billing;
     final changes = controller ?? const AlwaysStoppedAnimation<double>(0);
@@ -1167,13 +1169,8 @@ class _StyleMuseShellState extends State<StyleMuseShell>
       return 'USD ${store.language == 'tr' ? value.replaceAll('.', ',') : value}';
     }
     String unitPrice(int count, int cents) {
-      if (controller != null) {
-        for (final p in controller.products) {
-          if (p.id == 'style_tokens_$count' || p.id == 'tokens_$count') {
-            return '${p.currencyCode} ${(p.rawPrice / count).toStringAsFixed(2)}';
-          }
-        }
-      }
+      final p = controller?.productFor(count);
+      if (p != null) return '${p.currencyCode} ${(p.rawPrice / count).toStringAsFixed(2)}';
       return price(cents / count / 100);
     }
     await showDialog<void>(
@@ -1181,9 +1178,9 @@ class _StyleMuseShellState extends State<StyleMuseShell>
       builder: (dialog) => LocalStrings(
         language: store.language,
         child: StatefulBuilder(builder: (context, update) => ListenableBuilder(listenable: changes, builder: (context, _) {
-          final available = {for (final p in controller?.products ?? []) p.id: p};
-          final product = available['style_tokens_$selected'] ?? available['tokens_$selected'];
-          final enabled = product != null && product.price.toString().trim().isNotEmpty && ['ready','credited','cancelled'].contains(controller?.state);
+          final product = controller?.productFor(selected);
+          final enabled = product != null && product.price.trim().isNotEmpty &&
+              ['ready', 'credited', 'cancelled', 'launch_failed'].contains(controller?.state);
           return Dialog(
           insetPadding: const EdgeInsets.all(18),
           child: Container(
@@ -1235,13 +1232,21 @@ class _StyleMuseShellState extends State<StyleMuseShell>
                           subtitle: Text('${unitPrice(pack.$1, pack.$2)} ${tr('/ jeton')}'
                             '${pack.$1 == 200 ? ' · ${tr('En iyi teklif')}' : ''}',
                             style: const TextStyle(color: Colors.white)),
-                          trailing: Text((available['style_tokens_${pack.$1}'] ?? available['tokens_${pack.$1}'])?.price ?? price(pack.$2 / 100), style: const TextStyle(color: Colors.white)),
+                          trailing: Text(controller?.productFor(pack.$1)?.price ?? price(pack.$2 / 100), style: const TextStyle(color: Colors.white)),
                         ),
                       ),
                     ),
                   FilledButton(key: Key(enabled ? 'purchase-enabled' : 'purchase-disabled'), onPressed: enabled ? () => controller!.buy(product) : null,
                     child: SmText('Satın al')),
-                  if (!enabled) const SmText('Satın alma henüz kullanıma açık değil.', textAlign: TextAlign.center),
+                  if (controller?.state == 'credited')
+                    const SmText('Jetonlar hesabına eklendi.')
+                  else if (controller?.state == 'launch_failed')
+                    const SmText('Google Play açılamadı. Tekrar dene.')
+                  else if (controller?.state == 'retry_required')
+                    TextButton(onPressed: controller!.recover, child: const SmText('Tekrar dene'))
+                  else if (controller?.state == 'pending' || controller?.state == 'launching')
+                    const SmText('Google Play ödemesi bekleniyor.')
+                  else if (!enabled) const SmText('Satın alma henüz kullanıma açık değil.', textAlign: TextAlign.center),
                 ],
               )),
             ),

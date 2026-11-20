@@ -22,6 +22,18 @@ class PlayBillingController extends ChangeNotifier {
   StreamSubscription<List<PurchaseDetails>>? _subscription;
   final Map<String, PurchaseDetails> _retry = {};
   List<ProductDetails> products = [];
+  Map<String, int> tokensByProduct = {};
+
+  ProductDetails? productFor(int count) {
+    for (final product in products) {
+      if (tokensByProduct.isNotEmpty
+          ? tokensByProduct[product.id] == count
+          : product.id == 'style_tokens_$count' || product.id == 'tokens_$count') {
+        return product;
+      }
+    }
+    return null;
+  }
   String state = 'unavailable';
   String? _account;
   bool _disposed = false;
@@ -46,8 +58,7 @@ class PlayBillingController extends ChangeNotifier {
     }
     final result = await billing.queryProductDetails(productIds);
     if (result.error != null ||
-        result.notFoundIDs.isNotEmpty ||
-        result.productDetails.length != productIds.length) {
+        result.productDetails.isEmpty) {
       products = [];
       _setState('catalog_unavailable');
       return;
@@ -62,11 +73,20 @@ class PlayBillingController extends ChangeNotifier {
     if (_disposed || _account == null || !products.contains(product)) {
       throw StateError('play_not_ready');
     }
-    return billing.buyConsumable(
+    if (!['ready', 'credited', 'cancelled', 'launch_failed'].contains(state)) return false;
+    _setState('launching');
+    try {
+      final launched = await billing.buyConsumable(
       purchaseParam:
           PurchaseParam(productDetails: product, applicationUserName: _account),
-      autoConsume: false,
-    );
+        autoConsume: false,
+      );
+      if (!launched && state == 'launching') _setState('launch_failed');
+      return launched;
+    } catch (_) {
+      if (state == 'launching') _setState('launch_failed');
+      return false;
+    }
   }
 
   Future<void> handle(PurchaseDetails purchase) async {

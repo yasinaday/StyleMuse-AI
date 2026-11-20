@@ -37,7 +37,7 @@ class GooglePublisher:
 
     def consume(self, package, product, token):
         response = self.session.post(self._url(package, product, token) + ':consume', timeout=15)
-        if response.status_code != 204:
+        if response.status_code not in (200, 204):
             raise RuntimeError('play_consumption_unavailable')
 
 
@@ -57,7 +57,8 @@ class PlayBilling:
                 product TEXT NOT NULL, amount INTEGER NOT NULL, consumed INTEGER NOT NULL DEFAULT 0)''')
 
     def configuration(self, owner):
-        return {'account_id': account_id(owner, self.secret), 'product_ids': sorted(self.catalog)}
+        return {'account_id': account_id(owner, self.secret), 'product_ids': sorted(self.catalog),
+                'tokens_by_product': dict(self.catalog)}
 
     def verify(self, owner, product, token):
         expected = account_id(owner, self.secret)
