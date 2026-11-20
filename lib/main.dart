@@ -153,6 +153,7 @@ class _StyleMuseShellState extends State<StyleMuseShell>
   late final Future<void> initialLoad;
   String? pendingAction;
   String? operationError;
+  bool analysisFeedback = false;
   bool reviewOpen = false;
 
   @override
@@ -792,7 +793,11 @@ class _StyleMuseShellState extends State<StyleMuseShell>
 
   Future<void> extractPhoto({bool usePreview = false}) async {
     if (busy) return;
-    setState(() => busy = true);
+    setState(() {
+      busy = true;
+      operationError = null;
+      analysisFeedback = usePreview;
+    });
     try {
       if (store.review != null) {
         await openReview();
@@ -938,7 +943,37 @@ class _StyleMuseShellState extends State<StyleMuseShell>
                                                 fontSize: 11)))),
                             ])))),
           ]));
+  Widget operationFeedback() => Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Card(
+                          color: const Color(0xFFF3DDF0),
+                          child: Padding(
+                              padding: const EdgeInsets.all(14),
+                              child: Row(children: [
+                                if (busy ||
+                                    (hasPending && operationError == null))
+                                  const SizedBox(
+                                      width: 22,
+                                      height: 22,
+                                      child: CircularProgressIndicator(
+                                          strokeWidth: 2)),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                    child: SmText(operationError ??
+                                        (busy
+                                            ? 'İşlem kontrol ediliyor…'
+                                            : 'İşlemin güvenle saklandı. Yeniden gönderilmez.'))),
+                                if (hasPending)
+                                  TextButton(
+                                      key: const Key('recover-operation'),
+                                      onPressed: busy ? null : recoverOperation,
+                                      child: const SmText('Kurtar')),
+                              ])),
+                        ));
+
   Widget wardrobe() {
+    final showFeedback = pendingAction != 'tryon' && (hasPending || operationError != null);
+    final belowAnalysis = analysisFeedback && croppedAnalysisPhoto != null;
     final visible = store.items
         .where((x) => filter == 'Tümü' || x.category == filter)
         .toList();
@@ -963,6 +998,7 @@ class _StyleMuseShellState extends State<StyleMuseShell>
               label: SmText(store.review == null
                   ? 'Yapay zekâ ile kıyafetleri ayır'
                   : 'Önce seçtiğin parçaları incele.')),
+          if (showFeedback && !belowAnalysis) operationFeedback(),
           const SizedBox(height: 5),
           const SmText(
               'Yapay zekâ fotoğraftaki kıyafetleri bulur ve ayrı ayrı önerir. Kaydetmeden önce kontrol edebilirsin.',
@@ -983,6 +1019,7 @@ class _StyleMuseShellState extends State<StyleMuseShell>
                 onPressed: busy ? null : () => extractPhoto(usePreview: true),
                 child: SmText(
                     analyzingPhoto ? 'Fotoğraf analiz ediliyor…' : 'AI ile analiz et')),
+            if (showFeedback && belowAnalysis) operationFeedback(),
           ],
           const Divider(height: 12),
           const SmText('Dolaba Kıyafet Ekleme',
@@ -1685,36 +1722,9 @@ class _StyleMuseShellState extends State<StyleMuseShell>
                               ])),
                 child: SafeArea(
                     child: Column(children: [
-                  if ((hasPending || operationError != null) &&
-                      !(pendingAction == 'tryon' && hasTryOnRun) &&
-                      tab == (pendingAction == 'tryon' ? 3 : 1))
-                    Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: Card(
-                          color: const Color(0xFFF3DDF0),
-                          child: Padding(
-                              padding: const EdgeInsets.all(14),
-                              child: Row(children: [
-                                if (busy ||
-                                    (hasPending && operationError == null))
-                                  const SizedBox(
-                                      width: 22,
-                                      height: 22,
-                                      child: CircularProgressIndicator(
-                                          strokeWidth: 2)),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                    child: SmText(operationError ??
-                                        (busy
-                                            ? 'İşlem kontrol ediliyor…'
-                                            : 'İşlemin güvenle saklandı. Yeniden gönderilmez.'))),
-                                if (hasPending)
-                                  TextButton(
-                                      key: const Key('recover-operation'),
-                                      onPressed: busy ? null : recoverOperation,
-                                      child: const SmText('Kurtar')),
-                              ])),
-                        )),
+                  if (tab == 3 && pendingAction == 'tryon' &&
+                      !hasTryOnRun && (hasPending || operationError != null))
+                    operationFeedback(),
                   if (error != null)
                     MaterialBanner(content: SmText(error!), actions: [
                       TextButton(
